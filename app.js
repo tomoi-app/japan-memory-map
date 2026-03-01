@@ -1,38 +1,57 @@
 let map;
+let selectedLatlng;
 
 document.addEventListener('DOMContentLoaded', () => {
     map = L.map('map-container').setView([38.0, 137.0], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 地図をタップした時のイベント
-    map.on('click', onMapClick);
+    map.on('click', (e) => {
+        selectedLatlng = e.latlng;
+        // 今日の日付を初期値としてセット
+        document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
+        // フォームを表示
+        document.getElementById('input-modal').classList.remove('hidden');
+    });
+
+    // キャンセルボタン
+    document.getElementById('btn-cancel').addEventListener('click', () => {
+        document.getElementById('input-modal').classList.add('hidden');
+    });
+
+    // 保存ボタン
+    document.getElementById('btn-save').addEventListener('click', saveMemory);
+
     fetchMemories();
 });
 
-async function onMapClick(e) {
-    const title = prompt("思い出のタイトルを入力してください（例：温泉旅行）");
-    if (!title) return;
+async function saveMemory() {
+    const title = document.getElementById('input-title').value;
+    const pref = document.getElementById('input-pref').value;
+    const date = document.getElementById('input-date').value;
 
-    const pref = prompt("都道府県名を入力してください（例：群馬）");
-    const date = new Date().toISOString().split('T')[0]; // 今日を 2026-03-01 形式で
+    if (!title || !pref) {
+        alert("タイトルと都道府県を入力してください");
+        return;
+    }
 
     const newMemory = {
         prefecture: pref,
         title: title,
         date: date,
-        lat: e.latlng.lat,
-        lng: e.latlng.lng
+        lat: selectedLatlng.lat,
+        lng: selectedLatlng.lng
     };
 
-    // Python経由でSupabaseに保存
     const response = await fetch('/api', {
         method: 'POST',
         body: JSON.stringify(newMemory)
     });
 
     if (response.ok) {
-        alert("保存しました！");
-        fetchMemories(); // 画面を更新
+        document.getElementById('input-modal').classList.add('hidden');
+        document.getElementById('input-title').value = '';
+        document.getElementById('input-pref').value = '';
+        fetchMemories();
     }
 }
 
@@ -42,11 +61,15 @@ async function fetchMemories() {
     const list = document.getElementById('memories-list');
     list.innerHTML = '';
     
-    // 既存のピンを消すための処理（簡易版：全リロードでもOK）
+    // 全てのピンを一旦消去する簡易的な仕組み
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker) map.removeLayer(layer);
+    });
+
     memories.forEach(m => {
         L.marker([m.lat, m.lng]).addTo(map).bindPopup(`<b>${m.title}</b><br>${m.date}`);
         const li = document.createElement('li');
-        li.textContent = `【${m.prefecture}】${m.title} (${m.date})`;
+        li.innerHTML = `<strong>${m.prefecture}</strong>: ${m.title}<br><small>${m.date}</small>`;
         list.appendChild(li);
     });
 }

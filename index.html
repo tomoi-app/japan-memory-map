@@ -8,17 +8,34 @@
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="https://placehold.jp/192x192.png?text=Map">
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    </head>
+</head>
 <body>
     <header><h1>思い出マップ</h1></header>
+    
     <main>
         <div id="map-container"></div>
-        <h2>記録された思い出</h2>
-        <ul id="memories-list"></ul>
+        
+        <div id="input-modal" class="hidden">
+            <div class="modal-content">
+                <h3>思い出を記録</h3>
+                <input type="text" id="input-title" placeholder="タイトル（例：温泉旅行）">
+                <input type="text" id="input-pref" placeholder="都道府県（例：群馬）">
+                <input type="date" id="input-date">
+                <div class="modal-buttons">
+                    <button id="btn-cancel">キャンセル</button>
+                    <button id="btn-save">保存する</button>
+                </div>
+            </div>
+        </div>
+
+        <section class="list-section">
+            <h2>記録された思い出</h2>
+            <ul id="memories-list"></ul>
+        </section>
     </main>
+
     <script src="app.js"></script>
 </body>
 </html>
