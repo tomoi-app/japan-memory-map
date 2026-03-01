@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
         attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // 日本の地図データを読み込んでパステルカラーで塗りつぶす
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
         .then(response => response.json())
         .then(data => {
@@ -24,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 onEachFeature: function (feature, layer) {
                     layer.on('click', function (e) {
                         selectedLatlng = e.latlng;
-                        // タップした都道府県名を自動入力
                         document.getElementById('input-pref').value = feature.properties.nam_ja;
                         openModal();
                     });
@@ -33,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(err => console.log("地図データの読み込みをスキップしました"));
 
-    // 海などの空白部分をタップした場合
     map.on('click', (e) => {
         selectedLatlng = e.latlng;
         document.getElementById('input-pref').value = '';
@@ -102,30 +99,33 @@ async function fetchMemories() {
         const visitedPrefectures = new Set();
 
         memories.forEach(m => {
+            // エラー回避：もしデータがおかしくてもリストだけは表示させる
+            if (!m || !m.prefecture) return;
+            
             visitedPrefectures.add(m.prefecture);
             const bgColor = getPastelColor(m.prefecture);
 
-            // 地図上のピンと詳細ビュー（吹き出しの色を合わせる）
-            const marker = L.marker([m.lat, m.lng]).addTo(map);
-            marker.bindPopup(`<div style="background-color: ${bgColor}; padding: 10px; border-radius: 8px; margin: -14px; text-align: center;"><b>${m.title}</b><br>${m.date}</div>`);
+            // 緯度・経度がちゃんと存在するときだけピンを立てる
+            if (m.lat && m.lng) {
+                const marker = L.marker([m.lat, m.lng]).addTo(map);
+                marker.bindPopup(`<div style="background-color: ${bgColor}; padding: 10px; border-radius: 8px; margin: -14px; text-align: center;"><b>${m.title}</b><br>${m.date}</div>`);
+            }
 
-            // 右側のリスト
+            // ピンが立てられなくても右側のリストは必ず作る
             const li = document.createElement('li');
             li.style.borderLeft = `6px solid ${bgColor}`;
             li.innerHTML = `<div class="memory-title">${m.prefecture}：${m.title}</div><div class="memory-meta">${m.date}</div>`;
             list.appendChild(li);
         });
 
-        // プログレスバーの更新
         const count = visitedPrefectures.size;
         document.getElementById('visited-count').innerText = count;
         document.getElementById('progress-bar-fill').style.width = `${(count / 47) * 100}%`;
     } catch (error) {
-        console.error('エラー発生:', error);
+        console.error('データの取得または表示でエラー発生:', error);
     }
 }
 
-// 文字列から固有のパステルカラーを生成する関数
 function getPastelColor(str) {
     if (!str) return '#cccccc';
     let hash = 0;
