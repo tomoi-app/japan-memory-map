@@ -1,63 +1,80 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>思い出マップ</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="apple-touch-icon" href="https://placehold.jp/192x192.png?text=Map">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-<body>
-    <header>
-        <h1>思い出マップ</h1>
-        <button id="btn-home-settings" class="settings-btn">設定</button>
-    </header>
-    
-    <main class="main-layout">
-        <div class="map-section">
-            <div id="map-container"></div>
+import os
+import json
+import urllib.request
+import base64
+import uuid
+from http.server import BaseHTTPRequestHandler
+
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.handle_request("GET")
+
+    def do_POST(self):
+        self.handle_request("POST")
+
+    def handle_request(self, method):
+        supabase_url = os.environ.get("SUPABASE_URL").strip()
+        supabase_key = os.environ.get("SUPABASE_KEY").strip()
+
+        if method == "GET":
+            # 読み込みの処理
+            request_url = f"{supabase_url}/rest/v1/memories?select=*"
+            req = urllib.request.Request(request_url)
+            req.add_header("apikey", supabase_key)
+            req.add_header("Authorization", f"Bearer {supabase_key}")
             
-            <div id="input-modal" class="custom-modal">
-                <div class="modal-content">
-                    <h3>思い出を記録</h3>
-                    <input type="text" id="input-title" placeholder="タイトル（例：温泉旅行）">
-                    <input type="text" id="input-pref" placeholder="都道府県（例：群馬）">
-                    <input type="date" id="input-date">
-                    <div class="modal-buttons">
-                        <button id="btn-cancel" class="btn-secondary">キャンセル</button>
-                        <button id="btn-save" class="btn-primary">保存する</button>
-                    </div>
-                </div>
-            </div>
+        else:
+            # 書き込みの処理
+            content_length = int(self.headers['Content-Length'])
+            post_data_raw = self.rfile.read(content_length)
+            payload = json.loads(post_data_raw)
+            
+            photo_urls = []
+            
+            # 1. 写真データがあれば、Supabaseの「photos」バケットに保存する
+            if "photos" in payload:
+                photos_base64 = payload.pop("photos") # DB本体のデータからは一旦外す
+                for b64 in photos_base64:
+                    try:
+                        # 画像データを変換
+                        header, encoded = b64.split(",", 1)
+                        file_data = base64.b64decode(encoded)
+                        
+                        # ランダムなファイル名（UUID）を作成してアップロード
+                        filename = f"{uuid.uuid4()}.jpg"
+                        upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                        
+                        upload_req = urllib.request.Request(upload_url, data=file_data, method="POST")
+                        upload_req.add_header("apikey", supabase_key)
+                        upload_req.add_header("Authorization", f"Bearer {supabase_key}")
+                        upload_req.add_header("Content-Type", "image/jpeg")
+                        
+                        with urllib.request.urlopen(upload_req) as res:
+                            # 成功したら公開URLを作ってリストに追加
+                            public_url = f"{supabase_url}/storage/v1/object/public/photos/{filename}"
+                            photo_urls.append(public_url)
+                    except Exception as e:
+                        print("写真のアップロードに失敗しました:", e)
 
-            <div id="settings-modal" class="custom-modal">
-                <div class="modal-content">
-                    <h3>設定</h3>
-                    <p class="settings-desc">アプリの設定やユーザー情報はこちらで管理します。（※現在は準備中です）</p>
-                    <div class="modal-buttons">
-                        <button id="btn-close-settings" class="btn-secondary">閉じる</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+            # 2. 取得した写真のURLリストを、文字列としてデータベースに保存する
+            payload["photo_urls"] = json.dumps(photo_urls)
+            
+            request_url = f"{supabase_url}/rest/v1/memories"
+            req = urllib.request.Request(request_url, data=json.dumps(payload).encode("utf-8"), method="POST")
+            req.add_header("apikey", supabase_key)
+            req.add_header("Authorization", f"Bearer {supabase_key}")
+            req.add_header("Content-Type", "application/json")
+            req.add_header("Prefer", "return=representation")
 
-        <div class="list-section">
-            <div class="progress-container">
-                <div class="progress-label">訪問した都道府県</div>
-                <div class="progress-text"><span id="visited-count">0</span> / 47</div>
-                <div class="progress-bar-bg">
-                    <div id="progress-bar-fill" class="progress-bar-fill"></div>
-                </div>
-            </div>
-            <h2>記録された思い出</h2>
-            <ul id="memories-list"></ul>
-        </div>
-    </main>
-
-    <script src="app.js"></script>
-</body>
-</html>
+        try:
+            with urllib.request.urlopen(req) as response:
+                res_data = response.read()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(res_data)
+        except Exception as e:
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(str(e).encode())

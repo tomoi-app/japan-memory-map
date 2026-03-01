@@ -1,9 +1,9 @@
 let map;
 let selectedLatlng;
 let geoJsonLayer;
+let selectedPhotos = []; // 選んだ写真を保存する配列
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ズームコントロールの位置を右下に変更してモダンに
     map = L.map('map-container', { zoomControl: false }).setView([38.0, 137.0], 5);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -41,11 +41,45 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal('input-modal');
     });
 
-    // モーダルの開閉イベント
     document.getElementById('btn-cancel').addEventListener('click', () => closeModal('input-modal'));
     document.getElementById('btn-close-settings').addEventListener('click', () => closeModal('settings-modal'));
     document.getElementById('btn-home-settings').addEventListener('click', () => openModal('settings-modal'));
     document.getElementById('btn-save').addEventListener('click', saveMemory);
+
+    // ▼▼ 写真の選択と圧縮処理 ▼▼
+    document.getElementById('input-photos').addEventListener('change', async (e) => {
+        const files = e.target.files;
+        if (files.length === 0) return;
+
+        const previewContainer = document.getElementById('photo-preview-container');
+
+        for (const file of files) {
+            const compressedBase64 = await compressImage(file);
+            selectedPhotos.push(compressedBase64);
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'preview-wrapper';
+            
+            const img = document.createElement('img');
+            img.src = compressedBase64;
+            img.className = 'preview-image';
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-preview-btn';
+            delBtn.innerText = '×';
+            // 確認なしでサクッと消す処理
+            delBtn.onclick = () => {
+                wrapper.remove();
+                selectedPhotos = selectedPhotos.filter(p => p !== compressedBase64);
+            };
+
+            wrapper.appendChild(img);
+            wrapper.appendChild(delBtn);
+            previewContainer.appendChild(wrapper);
+        }
+        e.target.value = '';
+    });
+    // ▲▲ 写真の選択と圧縮処理 ▲▲
 
     fetchMemories();
 });
@@ -59,9 +93,13 @@ function openModal(modalId) {
 
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('show');
+    // 閉じる時に写真もリセット
+    if(modalId === 'input-modal') {
+        selectedPhotos = [];
+        document.getElementById('photo-preview-container').innerHTML = '';
+    }
 }
 
-// 県名を統一する関数（愛媛 → 愛媛県）
 function formatPrefecture(pref) {
     if (!pref) return '';
     if (pref === '北海道') return pref;
@@ -69,6 +107,34 @@ function formatPrefecture(pref) {
     if (pref === '東京') return '東京都';
     if (pref === '京都' || pref === '大阪') return pref + '府';
     return pref + '県';
+}
+
+// 画像圧縮関数
+function compressImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const scaleSize = MAX_WIDTH / img.width;
+                let width = img.width;
+                let height = img.height;
+                if (scaleSize < 1) {
+                    width = MAX_WIDTH;
+                    height = img.height * scaleSize;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            };
+        };
+    });
 }
 
 async function saveMemory() {
@@ -81,6 +147,11 @@ async function saveMemory() {
         return;
     }
 
+    // 保存中はボタンを押せなくする（連打防止）
+    const saveBtn = document.getElementById('btn-save');
+    saveBtn.innerText = '保存中...';
+    saveBtn.disabled = true;
+
     pref = formatPrefecture(pref);
 
     const newMemory = {
@@ -88,7 +159,8 @@ async function saveMemory() {
         title: title,
         date: date,
         lat: selectedLatlng.lat,
-        lng: selectedLatlng.lng
+        lng: selectedLatlng.lng,
+        photos: selectedPhotos // ★写真をセット！
     };
 
     const response = await fetch('/api', {
@@ -100,7 +172,13 @@ async function saveMemory() {
         closeModal('input-modal');
         document.getElementById('input-title').value = '';
         fetchMemories();
+    } else {
+        alert("エラーが発生しました。");
     }
+
+    // ボタンを元に戻す
+    saveBtn.innerText = '保存する';
+    saveBtn.disabled = false;
 }
 
 async function fetchMemories() {
@@ -110,7 +188,6 @@ async function fetchMemories() {
         const list = document.getElementById('memories-list');
         list.innerHTML = '';
         
-        // 既存のピンをすべて削除
         map.eachLayer((layer) => {
             if (layer instanceof L.CircleMarker || layer instanceof L.Marker) map.removeLayer(layer);
         });
@@ -122,11 +199,9 @@ async function fetchMemories() {
             
             const normalizedPref = formatPrefecture(m.prefecture);
             visitedPrefectures.add(normalizedPref);
-            
             const bgColor = getPastelColor(normalizedPref);
 
             if (m.lat && m.lng) {
-                // デフォルトのピンではなく、モダンなサークルマーカーに変更
                 const marker = L.circleMarker([m.lat, m.lng], {
                     radius: 10,
                     fillColor: bgColor,
@@ -136,19 +211,37 @@ async function fetchMemories() {
                     fillOpacity: 0.9
                 }).addTo(map);
 
-                // 吹き出しのデザインを洗練
-                const popupHtml = `
-                    <div style="background-color: ${bgColor}; padding: 12px 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); text-align: center; color: #2c3e50; font-family: sans-serif;">
+                marker.bindPopup(`
+                    <div style="background-color: ${bgColor}; padding: 12px 20px; border-radius: 12px; text-align: center; color: #2c3e50;">
                         <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">${m.title}</div>
                         <div style="font-size: 0.85rem; opacity: 0.8;">${m.date}</div>
                     </div>
-                `;
-                marker.bindPopup(popupHtml);
+                `);
             }
+
+            // ▼▼ 写真の表示処理 ▼▼
+            let photosHtml = '';
+            if (m.photo_urls) {
+                try {
+                    const urls = JSON.parse(m.photo_urls);
+                    if (urls.length > 0) {
+                        photosHtml = '<div style="display:flex; gap:8px; margin-top:12px; overflow-x:auto; padding-bottom:5px;">';
+                        urls.forEach(url => {
+                            photosHtml += `<img src="${url}" style="width:80px; height:80px; object-fit:cover; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">`;
+                        });
+                        photosHtml += '</div>';
+                    }
+                } catch(e) {}
+            }
+            // ▲▲ 写真の表示処理 ▲▲
 
             const li = document.createElement('li');
             li.style.borderLeft = `8px solid ${bgColor}`;
-            li.innerHTML = `<div class="memory-title">${normalizedPref}：${m.title}</div><div class="memory-meta">${m.date}</div>`;
+            li.innerHTML = `
+                <div class="memory-title">${normalizedPref}：${m.title}</div>
+                <div class="memory-meta">${m.date}</div>
+                ${photosHtml}
+            `;
             list.appendChild(li);
         });
 
@@ -156,7 +249,7 @@ async function fetchMemories() {
         document.getElementById('visited-count').innerText = count;
         document.getElementById('progress-bar-fill').style.width = `${(count / 47) * 100}%`;
     } catch (error) {
-        console.error('データの取得または表示でエラー発生:', error);
+        console.error('エラー:', error);
     }
 }
 
