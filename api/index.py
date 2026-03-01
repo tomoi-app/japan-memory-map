@@ -5,39 +5,35 @@ from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Vercelの金庫（環境変数）から鍵とURLを取り出す
         supabase_url = os.environ.get("SUPABASE_URL")
         supabase_key = os.environ.get("SUPABASE_KEY")
 
-        # 鍵が設定されていない場合のエラー回避
+        # 1. そもそも鍵がVercelに設定されているかチェック
         if not supabase_url or not supabase_key:
-            self.send_response(500)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
             self.end_headers()
-            self.wfile.write(b'{"error": "Database keys are not set"}')
+            self.wfile.write(json.dumps([{"prefecture":"エラー","title":"Vercelに鍵が設定されていません","date":"0000-00-00","lat":35,"lng":135}]).encode())
             return
 
-        # Supabaseの「memories」テーブルにデータをお願いするURL
+        # 2. Supabaseにデータを取りに行く
         request_url = f"{supabase_url}/rest/v1/memories?select=*"
-        
-        # 鍵を持たせてリクエストを作成
         req = urllib.request.Request(request_url)
         req.add_header("apikey", supabase_key)
         req.add_header("Authorization", f"Bearer {supabase_key}")
 
         try:
-            # Supabaseからデータを受け取る
             with urllib.request.urlopen(req) as response:
                 data = response.read()
-                
-            # アプリ（画面）にそのままデータを横流しする
+            
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
-            # 誰でもアクセスできるようにする（CORS対応）
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(data)
             
         except Exception as e:
-            self.send_response(500)
+            # 3. 失敗したらエラー内容を画面に出す
+            self.send_response(200)
             self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+            self.wfile.write(json.dumps([{"prefecture":"接続エラー","title":str(e),"date":"0000-00-00","lat":35,"lng":135}]).encode())
