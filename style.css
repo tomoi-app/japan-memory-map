@@ -1,0 +1,6 @@
+body { background-color: #f5f5f7; margin: 0; font-family: sans-serif; }
+header { background-color: #0056b3; color: white; padding: 1rem; text-align: center; }
+main { padding: 1rem; }
+#map-container { background-color: white; height: 300px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+li { background: white; margin-bottom: 0.5rem; padding: 1rem; border-radius: 8px; list-style: none; }
+ul { padding: 0; }
