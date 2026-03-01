@@ -21,15 +21,25 @@
         <div class="map-section">
             <div id="map-container"></div>
             
-            <div id="input-modal">
+            <div id="input-modal" class="custom-modal">
                 <div class="modal-content">
                     <h3>思い出を記録</h3>
                     <input type="text" id="input-title" placeholder="タイトル（例：温泉旅行）">
-                    <input type="text" id="input-pref" placeholder="都道府県（例：群馬県）">
+                    <input type="text" id="input-pref" placeholder="都道府県（例：群馬）">
                     <input type="date" id="input-date">
                     <div class="modal-buttons">
-                        <button id="btn-cancel">キャンセル</button>
-                        <button id="btn-save">保存する</button>
+                        <button id="btn-cancel" class="btn-secondary">キャンセル</button>
+                        <button id="btn-save" class="btn-primary">保存する</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-modal" class="custom-modal">
+                <div class="modal-content">
+                    <h3>設定</h3>
+                    <p class="settings-desc">アプリの設定やユーザー情報はこちらで管理します。（※現在は準備中です）</p>
+                    <div class="modal-buttons">
+                        <button id="btn-close-settings" class="btn-secondary">閉じる</button>
                     </div>
                 </div>
             </div>

@@ -1,8 +1,12 @@
 let map;
 let selectedLatlng;
+let geoJsonLayer;
 
 document.addEventListener('DOMContentLoaded', () => {
-    map = L.map('map-container').setView([38.0, 137.0], 5);
+    // ズームコントロールの位置を右下に変更してモダンに
+    map = L.map('map-container', { zoomControl: false }).setView([38.0, 137.0], 5);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
     }).addTo(map);
@@ -10,21 +14,21 @@ document.addEventListener('DOMContentLoaded', () => {
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
         .then(response => response.json())
         .then(data => {
-            L.geoJson(data, {
+            geoJsonLayer = L.geoJson(data, {
                 style: function (feature) {
                     return {
                         fillColor: getPastelColor(feature.properties.nam_ja),
-                        weight: 1,
+                        weight: 1.5,
                         opacity: 1,
                         color: 'white',
-                        fillOpacity: 0.6
+                        fillOpacity: 0.65
                     };
                 },
                 onEachFeature: function (feature, layer) {
                     layer.on('click', function (e) {
                         selectedLatlng = e.latlng;
                         document.getElementById('input-pref').value = feature.properties.nam_ja;
-                        openModal();
+                        openModal('input-modal');
                     });
                 }
             }).addTo(map);
@@ -34,36 +38,50 @@ document.addEventListener('DOMContentLoaded', () => {
     map.on('click', (e) => {
         selectedLatlng = e.latlng;
         document.getElementById('input-pref').value = '';
-        openModal();
+        openModal('input-modal');
     });
 
-    document.getElementById('btn-cancel').addEventListener('click', closeModal);
+    // モーダルの開閉イベント
+    document.getElementById('btn-cancel').addEventListener('click', () => closeModal('input-modal'));
+    document.getElementById('btn-close-settings').addEventListener('click', () => closeModal('settings-modal'));
+    document.getElementById('btn-home-settings').addEventListener('click', () => openModal('settings-modal'));
     document.getElementById('btn-save').addEventListener('click', saveMemory);
-    document.getElementById('btn-home-settings').addEventListener('click', () => {
-        alert("設定画面は今後実装予定です。");
-    });
 
     fetchMemories();
 });
 
-function openModal() {
-    document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('input-modal').classList.add('show');
+function openModal(modalId) {
+    if(modalId === 'input-modal') {
+        document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
+    }
+    document.getElementById(modalId).classList.add('show');
 }
 
-function closeModal() {
-    document.getElementById('input-modal').classList.remove('show');
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('show');
+}
+
+// 県名を統一する関数（愛媛 → 愛媛県）
+function formatPrefecture(pref) {
+    if (!pref) return '';
+    if (pref === '北海道') return pref;
+    if (pref.endsWith('都') || pref.endsWith('道') || pref.endsWith('府') || pref.endsWith('県')) return pref;
+    if (pref === '東京') return '東京都';
+    if (pref === '京都' || pref === '大阪') return pref + '府';
+    return pref + '県';
 }
 
 async function saveMemory() {
     const title = document.getElementById('input-title').value;
-    const pref = document.getElementById('input-pref').value;
+    let pref = document.getElementById('input-pref').value;
     const date = document.getElementById('input-date').value;
 
     if (!title || !pref) {
         alert("タイトルと都道府県を入力してください");
         return;
     }
+
+    pref = formatPrefecture(pref);
 
     const newMemory = {
         prefecture: pref,
@@ -79,7 +97,7 @@ async function saveMemory() {
     });
 
     if (response.ok) {
-        closeModal();
+        closeModal('input-modal');
         document.getElementById('input-title').value = '';
         fetchMemories();
     }
@@ -92,29 +110,45 @@ async function fetchMemories() {
         const list = document.getElementById('memories-list');
         list.innerHTML = '';
         
+        // 既存のピンをすべて削除
         map.eachLayer((layer) => {
-            if (layer instanceof L.Marker) map.removeLayer(layer);
+            if (layer instanceof L.CircleMarker || layer instanceof L.Marker) map.removeLayer(layer);
         });
 
         const visitedPrefectures = new Set();
 
         memories.forEach(m => {
-            // エラー回避：もしデータがおかしくてもリストだけは表示させる
             if (!m || !m.prefecture) return;
             
-            visitedPrefectures.add(m.prefecture);
-            const bgColor = getPastelColor(m.prefecture);
+            const normalizedPref = formatPrefecture(m.prefecture);
+            visitedPrefectures.add(normalizedPref);
+            
+            const bgColor = getPastelColor(normalizedPref);
 
-            // 緯度・経度がちゃんと存在するときだけピンを立てる
             if (m.lat && m.lng) {
-                const marker = L.marker([m.lat, m.lng]).addTo(map);
-                marker.bindPopup(`<div style="background-color: ${bgColor}; padding: 10px; border-radius: 8px; margin: -14px; text-align: center;"><b>${m.title}</b><br>${m.date}</div>`);
+                // デフォルトのピンではなく、モダンなサークルマーカーに変更
+                const marker = L.circleMarker([m.lat, m.lng], {
+                    radius: 10,
+                    fillColor: bgColor,
+                    color: '#ffffff',
+                    weight: 3,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).addTo(map);
+
+                // 吹き出しのデザインを洗練
+                const popupHtml = `
+                    <div style="background-color: ${bgColor}; padding: 12px 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); text-align: center; color: #2c3e50; font-family: sans-serif;">
+                        <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">${m.title}</div>
+                        <div style="font-size: 0.85rem; opacity: 0.8;">${m.date}</div>
+                    </div>
+                `;
+                marker.bindPopup(popupHtml);
             }
 
-            // ピンが立てられなくても右側のリストは必ず作る
             const li = document.createElement('li');
-            li.style.borderLeft = `6px solid ${bgColor}`;
-            li.innerHTML = `<div class="memory-title">${m.prefecture}：${m.title}</div><div class="memory-meta">${m.date}</div>`;
+            li.style.borderLeft = `8px solid ${bgColor}`;
+            li.innerHTML = `<div class="memory-title">${normalizedPref}：${m.title}</div><div class="memory-meta">${m.date}</div>`;
             list.appendChild(li);
         });
 
