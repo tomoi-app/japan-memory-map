@@ -5,35 +5,41 @@ from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        supabase_url = os.environ.get("SUPABASE_URL")
-        supabase_key = os.environ.get("SUPABASE_KEY")
+        self.handle_request("GET")
 
-        # 1. そもそも鍵がVercelに設定されているかチェック
-        if not supabase_url or not supabase_key:
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps([{"prefecture":"エラー","title":"Vercelに鍵が設定されていません","date":"0000-00-00","lat":35,"lng":135}]).encode())
-            return
+    def do_POST(self):
+        self.handle_request("POST")
 
-        # 2. Supabaseにデータを取りに行く
-        request_url = f"{supabase_url}/rest/v1/memories?select=*"
-        req = urllib.request.Request(request_url)
+    def handle_request(self, method):
+        supabase_url = os.environ.get("SUPABASE_URL").strip()
+        supabase_key = os.environ.get("SUPABASE_KEY").strip()
+
+        # 読み込み(GET)の処理
+        if method == "GET":
+            request_url = f"{supabase_url}/rest/v1/memories?select=*"
+            req = urllib.request.Request(request_url)
+        
+        # 書き込み(POST)の処理
+        else:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            request_url = f"{supabase_url}/rest/v1/memories"
+            req = urllib.request.Request(request_url, data=post_data, method="POST")
+            req.add_header("Content-Type", "application/json")
+            req.add_header("Prefer", "return=representation")
+
         req.add_header("apikey", supabase_key)
         req.add_header("Authorization", f"Bearer {supabase_key}")
 
         try:
             with urllib.request.urlopen(req) as response:
-                data = response.read()
-            
+                res_data = response.read()
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(data)
-            
+            self.wfile.write(res_data)
         except Exception as e:
-            # 3. 失敗したらエラー内容を画面に出す
-            self.send_response(200)
+            self.send_response(500)
             self.end_headers()
-            self.wfile.write(json.dumps([{"prefecture":"接続エラー","title":str(e),"date":"0000-00-00","lat":35,"lng":135}]).encode())
+            self.wfile.write(str(e).encode())
