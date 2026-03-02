@@ -37,7 +37,6 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
             return
 
-        # POST処理
         content_length = int(self.headers['Content-Length'])
         post_data_raw = self.rfile.read(content_length)
         payload = json.loads(post_data_raw)
@@ -53,16 +52,19 @@ class handler(BaseHTTPRequestHandler):
                 check_req.add_header("apikey", supabase_key)
                 check_req.add_header("Authorization", f"Bearer {supabase_key}")
                 
-                with urllib.request.urlopen(check_req) as res: existing = json.loads(res.read())
+                with urllib.request.urlopen(check_req) as res: 
+                    existing = json.loads(res.read())
                 
                 photo_urls = []
                 row_id = None
                 if len(existing) > 0:
                     row_id = existing[0]["id"]
-                    try: if(existing[0].get("photo_urls")): photo_urls = json.loads(existing[0]["photo_urls"])
-                    except: pass
+                    if existing[0].get("photo_urls"):
+                        try:
+                            photo_urls = json.loads(existing[0]["photo_urls"])
+                        except Exception:
+                            pass
                 
-                # 写真アップロード処理
                 for b64 in new_photos_b64:
                     header, encoded = b64.split(",", 1)
                     file_data = base64.b64decode(encoded)
@@ -93,7 +95,8 @@ class handler(BaseHTTPRequestHandler):
                 check_req.add_header("apikey", supabase_key)
                 check_req.add_header("Authorization", f"Bearer {supabase_key}")
                 
-                with urllib.request.urlopen(check_req) as res: existing = json.loads(res.read())
+                with urllib.request.urlopen(check_req) as res: 
+                    existing = json.loads(res.read())
                 
                 if len(existing) > 0:
                     row_id = existing[0]["id"]
@@ -101,25 +104,26 @@ class handler(BaseHTTPRequestHandler):
                     if url_to_delete in photo_urls:
                         photo_urls.remove(url_to_delete)
                     
-                    # Storageから削除
                     delete_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
                     delete_req = urllib.request.Request(delete_url, method="DELETE")
                     delete_req.add_header("apikey", supabase_key)
                     delete_req.add_header("Authorization", f"Bearer {supabase_key}")
                     with urllib.request.urlopen(delete_req) as res: pass
                     
-                    # DB更新
                     db_payload = {"photo_urls": json.dumps(photo_urls)}
                     req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
-                else: raise Exception("Data not found")
-            else: raise Exception("Invalid action")
+                else: 
+                    raise Exception("Data not found")
+            else: 
+                raise Exception("Invalid action")
 
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
             req.add_header("Content-Type", "application/json")
             req.add_header("Prefer", "return=representation")
             
-            with urllib.request.urlopen(req) as response: res_data = response.read()
+            with urllib.request.urlopen(req) as response: 
+                res_data = response.read()
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -129,4 +133,4 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_response(500)
             self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            self.wfile.write(str(e).encode('utf-8'))

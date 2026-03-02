@@ -138,3 +138,7 @@ input[type="text"], input[type="file"] {
     .map-section { flex: none; height: 50vh; }
     .list-section { flex: none; height: 50vh; }
 }
+/* 背景の地図を消して真っ白にする設定 */
+.leaflet-container {
+    background: #ffffff !important;
+}

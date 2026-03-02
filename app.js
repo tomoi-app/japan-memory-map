@@ -6,17 +6,22 @@ let currentPhotos = [];
 let slideIndex = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 地図の初期化
-    map = L.map('map-container', { zoomControl: false }).setView([38.0, 137.0], 5);
+    // 地図の初期化（不要なロゴ等を消す）
+    map = L.map('map-container', { 
+        zoomControl: false,
+        attributionControl: false 
+    }).setView([38.0, 137.0], 5);
+    
     L.control.zoom({ position: 'bottomright' }).addTo(map);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // 注意：L.tileLayer(...) は削除しました（世界地図を出さないため）
 
     // 白地図の描画
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
-                style: { fillColor: '#ffffff', weight: 1, color: '#333', fillOpacity: 0.8 },
+                style: { fillColor: '#ffffff', weight: 1.5, color: '#333333', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
                     layer.on('click', () => {
                         selectedPref = feature.properties.nam_ja;
@@ -24,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             }).addTo(map);
+            
+            // 日本地図が画面の真ん中にぴったり収まるように自動調整
+            map.fitBounds(geoJsonLayer.getBounds());
             updateMapColors();
         });
 
@@ -61,7 +69,7 @@ function renderRightPanel() {
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
 
-        panel.style.backgroundColor = '#e8f4f8'; // 選択時は少し色を変える
+        panel.style.backgroundColor = '#e8f4f8';
         
         let html = `<button onclick="selectedPref=null; renderRightPanel();">← 一覧に戻る</button>`;
         html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:8px; margin: 15px 0;">${selectedPref}</h1>`;
@@ -127,7 +135,8 @@ async function uploadPhotos(event) {
     if (res.ok) {
         await fetchMemories();
     } else {
-        alert("保存に失敗しました。");
+        const errorText = await res.text();
+        alert("保存に失敗しました: " + errorText);
         document.getElementById('upload-status').style.display = 'none';
     }
 }
@@ -142,15 +151,14 @@ function updateMapColors() {
     if (!geoJsonLayer) return;
     geoJsonLayer.eachLayer(layer => {
         const pref = layer.feature.properties.nam_ja;
-        const isVisited = memoriesData.some(m => m.prefecture === pref);
+        const isVisited = memoriesData.some(m => m.prefecture === pref && m.photo_urls && m.photo_urls.length > 4); // 写真配列が[]でないか簡易チェック
         layer.setStyle({
-            fillColor: isVisited ? '#a2d9ce' : '#ffffff', // 訪問済みは緑系、未訪問は白
-            fillOpacity: isVisited ? 0.8 : 0.8
+            fillColor: isVisited ? '#a2d9ce' : '#ffffff',
+            fillOpacity: 1
         });
     });
 }
 
-// ユーティリティ
 function compressImage(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
