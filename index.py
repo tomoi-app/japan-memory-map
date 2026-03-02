@@ -16,13 +16,13 @@ class handler(BaseHTTPRequestHandler):
         self.handle_request("POST")
 
     def handle_request(self, method):
-        # ★全ての処理をtryで囲み、Vercelがクラッシュするのを防ぐ
         try:
-            supabase_url = os.environ.get("SUPABASE_URL", "").strip()
+            supabase_url = os.environ.get("SUPABASE_URL", "").strip().rstrip('/')
             supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
 
             if not supabase_url or not supabase_key:
-                raise Exception("VercelにSupabaseのURLとKeyが設定されていません。")
+                self.send_error_json(400, "VercelにSupabaseの鍵が設定されていません。")
+                return
 
             if method == "GET":
                 request_url = f"{supabase_url}/rest/v1/memories?select=*"
@@ -32,17 +32,13 @@ class handler(BaseHTTPRequestHandler):
                 with urllib.request.urlopen(req) as response:
                     res_data = response.read()
                 
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json; charset=utf-8')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(res_data)
+                self.send_success_json(res_data)
                 return
 
-            # POST処理開始
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
-                raise Exception("送信されたデータが空です。")
+                self.send_error_json(400, "データが空です。")
+                return
                 
             post_data_raw = self.rfile.read(content_length)
             payload = json.loads(post_data_raw)
@@ -71,7 +67,6 @@ class handler(BaseHTTPRequestHandler):
                         except Exception:
                             pass
                 
-                # 写真のSupabaseへのアップロード
                 for b64 in new_photos_b64:
                     if "," in b64:
                         header, encoded = b64.split(",", 1)
@@ -91,7 +86,15 @@ class handler(BaseHTTPRequestHandler):
                         public_url = f"{supabase_url}/storage/v1/object/public/photos/{filename}"
                         photo_urls.append(public_url)
                 
-                db_payload = {"prefecture": pref, "date": date_str, "photo_urls": json.dumps(photo_urls), "title": "Memory"}
+                # ★エラー回避のため lat と lng に 0.0 をセット
+                db_payload = {
+                    "prefecture": pref, 
+                    "date": date_str, 
+                    "photo_urls": json.dumps(photo_urls), 
+                    "title": "Memory",
+                    "lat": 0.0,
+                    "lng": 0.0
+                }
                 
                 if row_id:
                     req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
@@ -129,9 +132,11 @@ class handler(BaseHTTPRequestHandler):
                     db_payload = {"photo_urls": json.dumps(photo_urls)}
                     req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
                 else:
-                    raise Exception("削除対象のデータが見つかりません。")
+                    self.send_error_json(400, "削除対象のデータが見つかりません。")
+                    return
             else:
-                raise Exception("不正なアクションです。")
+                self.send_error_json(400, "不正なアクションです。")
+                return
 
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
@@ -141,26 +146,30 @@ class handler(BaseHTTPRequestHandler):
             with urllib.request.urlopen(req) as response: 
                 res_data = response.read()
                 
+            self.send_success_json(res_data)
+
+        except urllib.error.HTTPError as he:
+            err_msg = f"DBエラー: {he.read().decode('utf-8', errors='ignore')}"
+            self.send_error_json(400, err_msg)
+        except Exception as e:
+            self.send_error_json(400, f"サーバーエラー: {str(e)}")
+
+    def send_success_json(self, data):
+        try:
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(res_data)
+            self.wfile.write(data)
+        except Exception:
+            pass
 
-        # エラーが起きたら、詳細な原因を文字にして画面に返す
-        except urllib.error.HTTPError as he:
-            err_msg = f"HTTP Error {he.code}: {he.read().decode('utf-8', errors='ignore')}"
-            self.send_error_response(err_msg)
-        except Exception as e:
-            err_msg = traceback.format_exc()
-            self.send_error_response(err_msg)
-
-    def send_error_response(self, err_msg):
+    def send_error_json(self, status_code, err_msg):
         try:
-            self.send_response(500)
-            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.send_response(status_code)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(err_msg.encode('utf-8'))
+            self.wfile.write(json.dumps({"error": err_msg}).encode('utf-8'))
         except Exception:
             pass

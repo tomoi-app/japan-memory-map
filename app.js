@@ -6,15 +6,8 @@ let currentPhotos = [];
 let slideIndex = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 地図の初期化（不要なロゴ等を消す）
-    map = L.map('map-container', { 
-        zoomControl: false,
-        attributionControl: false 
-    }).setView([38.0, 137.0], 5);
-    
+    map = L.map('map-container', { zoomControl: false, attributionControl: false }).setView([38.0, 137.0], 5);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-    // 注意：L.tileLayer(...) は削除しました（世界地図を出さないため）
 
     // 白地図の描画
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
@@ -29,8 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             }).addTo(map);
-            
-            // 日本地図が画面の真ん中にぴったり収まるように自動調整
             map.fitBounds(geoJsonLayer.getBounds());
             updateMapColors();
         });
@@ -48,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// 右パネルの描画
 function renderRightPanel() {
     const panel = document.getElementById('right-panel');
 
@@ -74,18 +64,18 @@ function renderRightPanel() {
         let html = `<button onclick="selectedPref=null; renderRightPanel();">← 一覧に戻る</button>`;
         html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:8px; margin: 15px 0;">${selectedPref}</h1>`;
         
-        // 日付入力
-        html += `<label>日付（例: 2026/03/24）</label>`;
-        html += `<input type="text" id="input-date" value="${data.date}" onchange="saveDate(this.value)">`;
+        html += `<label>日付（例: 2026/03/02）</label>`;
+        html += `<input type="text" id="input-date" value="${data.date}">`;
         
-        // 写真アップロード
         html += `<label>写真を追加（最大10枚）</label>`;
-        html += `<input type="file" id="input-photos" multiple accept="image/*" onchange="uploadPhotos(event)">`;
-        html += `<p id="upload-status" style="color:blue; display:none;">写真を保存中...</p>`;
+        html += `<input type="file" id="input-photos" multiple accept="image/*">`;
+        
+        // ★明確な保存ボタンを追加
+        html += `<button id="btn-save-memory" class="btn-full" style="background-color: #2ecc71; margin-top: 15px;">保存する</button>`;
+        html += `<p id="upload-status" style="color:blue; display:none; text-align:center; margin-top:10px; font-weight:bold;">保存中...</p>`;
 
-        // 写真ギャラリー
         if (photos.length > 0) {
-            html += `<button class="btn-full" onclick='openSlider(${JSON.stringify(photos)})'>写真を拡大して見る</button>`;
+            html += `<button class="btn-full" onclick='openSlider(${JSON.stringify(photos)})' style="margin-top:20px;">写真を拡大して見る</button>`;
             html += `<div class="photo-grid">`;
             photos.forEach(url => {
                 html += `<div>
@@ -97,51 +87,54 @@ function renderRightPanel() {
         }
 
         panel.innerHTML = html;
+        
+        // 保存ボタンにイベントをセット
+        document.getElementById('btn-save-memory').addEventListener('click', saveMemoryData);
     }
 }
 
-// 通信とデータ処理
-async function fetchMemories() {
-    try {
-        const res = await fetch('/api');
-        memoriesData = await res.json();
-        renderRightPanel();
-    } catch (e) {
-        console.error("データ取得エラー", e);
-    }
-}
-
-async function saveDate(dateValue) {
-    const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: [] };
-    await fetch('/api', { method: 'POST', body: JSON.stringify(payload) });
-    await fetchMemories();
-}
-
-async function uploadPhotos(event) {
-    const files = event.target.files;
-    if (files.length === 0) return;
+async function saveMemoryData() {
+    const dateValue = document.getElementById('input-date').value;
+    const files = document.getElementById('input-photos').files;
 
     document.getElementById('upload-status').style.display = 'block';
-    
+    document.getElementById('btn-save-memory').disabled = true;
+
     let base64Photos = [];
     for (let file of files) {
         const b64 = await compressImage(file);
         base64Photos.push(b64);
     }
 
-    const payload = { action: "save_memory", prefecture: selectedPref, date: document.getElementById('input-date').value, photos: base64Photos };
-    const res = await fetch('/api', { method: 'POST', body: JSON.stringify(payload) });
+    const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: base64Photos };
     
-    if (res.ok) {
-        await fetchMemories();
-    } else {
-        const errorText = await res.text();
-        alert("保存に失敗しました: " + errorText);
-        document.getElementById('upload-status').style.display = 'none';
+    try {
+        const res = await fetch('/api', { method: 'POST', body: JSON.stringify(payload) });
+        if (res.ok) {
+            await fetchMemories();
+            alert("保存しました！");
+        } else {
+            const errData = await res.json();
+            alert("エラーが発生しました: " + (errData.error || "詳細不明"));
+        }
+    } catch(e) {
+        alert("通信エラーが発生しました。");
+    } finally {
+        if(document.getElementById('upload-status')) document.getElementById('upload-status').style.display = 'none';
+        if(document.getElementById('btn-save-memory')) document.getElementById('btn-save-memory').disabled = false;
     }
 }
 
+async function fetchMemories() {
+    try {
+        const res = await fetch('/api');
+        memoriesData = await res.json();
+        renderRightPanel();
+    } catch (e) { console.error("データ取得エラー", e); }
+}
+
 async function deletePhoto(url) {
+    if(!confirm("この写真を削除しますか？")) return;
     const payload = { action: "delete_photo", prefecture: selectedPref, photo_url: url };
     await fetch('/api', { method: 'POST', body: JSON.stringify(payload) });
     await fetchMemories();
@@ -151,7 +144,7 @@ function updateMapColors() {
     if (!geoJsonLayer) return;
     geoJsonLayer.eachLayer(layer => {
         const pref = layer.feature.properties.nam_ja;
-        const isVisited = memoriesData.some(m => m.prefecture === pref && m.photo_urls && m.photo_urls.length > 4); // 写真配列が[]でないか簡易チェック
+        const isVisited = memoriesData.some(m => m.prefecture === pref);
         layer.setStyle({
             fillColor: isVisited ? '#a2d9ce' : '#ffffff',
             fillOpacity: 1
@@ -169,13 +162,23 @@ function compressImage(file) {
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let w = img.width, h = img.height;
-                // 800px → 600px に縮小して送信を爆速化
                 if (w > 600) { h = h * (600 / w); w = 600; }
                 canvas.width = w; canvas.height = h;
                 canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                // 画質を少し落としてデータ量を激減させる
                 resolve(canvas.toDataURL('image/jpeg', 0.6));
             };
         };
     });
+}
+
+function openSlider(photos) {
+    currentPhotos = photos;
+    slideIndex = 0;
+    updateSlider();
+    document.getElementById('slider-modal').classList.remove('hidden');
+}
+
+function updateSlider() {
+    document.getElementById('slide-image').src = currentPhotos[slideIndex];
+    document.getElementById('slide-counter').innerText = `${slideIndex + 1} / ${currentPhotos.length}`;
 }
