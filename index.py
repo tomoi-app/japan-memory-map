@@ -37,28 +37,14 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
             return
 
-        # POST処理（アクション）
+        # POST処理
         content_length = int(self.headers['Content-Length'])
         post_data_raw = self.rfile.read(content_length)
         payload = json.loads(post_data_raw)
         action = payload.get("action")
 
         try:
-            if action == "save_homes":
-                homes = payload.get("homes", [])
-                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.homes_data&select=id")
-                check_req.add_header("apikey", supabase_key)
-                check_req.add_header("Authorization", f"Bearer {supabase_key}")
-                
-                with urllib.request.urlopen(check_req) as res: existing = json.loads(res.read())
-                
-                db_payload = {"prefecture": "homes_data", "title": json.dumps(homes)}
-                if len(existing) > 0:
-                    req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{existing[0]['id']}", data=json.dumps(db_payload).encode(), method="PATCH")
-                else:
-                    req = urllib.request.Request(f"{supabase_url}/rest/v1/memories", data=json.dumps(db_payload).encode(), method="POST")
-                
-            elif action == "save_memory":
+            if action == "save_memory":
                 pref = payload.get("prefecture")
                 date_str = payload.get("date", "")
                 new_photos_b64 = payload.get("photos", [])
@@ -76,10 +62,7 @@ class handler(BaseHTTPRequestHandler):
                     try: if(existing[0].get("photo_urls")): photo_urls = json.loads(existing[0]["photo_urls"])
                     except: pass
                 
-                # 10枚制限ロジック
-                if len(photo_urls) + len(new_photos_b64) > 10:
-                    raise Exception("写真は最大10枚までです。")
-                
+                # 写真アップロード処理
                 for b64 in new_photos_b64:
                     header, encoded = b64.split(",", 1)
                     file_data = base64.b64decode(encoded)
@@ -104,8 +87,6 @@ class handler(BaseHTTPRequestHandler):
             elif action == "delete_photo":
                 pref = payload.get("prefecture")
                 url_to_delete = payload.get("photo_url")
-                
-                # URLからファイル名を抽出（例：https://xxx.co/storage/v1/object/public/photos/filename.jpg）
                 filename = url_to_delete.split('/')[-1]
                 
                 check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{urllib.parse.quote(pref)}&select=*")
@@ -120,14 +101,14 @@ class handler(BaseHTTPRequestHandler):
                     if url_to_delete in photo_urls:
                         photo_urls.remove(url_to_delete)
                     
-                    # 1. 保管庫（Storage）から物理削除するAPIリクエスト
+                    # Storageから削除
                     delete_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
                     delete_req = urllib.request.Request(delete_url, method="DELETE")
                     delete_req.add_header("apikey", supabase_key)
                     delete_req.add_header("Authorization", f"Bearer {supabase_key}")
                     with urllib.request.urlopen(delete_req) as res: pass
                     
-                    # 2. データベースのURLリストを更新（ PATCH）
+                    # DB更新
                     db_payload = {"photo_urls": json.dumps(photo_urls)}
                     req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
                 else: raise Exception("Data not found")
