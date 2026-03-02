@@ -1,9 +1,11 @@
 import os
 import json
 import urllib.request
+import urllib.error
+import urllib.parse
 import base64
 import uuid
-import urllib.parse
+import traceback
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -14,41 +16,45 @@ class handler(BaseHTTPRequestHandler):
         self.handle_request("POST")
 
     def handle_request(self, method):
-        supabase_url = os.environ.get("SUPABASE_URL", "").strip()
-        supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
+        # ★全ての処理をtryで囲み、Vercelがクラッシュするのを防ぐ
+        try:
+            supabase_url = os.environ.get("SUPABASE_URL", "").strip()
+            supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
 
-        if method == "GET":
-            request_url = f"{supabase_url}/rest/v1/memories?select=*"
-            req = urllib.request.Request(request_url)
-            req.add_header("apikey", supabase_key)
-            req.add_header("Authorization", f"Bearer {supabase_key}")
-            
-            try:
+            if not supabase_url or not supabase_key:
+                raise Exception("VercelにSupabaseのURLとKeyが設定されていません。")
+
+            if method == "GET":
+                request_url = f"{supabase_url}/rest/v1/memories?select=*"
+                req = urllib.request.Request(request_url)
+                req.add_header("apikey", supabase_key)
+                req.add_header("Authorization", f"Bearer {supabase_key}")
                 with urllib.request.urlopen(req) as response:
                     res_data = response.read()
+                
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json; charset=utf-8')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(res_data)
-            except Exception as e:
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
-            return
+                return
 
-        content_length = int(self.headers['Content-Length'])
-        post_data_raw = self.rfile.read(content_length)
-        payload = json.loads(post_data_raw)
-        action = payload.get("action")
+            # POST処理開始
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                raise Exception("送信されたデータが空です。")
+                
+            post_data_raw = self.rfile.read(content_length)
+            payload = json.loads(post_data_raw)
+            action = payload.get("action")
 
-        try:
             if action == "save_memory":
                 pref = payload.get("prefecture")
                 date_str = payload.get("date", "")
                 new_photos_b64 = payload.get("photos", [])
                 
-                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{urllib.parse.quote(pref)}&select=*")
+                safe_pref = urllib.parse.quote(pref)
+                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*")
                 check_req.add_header("apikey", supabase_key)
                 check_req.add_header("Authorization", f"Bearer {supabase_key}")
                 
@@ -65,8 +71,13 @@ class handler(BaseHTTPRequestHandler):
                         except Exception:
                             pass
                 
+                # 写真のSupabaseへのアップロード
                 for b64 in new_photos_b64:
-                    header, encoded = b64.split(",", 1)
+                    if "," in b64:
+                        header, encoded = b64.split(",", 1)
+                    else:
+                        encoded = b64
+                    
                     file_data = base64.b64decode(encoded)
                     filename = f"{uuid.uuid4()}.jpg"
                     upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
@@ -81,6 +92,7 @@ class handler(BaseHTTPRequestHandler):
                         photo_urls.append(public_url)
                 
                 db_payload = {"prefecture": pref, "date": date_str, "photo_urls": json.dumps(photo_urls), "title": "Memory"}
+                
                 if row_id:
                     req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
                 else:
@@ -91,7 +103,8 @@ class handler(BaseHTTPRequestHandler):
                 url_to_delete = payload.get("photo_url")
                 filename = url_to_delete.split('/')[-1]
                 
-                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{urllib.parse.quote(pref)}&select=*")
+                safe_pref = urllib.parse.quote(pref)
+                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*")
                 check_req.add_header("apikey", supabase_key)
                 check_req.add_header("Authorization", f"Bearer {supabase_key}")
                 
@@ -108,14 +121,17 @@ class handler(BaseHTTPRequestHandler):
                     delete_req = urllib.request.Request(delete_url, method="DELETE")
                     delete_req.add_header("apikey", supabase_key)
                     delete_req.add_header("Authorization", f"Bearer {supabase_key}")
-                    with urllib.request.urlopen(delete_req) as res: pass
+                    try:
+                        with urllib.request.urlopen(delete_req) as res: pass
+                    except Exception:
+                        pass
                     
                     db_payload = {"photo_urls": json.dumps(photo_urls)}
                     req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
-                else: 
-                    raise Exception("Data not found")
-            else: 
-                raise Exception("Invalid action")
+                else:
+                    raise Exception("削除対象のデータが見つかりません。")
+            else:
+                raise Exception("不正なアクションです。")
 
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
@@ -124,13 +140,27 @@ class handler(BaseHTTPRequestHandler):
             
             with urllib.request.urlopen(req) as response: 
                 res_data = response.read()
+                
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(res_data)
 
+        # エラーが起きたら、詳細な原因を文字にして画面に返す
+        except urllib.error.HTTPError as he:
+            err_msg = f"HTTP Error {he.code}: {he.read().decode('utf-8', errors='ignore')}"
+            self.send_error_response(err_msg)
         except Exception as e:
+            err_msg = traceback.format_exc()
+            self.send_error_response(err_msg)
+
+    def send_error_response(self, err_msg):
+        try:
             self.send_response(500)
+            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(str(e).encode('utf-8'))
+            self.wfile.write(err_msg.encode('utf-8'))
+        except Exception:
+            pass

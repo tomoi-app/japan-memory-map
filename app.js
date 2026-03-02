@@ -169,23 +169,13 @@ function compressImage(file) {
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let w = img.width, h = img.height;
-                if (w > 800) { h = h * (800 / w); w = 800; }
+                // 800px → 600px に縮小して送信を爆速化
+                if (w > 600) { h = h * (600 / w); w = 600; }
                 canvas.width = w; canvas.height = h;
                 canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                resolve(canvas.toDataURL('image/jpeg', 0.7));
+                // 画質を少し落としてデータ量を激減させる
+                resolve(canvas.toDataURL('image/jpeg', 0.6));
             };
         };
     });
-}
-
-function openSlider(photos) {
-    currentPhotos = photos;
-    slideIndex = 0;
-    updateSlider();
-    document.getElementById('slider-modal').classList.remove('hidden');
-}
-
-function updateSlider() {
-    document.getElementById('slide-image').src = currentPhotos[slideIndex];
-    document.getElementById('slide-counter').innerText = `${slideIndex + 1} / ${currentPhotos.length}`;
 }
