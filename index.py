@@ -4,7 +4,6 @@ import urllib.request
 import urllib.parse
 import base64
 import uuid
-import traceback
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -16,49 +15,49 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        self.execute_request("GET")
+        self.run_safely("GET")
 
     def do_POST(self):
-        self.execute_request("POST")
+        self.run_safely("POST")
 
-    def execute_request(self, method):
-        # どんなエラーが起きても絶対にクラッシュさせない最強の防護壁
+    def run_safely(self, method):
         try:
-            self.process(method)
+            self.process_request(method)
         except Exception as e:
-            error_details = traceback.format_exc()
-            try:
-                self.send_response(500)
-                self.send_header('Content-type', 'application/json; charset=utf-8')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                error_json = json.dumps({"error": str(e), "trace": error_details})
-                self.wfile.write(error_json.encode('utf-8'))
-            except:
-                pass
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            # エラー内容をVercelに潰される前に画面に返す
+            self.wfile.write(json.dumps({"error": f"処理エラー: {str(e)}"}).encode('utf-8'))
 
-    def process(self, method):
+    def process_request(self, method):
         supabase_url = os.environ.get("SUPABASE_URL", "").strip().rstrip('/')
         supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
 
         if not supabase_url or not supabase_key:
-            raise Exception("VercelにSupabaseのURLとKeyが設定されていません。")
+            raise Exception("VercelにSupabaseの鍵が設定されていません")
 
         if method == "GET":
-            req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?select=*")
+            url = f"{supabase_url}/rest/v1/memories?select=*"
+            req = urllib.request.Request(url)
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
-            with urllib.request.urlopen(req) as response:
-                self.send_success(response.read())
+            # ★ 5秒でタイムアウトさせる（Vercelの10秒強制終了を防ぐため）
+            with urllib.request.urlopen(req, timeout=5) as res:
+                data = res.read()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(data)
             return
 
-        # POST処理
-        cl_str = self.headers.get('Content-Length')
-        content_length = int(cl_str) if cl_str else 0
-        if content_length == 0:
-            raise Exception("データが空です。")
-
-        body = self.rfile.read(content_length)
+        length = int(self.headers.get('Content-Length', 0))
+        if length == 0:
+            raise Exception("データが空です")
+            
+        body = self.rfile.read(length)
         payload = json.loads(body)
         action = payload.get("action")
 
@@ -73,7 +72,7 @@ class handler(BaseHTTPRequestHandler):
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
             
-            with urllib.request.urlopen(req) as res:
+            with urllib.request.urlopen(req, timeout=5) as res:
                 existing = json.loads(res.read())
             
             photo_urls = []
@@ -83,7 +82,7 @@ class handler(BaseHTTPRequestHandler):
                 if existing[0].get("photo_urls"):
                     try:
                         photo_urls = json.loads(existing[0]["photo_urls"])
-                    except:
+                    except Exception:
                         pass
             
             for b64 in photos_b64:
@@ -101,7 +100,8 @@ class handler(BaseHTTPRequestHandler):
                 up_req.add_header("Authorization", f"Bearer {supabase_key}")
                 up_req.add_header("Content-Type", "image/jpeg")
                 
-                with urllib.request.urlopen(up_req):
+                # 写真アップロードもタイムアウトを設定
+                with urllib.request.urlopen(up_req, timeout=8):
                     photo_urls.append(f"{supabase_url}/storage/v1/object/public/photos/{filename}")
             
             db_payload = {
@@ -125,8 +125,14 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("Content-Type", "application/json")
             db_req.add_header("Prefer", "return=representation")
             
-            with urllib.request.urlopen(db_req) as response:
-                self.send_success(response.read())
+            with urllib.request.urlopen(db_req, timeout=5) as res:
+                data = res.read()
+                
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(data)
 
         elif action == "delete_photo":
             pref = payload.get("prefecture")
@@ -139,7 +145,7 @@ class handler(BaseHTTPRequestHandler):
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
             
-            with urllib.request.urlopen(req) as res:
+            with urllib.request.urlopen(req, timeout=5) as res:
                 existing = json.loads(res.read())
             
             if len(existing) > 0:
@@ -153,8 +159,8 @@ class handler(BaseHTTPRequestHandler):
                 del_req.add_header("apikey", supabase_key)
                 del_req.add_header("Authorization", f"Bearer {supabase_key}")
                 try:
-                    with urllib.request.urlopen(del_req): pass
-                except:
+                    with urllib.request.urlopen(del_req, timeout=5): pass
+                except Exception:
                     pass
                 
                 db_payload = {"photo_urls": json.dumps(photo_urls)}
@@ -164,16 +170,14 @@ class handler(BaseHTTPRequestHandler):
                 db_req.add_header("Authorization", f"Bearer {supabase_key}")
                 db_req.add_header("Content-Type", "application/json")
                 
-                with urllib.request.urlopen(db_req) as response:
-                    self.send_success(response.read())
+                with urllib.request.urlopen(db_req, timeout=5) as res:
+                    data = res.read()
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(data)
             else:
-                raise Exception("削除対象が見つかりません。")
+                raise Exception("削除対象が見つかりません")
         else:
-            raise Exception(f"不明なアクションです: {action}")
-
-    def send_success(self, data):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json; charset=utf-8')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        self.wfile.write(data)
+            raise Exception("無効なアクションです")
