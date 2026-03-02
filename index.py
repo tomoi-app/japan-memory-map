@@ -9,7 +9,6 @@ import traceback
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
-    # ★追加：ブラウザのセキュリティブロック（CORS）を回避する処理
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -119,7 +118,6 @@ class handler(BaseHTTPRequestHandler):
                 self.send_success_json(res_data)
 
             elif action == "delete_photo":
-                # 省略せず既存の削除処理を保持
                 pref = payload.get("prefecture")
                 url_to_delete = payload.get("photo_url")
                 filename = url_to_delete.split('/')[-1]
