@@ -37,7 +37,7 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
             return
 
-        # POST処理（保存・削除などのアクション）
+        # POST処理（アクション）
         content_length = int(self.headers['Content-Length'])
         post_data_raw = self.rfile.read(content_length)
         payload = json.loads(post_data_raw)
@@ -46,13 +46,11 @@ class handler(BaseHTTPRequestHandler):
         try:
             if action == "save_homes":
                 homes = payload.get("homes", [])
-                # 既存の家設定データを探す（prefecture列を代用）
                 check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.homes_data&select=id")
                 check_req.add_header("apikey", supabase_key)
                 check_req.add_header("Authorization", f"Bearer {supabase_key}")
                 
-                with urllib.request.urlopen(check_req) as res:
-                    existing = json.loads(res.read())
+                with urllib.request.urlopen(check_req) as res: existing = json.loads(res.read())
                 
                 db_payload = {"prefecture": "homes_data", "title": json.dumps(homes)}
                 if len(existing) > 0:
@@ -65,43 +63,37 @@ class handler(BaseHTTPRequestHandler):
                 date_str = payload.get("date", "")
                 new_photos_b64 = payload.get("photos", [])
                 
-                # 既存の都道府県データを探す
-                safe_pref = urllib.parse.quote(pref)
-                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*")
+                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{urllib.parse.quote(pref)}&select=*")
                 check_req.add_header("apikey", supabase_key)
                 check_req.add_header("Authorization", f"Bearer {supabase_key}")
                 
-                with urllib.request.urlopen(check_req) as res:
-                    existing = json.loads(res.read())
+                with urllib.request.urlopen(check_req) as res: existing = json.loads(res.read())
                 
                 photo_urls = []
                 row_id = None
                 if len(existing) > 0:
                     row_id = existing[0]["id"]
-                    if existing[0].get("photo_urls"):
-                        try: photo_urls = json.loads(existing[0]["photo_urls"])
-                        except: pass
+                    try: if(existing[0].get("photo_urls")): photo_urls = json.loads(existing[0]["photo_urls"])
+                    except: pass
                 
-                # 画像のアップロード処理（10枚制限）
+                # 10枚制限ロジック
+                if len(photo_urls) + len(new_photos_b64) > 10:
+                    raise Exception("写真は最大10枚までです。")
+                
                 for b64 in new_photos_b64:
-                    if len(photo_urls) >= 10:
-                        break
-                    try:
-                        header, encoded = b64.split(",", 1)
-                        file_data = base64.b64decode(encoded)
-                        filename = f"{uuid.uuid4()}.jpg"
-                        upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
-                        
-                        upload_req = urllib.request.Request(upload_url, data=file_data, method="POST")
-                        upload_req.add_header("apikey", supabase_key)
-                        upload_req.add_header("Authorization", f"Bearer {supabase_key}")
-                        upload_req.add_header("Content-Type", "image/jpeg")
-                        
-                        with urllib.request.urlopen(upload_req) as res:
-                            public_url = f"{supabase_url}/storage/v1/object/public/photos/{filename}"
-                            photo_urls.append(public_url)
-                    except Exception as e:
-                        pass
+                    header, encoded = b64.split(",", 1)
+                    file_data = base64.b64decode(encoded)
+                    filename = f"{uuid.uuid4()}.jpg"
+                    upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                    
+                    upload_req = urllib.request.Request(upload_url, data=file_data, method="POST")
+                    upload_req.add_header("apikey", supabase_key)
+                    upload_req.add_header("Authorization", f"Bearer {supabase_key}")
+                    upload_req.add_header("Content-Type", "image/jpeg")
+                    
+                    with urllib.request.urlopen(upload_req) as res:
+                        public_url = f"{supabase_url}/storage/v1/object/public/photos/{filename}"
+                        photo_urls.append(public_url)
                 
                 db_payload = {"prefecture": pref, "date": date_str, "photo_urls": json.dumps(photo_urls), "title": "Memory"}
                 if row_id:
@@ -113,13 +105,14 @@ class handler(BaseHTTPRequestHandler):
                 pref = payload.get("prefecture")
                 url_to_delete = payload.get("photo_url")
                 
-                safe_pref = urllib.parse.quote(pref)
-                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*")
+                # URLからファイル名を抽出（例：https://xxx.co/storage/v1/object/public/photos/filename.jpg）
+                filename = url_to_delete.split('/')[-1]
+                
+                check_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?prefecture=eq.{urllib.parse.quote(pref)}&select=*")
                 check_req.add_header("apikey", supabase_key)
                 check_req.add_header("Authorization", f"Bearer {supabase_key}")
                 
-                with urllib.request.urlopen(check_req) as res:
-                    existing = json.loads(res.read())
+                with urllib.request.urlopen(check_req) as res: existing = json.loads(res.read())
                 
                 if len(existing) > 0:
                     row_id = existing[0]["id"]
@@ -127,20 +120,25 @@ class handler(BaseHTTPRequestHandler):
                     if url_to_delete in photo_urls:
                         photo_urls.remove(url_to_delete)
                     
+                    # 1. 保管庫（Storage）から物理削除するAPIリクエスト
+                    delete_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                    delete_req = urllib.request.Request(delete_url, method="DELETE")
+                    delete_req.add_header("apikey", supabase_key)
+                    delete_req.add_header("Authorization", f"Bearer {supabase_key}")
+                    with urllib.request.urlopen(delete_req) as res: pass
+                    
+                    # 2. データベースのURLリストを更新（ PATCH）
                     db_payload = {"photo_urls": json.dumps(photo_urls)}
                     req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
-                else:
-                    raise Exception("Data not found")
-            else:
-                raise Exception("Invalid action")
+                else: raise Exception("Data not found")
+            else: raise Exception("Invalid action")
 
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
             req.add_header("Content-Type", "application/json")
             req.add_header("Prefer", "return=representation")
             
-            with urllib.request.urlopen(req) as response:
-                res_data = response.read()
+            with urllib.request.urlopen(req) as response: res_data = response.read()
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')

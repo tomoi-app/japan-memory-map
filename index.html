@@ -2,59 +2,90 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>思い出マップ</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="https://placehold.jp/192x192.png?text=Map">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        /* Streamlitのレイアウトを再現するCSS */
-        body { margin: 0; font-family: sans-serif; }
-        #app-container { display: flex; height: 100vh; width: 100vw; }
-        #map-section { flex: 2; position: relative; }
-        #map-container { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
-        #right-panel { flex: 1; transition: background-color 0.5s ease; padding: 25px; overflow-y: auto; background-color: white; }
-        
-        /* スライドモーダル */
-        #slider-modal, #home-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; justify-content: center; align-items: center; }
-        #slider-modal.show, #home-modal.show { display: flex; }
-        .modal-box { background: white; padding: 20px; border-radius: 10px; width: 80%; max-width: 600px; text-align: center; }
-        .slide-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
-        .slide-controls button { font-size: 2rem; padding: 10px 20px; cursor: pointer; }
-        #slide-image { max-width: 100%; max-height: 60vh; object-fit: contain; }
-        
-        /* ボタン等の装飾 */
-        button { cursor: pointer; border-radius: 8px; border: 1px solid #ccc; padding: 10px; background: white; }
-        .primary-btn { background: #fff; color: #333; border: 2px solid #ddd; box-shadow: 0 4px 6px rgba(0,0,0,.1); font-size: 1.5rem; padding: 15px; font-weight: bold; width: 100%; margin-top: 10px; }
-        .tertiary-btn { text-align: left; width: 100%; padding: 15px; font-size: 1.5rem; margin-bottom: 10px; border: none; background: #f8f9fa; }
-        .tertiary-btn:hover { background: #e9ecef; }
-    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
 </head>
 <body>
-    <div id="app-container">
-        <div id="map-section"><div id="map-container"></div></div>
-        <div id="right-panel"></div>
-    </div>
-
-    <div id="slider-modal">
-        <div class="modal-box">
-            <img id="slide-image" src="" alt="slide">
-            <div class="slide-controls">
-                <button id="btn-prev">←</button>
-                <h3 id="slide-counter">1 / 1</h3>
-                <button id="btn-next">→</button>
+    <header>
+        <h1>思い出マップ</h1>
+        <button id="btn-home-settings" class="settings-btn">HOME</button>
+    </header>
+    
+    <main class="main-layout">
+        <div class="map-section">
+            <div id="map-container"></div>
+            
+            <div id="slider-modal" class="custom-modal">
+                <div class="modal-content slider-content">
+                    <img id="slide-image" src="" alt="slide">
+                    <div class="slide-controls">
+                        <button id="btn-prev">←</button>
+                        <h3 id="slide-counter">1 / 1</h3>
+                        <button id="btn-next">→</button>
+                    </div>
+                    <button onclick="document.getElementById('slider-modal').classList.remove('show')" class="btn-primary">閉じる</button>
+                </div>
             </div>
-            <button onclick="document.getElementById('slider-modal').classList.remove('show')" style="margin-top: 15px; width: 100%;">閉じる</button>
-        </div>
-    </div>
 
-    <div id="home-modal">
-        <div class="modal-box">
-            <h2>家を登録する</h2>
-            <p>※現在はダミー表示です。後ほどデータベースと連携します。</p>
-            <button onclick="document.getElementById('home-modal').classList.remove('show')" class="primary-btn">閉じる</button>
+            <div id="home-modal" class="custom-modal">
+                <div class="modal-content">
+                    <h3>家を登録する</h3>
+                    <div id="home-pref-list" style="max-height: 40vh; overflow-y: auto; text-align: left; margin-bottom: 20px;">
+                        </div>
+                    <div class="modal-buttons">
+                        <button onclick="document.getElementById('home-modal').classList.remove('show')" class="btn-secondary">キャンセル</button>
+                        <button id="btn-save-home" class="btn-primary">保存</button>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+
+        <div class="list-section">
+            <div class="progress-container">
+                <div class="progress-label">訪問した都道府県</div>
+                <div class="progress-text"><span id="visited-count">0</span> / 47</div>
+                <div class="progress-bar-bg">
+                    <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                </div>
+            </div>
+            
+            <div id="visited-details" class="hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <button id="btn-back-to-list" class="btn-secondary">一覧に戻る</button>
+                    <h2 id="details-pref-name" style="margin: 0;"></h2>
+                </div>
+                
+                <input type="text" id="input-date" placeholder="YYYY/MM/DD ～ YYYY/MM/DD" style="width: 100%; font-size: 1.5rem; padding: 10px; text-align: center; margin-bottom: 15px; box-sizing: border-box; border-radius: 8px; border: 1.5px solid #e1e5eb;">
+                
+                <div class="photo-upload-section">
+                    <label for="input-photos" id="photo-upload-label" class="photo-upload-btn">
+                        📷 写真を追加（あと10枚）
+                    </label>
+                    <input type="file" id="input-photos" accept="image/*" multiple class="hidden">
+                    <div id="photo-upload-msg" class="hidden" style="color: blue; font-weight: bold;">保存中...</div>
+                    <button id="btn-show-photos" class="primary-btn hidden" style="margin-top: 15px;">写真を見る</button>
+                    <div id="photo-preview-container"></div>
+                </div>
+            </div>
+
+            <div id="visited-list-area">
+                <h2>記録された思い出</h2>
+                <ul id="memories-list">
+                    </ul>
+                <hr style="margin-top: 40px; border-color: rgba(0,0,0,0.1);">
+                <button onclick="openHomeModal()" class="primary-btn">家を追加・変更する</button>
+            </div>
+        </div>
+    </main>
 
     <script src="app.js"></script>
 </body>
