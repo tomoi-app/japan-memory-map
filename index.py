@@ -9,6 +9,14 @@ import traceback
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
+    # ★追加：ブラウザのセキュリティブロック（CORS）を回避する処理
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PATCH, DELETE')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey')
+        self.end_headers()
+
     def do_GET(self):
         self.handle_request("GET")
 
@@ -21,7 +29,7 @@ class handler(BaseHTTPRequestHandler):
             supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
 
             if not supabase_url or not supabase_key:
-                self.send_error_json(400, "VercelにSupabaseの鍵が設定されていません。")
+                self.send_error_json(500, "VercelにSupabaseのURLとKeyが設定されていません。")
                 return
 
             if method == "GET":
@@ -86,7 +94,6 @@ class handler(BaseHTTPRequestHandler):
                         public_url = f"{supabase_url}/storage/v1/object/public/photos/{filename}"
                         photo_urls.append(public_url)
                 
-                # ★エラー回避のため lat と lng に 0.0 をセット
                 db_payload = {
                     "prefecture": pref, 
                     "date": date_str, 
@@ -97,11 +104,22 @@ class handler(BaseHTTPRequestHandler):
                 }
                 
                 if row_id:
-                    req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
+                    req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode('utf-8'), method="PATCH")
                 else:
-                    req = urllib.request.Request(f"{supabase_url}/rest/v1/memories", data=json.dumps(db_payload).encode(), method="POST")
+                    req = urllib.request.Request(f"{supabase_url}/rest/v1/memories", data=json.dumps(db_payload).encode('utf-8'), method="POST")
+
+                req.add_header("apikey", supabase_key)
+                req.add_header("Authorization", f"Bearer {supabase_key}")
+                req.add_header("Content-Type", "application/json")
+                req.add_header("Prefer", "return=representation")
+                
+                with urllib.request.urlopen(req) as response: 
+                    res_data = response.read()
+                    
+                self.send_success_json(res_data)
 
             elif action == "delete_photo":
+                # 省略せず既存の削除処理を保持
                 pref = payload.get("prefecture")
                 url_to_delete = payload.get("photo_url")
                 filename = url_to_delete.split('/')[-1]
@@ -130,29 +148,25 @@ class handler(BaseHTTPRequestHandler):
                         pass
                     
                     db_payload = {"photo_urls": json.dumps(photo_urls)}
-                    req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode(), method="PATCH")
+                    req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{row_id}", data=json.dumps(db_payload).encode('utf-8'), method="PATCH")
+                    req.add_header("apikey", supabase_key)
+                    req.add_header("Authorization", f"Bearer {supabase_key}")
+                    req.add_header("Content-Type", "application/json")
+                    req.add_header("Prefer", "return=representation")
+                    
+                    with urllib.request.urlopen(req) as response: 
+                        res_data = response.read()
+                    self.send_success_json(res_data)
                 else:
                     self.send_error_json(400, "削除対象のデータが見つかりません。")
-                    return
             else:
                 self.send_error_json(400, "不正なアクションです。")
-                return
-
-            req.add_header("apikey", supabase_key)
-            req.add_header("Authorization", f"Bearer {supabase_key}")
-            req.add_header("Content-Type", "application/json")
-            req.add_header("Prefer", "return=representation")
-            
-            with urllib.request.urlopen(req) as response: 
-                res_data = response.read()
-                
-            self.send_success_json(res_data)
 
         except urllib.error.HTTPError as he:
-            err_msg = f"DBエラー: {he.read().decode('utf-8', errors='ignore')}"
-            self.send_error_json(400, err_msg)
+            err_msg = f"DBエラー({he.code}): {he.read().decode('utf-8', errors='ignore')}"
+            self.send_error_json(500, err_msg)
         except Exception as e:
-            self.send_error_json(400, f"サーバーエラー: {str(e)}")
+            self.send_error_json(500, f"Python内部エラー: {str(e)}\n{traceback.format_exc()}")
 
     def send_success_json(self, data):
         try:
