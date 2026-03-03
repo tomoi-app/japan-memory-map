@@ -6,9 +6,9 @@ let currentPhotos = [];
 let slideIndex = 0;
 let autoSaveTimer = null;
 let panelOpen = false;
+let settingsOpen = false;
 let initialBounds;
 
-// ローカルストレージから家のリストを読み込む
 let homePrefectures = JSON.parse(localStorage.getItem('homePrefectures')) || [];
 
 const PREF_COLORS = {
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomControl: false,
         attributionControl: false,
         doubleClickZoom: false,
-        zoomSnap: 0 // 限界まで大きく画面にフィットさせるための設定
+        zoomSnap: 0
     }).setView([38.0, 137.0], 5);
 
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     layer.bindTooltip(prefName, { sticky: true, direction: 'top' });
                     layer.on('click', () => {
                         selectedPref = prefName;
+                        if (settingsOpen) closeSettings();
                         openPanel();
                         renderRightPanel();
                     });
@@ -67,9 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (initialBounds) {
             map.flyToBounds(initialBounds, { duration: 0.6 });
         }
-        if (panelOpen) {
-            closePanel();
-        }
+        if (panelOpen) closePanel();
+        if (settingsOpen) closeSettings();
     });
 
     let lastTouchTime = 0;
@@ -95,9 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (initialBounds) {
                 map.flyToBounds(initialBounds, { duration: 0.6 });
             }
-            if (panelOpen) {
-                closePanel();
-            }
+            if (panelOpen) closePanel();
+            if (settingsOpen) closeSettings();
         }
         lastTouchTime = currentTime;
     });
@@ -105,8 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchMemories();
 
     const menuBtn = document.getElementById('menu-btn');
-    menuBtn.title = "一覧"; // カーソルを合わせた時の文字
+    menuBtn.title = "一覧";
     menuBtn.addEventListener('click', () => {
+        if (settingsOpen) closeSettings();
         if (panelOpen && selectedPref === null) {
             closePanel();
         } else {
@@ -130,13 +130,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const settingsBtn = document.createElement('button');
         settingsBtn.id = 'settings-btn';
         settingsBtn.className = 'settings-btn';
-        settingsBtn.title = "設定"; // カーソルを合わせた時の文字
+        settingsBtn.title = "設定";
         settingsBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>`;
         settingsBtn.onclick = openSettings;
         document.querySelector('.main-layout').appendChild(settingsBtn);
+    }
+
+    if (!document.getElementById('settings-panel')) {
+        const sp = document.createElement('div');
+        sp.id = 'settings-panel';
+        sp.className = 'list-section';
+        document.querySelector('.main-layout').appendChild(sp);
     }
 });
 
@@ -149,7 +156,6 @@ function openPanel() {
 function closePanel() {
     clearTimeout(autoSaveTimer);
 
-    // 日付だけ入力して閉じた場合、自動的にデータを消去する処理
     if (selectedPref && !homePrefectures.includes(selectedPref)) {
         const fromEl = document.getElementById('input-date-from');
         const toEl = document.getElementById('input-date-to');
@@ -162,8 +168,7 @@ function closePanel() {
         }
 
         if (hasDateInput && photoCount === 0) {
-            // 写真が0枚で日付だけある場合はデータをDBから削除
-            if (data) data.date = ""; // ローカルデータを即時更新
+            if (data) data.date = "";
             const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [] };
             fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
                 .then(() => fetchMemories(false));
@@ -178,53 +183,37 @@ function closePanel() {
     updateCounter();
 }
 
-// ---------------- 設定メニュー ----------------
 function openSettings() {
-    let modal = document.getElementById('settings-modal');
-    // すでに開いている場合は閉じる（トグル機能）
-    if (modal && !modal.classList.contains('hidden')) {
-        modal.classList.add('hidden');
+    if (panelOpen) closePanel();
+    if (settingsOpen) {
+        closeSettings();
         return;
     }
+    settingsOpen = true;
+    document.getElementById('settings-panel').classList.add('open');
+    updateUIVisibility();
+    renderSettingsPanel();
+}
+
+function closeSettings() {
+    settingsOpen = false;
+    document.getElementById('settings-panel').classList.remove('open');
+    updateUIVisibility();
+}
+
+function renderSettingsPanel() {
+    const panel = document.getElementById('settings-panel');
+    const prefOrder = Object.keys(PREF_COLORS);
+    let options = prefOrder.map(p => `<option value="${p}">${p}</option>`).join('');
     
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'settings-modal';
-        modal.className = 'modal';
-        document.body.appendChild(modal);
-    }
-    renderSettingsMenu();
-    modal.classList.remove('hidden');
-}
-
-function renderSettingsMenu() {
-    let modal = document.getElementById('settings-modal');
     let html = `
-    <div class="modal-content" style="background: white; padding: 30px 25px; border-radius: 16px; text-align: center; max-width: 450px; width: 90%; position: relative;">
-        <h2 style="margin: 0 0 25px 0; font-size: 1.8rem; color: #333;">設定</h2>
-        <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 32px; color: #aaa; cursor: pointer; padding: 0; line-height: 1;">✕</button>
-        
-        <div style="display:flex; flex-direction:column; gap:15px;">
-            <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.3rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-                家を登録
-            </button>
-        </div>
-    </div>`;
-    modal.innerHTML = html;
-}
-
-function renderHomeSettings() {
-    let modal = document.getElementById('settings-modal');
-    const prefs = Object.keys(PREF_COLORS);
-    let options = prefs.map(p => `<option value="${p}">${p}</option>`).join('');
-
-    let html = `
-    <div class="modal-content" style="background: white; padding: 30px 25px; border-radius: 16px; text-align: center; max-width: 450px; width: 90%; position: relative;">
-        <button onclick="renderSettingsMenu()" style="position: absolute; top: 15px; left: 20px; background: none; border: none; font-size: 24px; color: #6c8ca3; cursor: pointer; padding: 0; font-weight: bold; line-height: 1.2;">←</button>
-        <h2 style="margin: 0 0 25px 0; font-size: 1.8rem; color: #333;">家を登録</h2>
-        <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 32px; color: #aaa; cursor: pointer; padding: 0; line-height: 1;">✕</button>
-        
-        <div style="margin-bottom: 25px; text-align: left;">
+    <div class="panel-header" style="text-align: center; min-height: 40px;">
+        <h2 style="margin: 0; font-size: 1.6rem; color: #333;">設定</h2>
+        <button class="panel-close-btn" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="panel-content">
+        <div style="margin-top: 10px; text-align: left;">
+            <label style="font-weight: bold; color: #555; display:block; margin-bottom: 10px;">家を登録</label>
             <div style="display:flex; gap: 8px; margin-bottom: 15px;">
                 <select id="home-select" style="flex:1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-family:inherit; font-size:15px; background:white;">
                     ${options}
@@ -234,10 +223,10 @@ function renderHomeSettings() {
             <div id="home-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
     </div>`;
-    modal.innerHTML = html;
+    
+    panel.innerHTML = html;
     renderHomeList();
 }
-// ----------------------------------------------
 
 function addHomePrefecture() {
     const select = document.getElementById('home-select');
@@ -248,7 +237,6 @@ function addHomePrefecture() {
         renderHomeList();
         updateMapColors();
         updateCounter();
-        if (panelOpen) renderRightPanel();
     }
 }
 
@@ -258,7 +246,6 @@ function removeHomePrefecture(pref) {
     renderHomeList();
     updateMapColors();
     updateCounter();
-    if (panelOpen) renderRightPanel();
 }
 
 function saveHomePrefectures() {
@@ -288,14 +275,11 @@ function updateUIVisibility() {
     const counter = document.getElementById('pref-counter');
     const menuBtn = document.getElementById('menu-btn');
     const settingsBtn = document.getElementById('settings-btn');
-    if (panelOpen) {
+    
+    if (panelOpen || settingsOpen) {
         counter.classList.add('hidden-ui');
         if (settingsBtn) settingsBtn.style.display = 'none';
-        if (selectedPref) {
-            menuBtn.classList.add('hidden-ui');
-        } else {
-            menuBtn.classList.remove('hidden-ui');
-        }
+        menuBtn.classList.add('hidden-ui');
     } else {
         counter.classList.remove('hidden-ui');
         menuBtn.classList.remove('hidden-ui');
@@ -338,20 +322,19 @@ function formatDate(dateStr) {
 
 function renderRightPanel() {
     const panel = document.getElementById('right-panel');
-    panel.scrollTop = 0;
-    updateUIVisibility();
-
     const prefOrder = Object.keys(PREF_COLORS);
 
     if (!selectedPref) {
-        panel.style.backgroundColor = '#ffffff';
-        let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:24px;">`;
-        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
-        html += `</div>`;
+        let headerHtml = `
+        <div class="panel-header" style="min-height: 30px;">
+            <button class="panel-close-btn" onclick="closePanel()">✕</button>
+        </div>`;
+        
+        let contentHtml = `<div class="panel-content">`;
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
-            html += `<button class="pref-btn" onclick="selectedPref='${pref}'; openPanel(); renderRightPanel();"
+            contentHtml += `<button class="pref-btn" onclick="selectedPref='${pref}'; openPanel(); renderRightPanel();"
                 style="border-left: 6px solid ${PREF_COLORS[pref]}; background: #fffdf5;">
                 <span style="font-weight:bold; color:#444;">${pref}</span>
             </button>`;
@@ -364,7 +347,7 @@ function renderRightPanel() {
         });
 
         if (activeMemories.length === 0 && homePrefectures.length === 0) {
-            html += `<p style="color:#888; text-align:center; margin-top:40px;">地図から都道府県を選んで<br>思い出を追加しましょう</p>`;
+            contentHtml += `<p style="color:#888; text-align:center; margin-top:40px;">地図から都道府県を選んで<br>思い出を追加しましょう</p>`;
         } else {
             const sortedMemories = [...activeMemories].sort((a, b) => prefOrder.indexOf(a.prefecture) - prefOrder.indexOf(b.prefecture));
             
@@ -372,7 +355,7 @@ function renderRightPanel() {
                 const photos = JSON.parse(m.photo_urls || "[]");
                 const color = PREF_COLORS[m.prefecture] || '#aaa';
                 const needsData = !m.date || photos.length === 0;
-                html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
+                contentHtml += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
                         ${m.prefecture}${needsData ? '<span class="status-dot"></span>' : ''}
@@ -381,20 +364,25 @@ function renderRightPanel() {
                 </button>`;
             });
         }
-        panel.innerHTML = html;
+        contentHtml += `</div>`;
+        panel.innerHTML = headerHtml + contentHtml;
+        
     } else {
-        panel.style.backgroundColor = '#ffffff';
-        let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">`;
-        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
-        html += `</div>`;
+        let headerHtml = `
+        <div class="panel-header">
+            <button class="panel-close-btn" onclick="closePanel()">✕</button>
+        `;
 
         if (homePrefectures.includes(selectedPref)) {
-            html += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${PREF_COLORS[selectedPref]}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>`;
-            html += `<div style="text-align:center; margin-top: 40px; padding: 20px; background: #fffdf5; border-radius: 10px;">`;
-            html += `<h3 style="color: #444; margin: 10px 0;">家に登録されています</h3>`;
-            html += `<p style="color: #777; font-size: 13px; line-height: 1.6;">家として設定されているため、<br>写真や日付の登録はできません。</p>`;
-            html += `</div>`;
-            panel.innerHTML = html;
+            headerHtml += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${PREF_COLORS[selectedPref]}; margin:0; font-size:1.6rem; color:#333;">${selectedPref}</h1></div>`;
+            let contentHtml = `
+            <div class="panel-content">
+                <div style="text-align:center; margin-top: 20px; padding: 20px; background: #fffdf5; border-radius: 10px;">
+                    <h3 style="color: #444; margin: 10px 0;">家に登録されています</h3>
+                    <p style="color: #777; font-size: 13px; line-height: 1.6;">家として設定されているため、<br>写真や日付の登録はできません。</p>
+                </div>
+            </div>`;
+            panel.innerHTML = headerHtml + contentHtml;
             return;
         }
 
@@ -402,26 +390,37 @@ function renderRightPanel() {
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
+        
         if ((data.date || photos.length > 0) && (!data.date || photos.length === 0)) {
-            html += `<div class="warning-banner">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
+            headerHtml += `<div class="warning-banner">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
         }
-        html += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${color}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>`;
-        html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">`;
-        html += `<input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">`;
-        html += `<span style="color:#aaa;">-</span>`;
-        html += `<input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">`;
-        html += `</div>`;
-        html += `<div style="margin-bottom: 20px;"><label for="input-photos" class="btn-full" style="display:block; text-align:center; cursor:pointer; margin:0; background:${color};">写真を追加</label><input type="file" id="input-photos" multiple accept="image/*" style="display:none;"></div>`;
-        html += `<p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0 0 15px;"></p>`;
+        
+        headerHtml += `
+            <h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${color}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
+                <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
+                <span style="color:#aaa;">-</span>
+                <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
+            </div>
+            <div style="margin-bottom: 5px;">
+                <label for="input-photos" class="btn-full" style="display:block; text-align:center; cursor:pointer; margin:0; background:${color};">写真を追加</label>
+                <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
+            </div>
+            <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0;"></p>
+        </div>`;
+
+        let contentHtml = `<div class="panel-content">`;
         if (photos.length > 0) {
-            html += `<div class="photo-grid">`;
+            contentHtml += `<div class="photo-grid">`;
             photos.forEach(url => {
                 const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
-                html += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
+                contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
             });
-            html += `</div>`;
+            contentHtml += `</div>`;
         }
-        panel.innerHTML = html;
+        contentHtml += `</div>`;
+
+        panel.innerHTML = headerHtml + contentHtml;
         document.getElementById('input-date-from').addEventListener('change', triggerAutoSave);
         document.getElementById('input-date-to').addEventListener('change', triggerAutoSave);
         document.getElementById('input-photos').addEventListener('change', triggerAutoSave);
