@@ -4,7 +4,7 @@ body, html {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    position: fixed; /* スマホ等での画面全体の横揺れを防止 */
+    position: fixed;
     font-family: 'Zen Kaku Gothic New', sans-serif;
     background-color: #eef2f5;
     color: #333333;
@@ -116,7 +116,6 @@ body, html {
     box-shadow: -2px 0 15px rgba(0,0,0,0.1);
 }
 
-/* --- パネル上部の固定エリア --- */
 .panel-header {
     flex-shrink: 0;
     padding: 20px 25px 15px;
@@ -126,7 +125,6 @@ body, html {
     z-index: 10;
 }
 
-/* ヘッダー内のタイトルとボタンの横並び設定 */
 .panel-header-title-row {
     display: flex;
     justify-content: space-between;
@@ -135,11 +133,10 @@ body, html {
     position: relative;
 }
 
-/* --- パネル下部のスクロールエリア --- */
 .panel-content {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden; /* 横スクロールを完全に防止 */
+    overflow-x: hidden;
     padding: 15px 25px 120px;
 }
 
@@ -374,4 +371,26 @@ input[type="date"] {
 
 @media (max-width: 768px) {
     .list-section { width: 100%; }
+}
+
+/* --- 追加: パネル右下に固定する写真追加用FABボタン --- */
+.add-photo-fab {
+    position: absolute;
+    bottom: 25px;
+    right: 25px;
+    width: 56px;
+    height: 56px;
+    color: white;
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 1000;
+    transition: transform 0.2s ease, opacity 0.2s;
+}
+.add-photo-fab:hover {
+    transform: scale(1.05);
+    opacity: 0.9;
 }
