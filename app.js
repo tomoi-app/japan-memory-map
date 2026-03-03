@@ -8,7 +8,6 @@ let autoSaveTimer = null;
 let panelOpen = false;
 let initialBounds;
 
-// 彩度を落としたおしゃれなくすみカラーパレット
 const PREF_COLORS = {
     '北海道':'#9fb9c4','青森県':'#a2c4c3','岩手県':'#a1bda6','宮城県':'#b6c6a7',
     '秋田県':'#c1cda2','山形県':'#cdd3a1','福島県':'#d9d8a3','茨城県':'#e3d8a6',
@@ -35,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
-                // 枠線を0.5にして繊細でおしゃれな印象に
                 style: { fillColor: '#f4f7f6', weight: 0.5, color: '#000000', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
                     const prefName = feature.properties.nam_ja;
@@ -61,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateMapColors();
         });
 
+    // PC用のダブルクリック検知
     map.on('dblclick', function(e) {
         if (initialBounds) {
             map.flyToBounds(initialBounds, { duration: 0.6 });
@@ -68,6 +67,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (panelOpen) {
             closePanel();
         }
+    });
+
+    // スマホ用のダブルタッチ検知
+    let lastTouchTime = 0;
+    document.getElementById('map-container').addEventListener('touchend', function(e) {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTouchTime;
+        // 400ミリ秒以内の連続タップをダブルタッチと判定
+        if (tapLength > 0 && tapLength < 400) {
+            if (initialBounds) {
+                map.flyToBounds(initialBounds, { duration: 0.6 });
+            }
+            if (panelOpen) {
+                closePanel();
+            }
+        }
+        lastTouchTime = currentTime;
     });
 
     fetchMemories();
@@ -162,8 +178,8 @@ function renderRightPanel() {
     if (!selectedPref) {
         panel.style.backgroundColor = '#ffffff';
 
-        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">`;
-        html += `<h2 style="margin:0; font-size:1.2rem; color:#444;">記録一覧</h2>`;
+        // 「記録一覧」の文字を削除し、✕ボタンのみを右寄せで配置
+        let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:24px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
 
@@ -182,7 +198,6 @@ function renderRightPanel() {
         panel.innerHTML = html;
 
     } else {
-        // 個別パネルの背景色も白で統一し、洗練された印象に
         panel.style.backgroundColor = '#ffffff';
 
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
@@ -191,8 +206,8 @@ function renderRightPanel() {
 
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
 
-        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">`;
-        html += `<button onclick="closePanel()" style="background:none; border:none; color:#6c8ca3; font-weight:bold; font-size:15px; padding:0;">← 戻る</button>`;
+        // 「戻る」ボタンを削除し、✕ボタンのみを右寄せで配置
+        let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
         
@@ -204,7 +219,6 @@ function renderRightPanel() {
         html += `<input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">`;
         html += `</div>`;
 
-        // 無駄なテキストを省き、おしゃれなボタンでファイル選択を代用
         html += `<div style="margin-bottom: 20px;">`;
         html += `<label for="input-photos" class="btn-full" style="display:block; text-align:center; cursor:pointer; margin:0; background:${color};">写真を追加</label>`;
         html += `<input type="file" id="input-photos" multiple accept="image/*" style="display:none;">`;
@@ -313,7 +327,7 @@ function updateMapColors() {
         const isVisited = memoriesData.some(m => m.prefecture === pref);
         layer.setStyle({
             fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
-            weight: 0.5, // 枠線を細く
+            weight: 0.5,
             color: '#000000',
             fillOpacity: 1
         });
