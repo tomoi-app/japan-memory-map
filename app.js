@@ -59,10 +59,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const minZoom = map.getZoom();
                 map.setMinZoom(minZoom);
                 map.setMaxBounds(initialBounds.pad(0.05));
+                
+                // 初期状態（最小ズーム）ではマップのドラッグ移動を無効にする
+                map.dragging.disable();
             }, 100);
 
             updateMapColors();
         });
+
+    // ズームインした時だけドラッグを許可する処理
+    map.on('zoomend', function() {
+        if (map.getZoom() <= map.getMinZoom()) {
+            map.dragging.disable();
+            if (initialBounds) {
+                map.panTo(initialBounds.getCenter(), { animate: false });
+            }
+        } else {
+            map.dragging.enable();
+        }
+    });
 
     map.on('dblclick', function(e) {
         if (initialBounds) {
@@ -88,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
-
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTouchTime;
         if (tapLength > 0 && tapLength < 400) {
@@ -211,14 +225,16 @@ function renderSettingsMenu() {
 
     let headerHtml = `
     <div class="panel-header">
-        <div style="flex:1;"></div>
-        <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">設定</h2>
-        <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
+        <div class="panel-header-title-row">
+            <div style="flex:1;"></div>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">設定</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
+        </div>
     </div>`;
     
     let contentHtml = `
     <div class="panel-content">
-        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+        <div style="display:flex; flex-direction:column; gap:15px;">
             <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 家を登録
             </button>
@@ -235,14 +251,16 @@ function renderHomeSettings() {
 
     let headerHtml = `
     <div class="panel-header">
-        <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-        <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">家を登録</h2>
-        <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">家を登録</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
     </div>`;
 
     let contentHtml = `
     <div class="panel-content">
-        <div style="margin-top: 20px; text-align: left;">
+        <div style="text-align: left;">
             <div style="display:flex; gap: 8px; margin-bottom: 20px;">
                 <select id="home-select" style="flex:1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-family:inherit; font-size:15px; background:white;">
                     ${options}
@@ -302,13 +320,11 @@ function renderHomeList() {
     `).join('');
 }
 
-// --- メニューと設定アイコンの表示・非表示を厳格に制御 ---
 function updateUIVisibility() {
     const counter = document.getElementById('pref-counter');
     const menuBtn = document.getElementById('menu-btn');
     const settingsBtn = document.getElementById('settings-btn');
     
-    // カウンターはパネルが開いていたら隠す
     if (panelOpen || settingsOpen) {
         counter.classList.add('hidden-ui');
     } else {
@@ -316,19 +332,19 @@ function updateUIVisibility() {
     }
 
     if (panelOpen && selectedPref !== null) {
-        // 1. 都道府県詳細画面（写真・日付入力）が開いている時 -> 両方消す
+        // 都道府県詳細画面 -> 両方隠す
         menuBtn.classList.add('hidden-ui');
         if (settingsBtn) settingsBtn.classList.add('hidden-ui');
     } else if (panelOpen && selectedPref === null) {
-        // 2. 一覧画面が開いている時 -> メニューアイコンは残し(閉じるため)、設定アイコンは消す
+        // 一覧画面 -> メニューは残す、設定は隠す
         menuBtn.classList.remove('hidden-ui');
         if (settingsBtn) settingsBtn.classList.add('hidden-ui');
     } else if (settingsOpen) {
-        // 3. 設定画面が開いている時 -> 設定アイコンは残し(閉じるため)、メニューアイコンは消す
+        // 設定画面 -> 設定は残す、メニューは隠す
         menuBtn.classList.add('hidden-ui');
         if (settingsBtn) settingsBtn.classList.remove('hidden-ui');
     } else {
-        // 4. 何も開いていない初期画面 -> 両方表示
+        // 初期画面 -> 両方表示
         menuBtn.classList.remove('hidden-ui');
         if (settingsBtn) settingsBtn.classList.remove('hidden-ui');
     }
@@ -375,12 +391,14 @@ function renderRightPanel() {
     if (!selectedPref) {
         let headerHtml = `
         <div class="panel-header">
-            <div style="flex:1;"></div>
-            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">一覧</h2>
-            <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0;">✕</button>
+            <div class="panel-header-title-row">
+                <div style="flex:1;"></div>
+                <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">一覧</h2>
+                <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0;">✕</button>
+            </div>
         </div>`;
 
-        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
+        let contentHtml = `<div class="panel-content">`;
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
@@ -419,15 +437,17 @@ function renderRightPanel() {
         
     } else {
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
-
+        
         let headerHtml = `
-        <div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom:15px;">
-            <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">${selectedPref}</h2>
-            <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
-        </div>`;
+        <div class="panel-header" style="border-bottom: 3px solid ${color};">
+            <div class="panel-header-title-row" style="margin-bottom:15px;">
+                <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+                <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">${selectedPref}</h2>
+                <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
+            </div>`;
 
         if (homePrefectures.includes(selectedPref)) {
+            headerHtml += `</div>`;
             let contentHtml = `
             <div class="panel-content">
                 <div style="text-align:center; margin-top: 20px; padding: 20px; background: #fffdf5; border-radius: 10px;">
@@ -443,13 +463,11 @@ function renderRightPanel() {
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
         
-        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
-
         if ((data.date || photos.length > 0) && (!data.date || photos.length === 0)) {
-            contentHtml += `<div class="warning-banner">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
+            headerHtml += `<div class="warning-banner">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
         }
         
-        contentHtml += `
+        headerHtml += `
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
                 <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                 <span style="color:#aaa;">-</span>
@@ -460,10 +478,11 @@ function renderRightPanel() {
                 <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
             </div>
             <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0;"></p>
-        `;
+        </div>`;
 
+        let contentHtml = `<div class="panel-content">`;
         if (photos.length > 0) {
-            contentHtml += `<div class="photo-grid" style="margin-top:15px;">`;
+            contentHtml += `<div class="photo-grid">`;
             photos.forEach(url => {
                 const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
                 contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
