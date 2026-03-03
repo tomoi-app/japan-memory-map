@@ -149,6 +149,7 @@ function closePanel() {
     updateUIVisibility();
 }
 
+// ---------------- 設定メニュー ----------------
 function openSettings() {
     let modal = document.getElementById('settings-modal');
     if (!modal) {
@@ -157,18 +158,44 @@ function openSettings() {
         modal.className = 'modal';
         document.body.appendChild(modal);
     }
+    renderSettingsMenu();
+    modal.classList.remove('hidden');
+}
 
-    const prefs = Object.keys(PREF_COLORS);
-    let options = prefs.map(p => `<option value="${p}">${p}</option>`).join('');
-
+function renderSettingsMenu() {
+    let modal = document.getElementById('settings-modal');
     let html = `
     <div class="modal-content" style="background: white; padding: 25px; border-radius: 12px; text-align: left; max-width: 400px; width: 90%;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
             <h2 style="margin:0; font-size: 1.4rem; color: #444;">設定</h2>
             <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="background:none; border:none; font-size:24px; color:#aaa; cursor:pointer; padding:0;">✕</button>
         </div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button onclick="renderHomeSettings()" style="text-align:left; padding:15px; background:#f4f7f6; border:none; border-radius:8px; font-size:1.1rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s;">
+                家を登録
+            </button>
+            </div>
+    </div>`;
+    modal.innerHTML = html;
+}
+
+function renderHomeSettings() {
+    let modal = document.getElementById('settings-modal');
+    const prefs = Object.keys(PREF_COLORS);
+    let options = prefs.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    let html = `
+    <div class="modal-content" style="background: white; padding: 25px; border-radius: 12px; text-align: left; max-width: 400px; width: 90%;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:18px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold;">←</button>
+                <h2 style="margin:0; font-size: 1.4rem; color: #444;">家を登録</h2>
+            </div>
+            <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="background:none; border:none; font-size:24px; color:#aaa; cursor:pointer; padding:0;">✕</button>
+        </div>
+        
         <div style="margin-bottom: 25px;">
-            <label style="font-weight: bold; color: #555; display:block; margin-bottom: 10px;">家（拠点）を登録</label>
             <div style="display:flex; gap: 8px; margin-bottom: 15px;">
                 <select id="home-select" style="flex:1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family:inherit; font-size:14px; background:white;">
                     ${options}
@@ -178,11 +205,10 @@ function openSettings() {
             <div id="home-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
     </div>`;
-
     modal.innerHTML = html;
-    modal.classList.remove('hidden');
     renderHomeList();
 }
+// ----------------------------------------------
 
 function addHomePrefecture() {
     const select = document.getElementById('home-select');
@@ -217,11 +243,10 @@ function renderHomeList() {
         list.innerHTML = `<span style="color:#aaa; font-size:13px;">登録されていません</span>`;
         return;
     }
+    // リストから絵文字を削除
     list.innerHTML = homePrefectures.map(pref => `
         <div style="display:flex; justify-content:space-between; align-items:center; background:#f4f7f6; padding:10px 15px; border-radius:6px;">
-            <span style="font-weight:bold; color:#444; display:flex; align-items:center; gap:6px;">
-                🏠 ${pref}
-            </span>
+            <span style="font-weight:bold; color:#444;">${pref}</span>
             <button onclick="removeHomePrefecture('${pref}')" style="background:rgba(0,0,0,0.1); border:none; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#555; cursor:pointer; font-size:12px;">✕</button>
         </div>
     `).join('');
@@ -290,13 +315,11 @@ function renderRightPanel() {
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
 
+        // 一覧から絵文字と「拠点」という文字を削除
         homePrefectures.forEach(pref => {
             html += `<button class="pref-btn" onclick="selectedPref='${pref}'; openPanel(); renderRightPanel();"
                 style="border-left: 6px solid ${PREF_COLORS[pref]}; background: #fffdf5;">
-                <span style="display:flex; align-items:center; gap:6px; font-weight:bold; color:#444;">
-                    🏠 ${pref}
-                </span>
-                <span style="color:#6c8ca3; font-size:0.85em; font-weight:bold;">拠点</span>
+                <span style="font-weight:bold; color:#444;">${pref}</span>
             </button>`;
         });
 
@@ -332,9 +355,10 @@ function renderRightPanel() {
         if (homePrefectures.includes(selectedPref)) {
             html += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${PREF_COLORS[selectedPref]}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>`;
             html += `<div style="text-align:center; margin-top: 40px; padding: 20px; background: #fffdf5; border-radius: 10px;">`;
-            html += `<div style="font-size:48px; margin-bottom:10px;">🏠</div>`;
+            // SVGアイコンに変更（家の絵文字を削除）
+            html += `<svg viewBox="0 0 24 24" fill="none" stroke="#f57f17" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:48px; height:48px; margin-bottom:10px;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>`;
             html += `<h3 style="color: #444; margin: 10px 0;">家に登録されています</h3>`;
-            html += `<p style="color: #777; font-size: 13px; line-height: 1.6;">拠点として設定されているため、<br>写真や日付の登録は不要です。</p>`;
+            html += `<p style="color: #777; font-size: 13px; line-height: 1.6;">写真や日付の登録は不要です。</p>`;
             html += `</div>`;
             panel.innerHTML = html;
             return;
