@@ -7,18 +7,18 @@ let slideIndex = 0;
 let autoSaveTimer = null;
 
 const PREF_COLORS = {
-    '北海道':'#e8a0a0','青森県':'#e8b8a0','岩手県':'#e8cba0','宮城県':'#e8dda0',
-    '秋田県':'#d8e8a0','山形県':'#c0e8a0','福島県':'#a0e8a8','茨城県':'#a0e8c8',
-    '栃木県':'#a0e8e0','群馬県':'#a0d8e8','埼玉県':'#a0c0e8','千葉県':'#a0a8e8',
-    '東京都':'#b0a0e8','神奈川県':'#c8a0e8','新潟県':'#e0a0e8','富山県':'#e8a0d8',
-    '石川県':'#e8a0c0','福井県':'#e8a0a8','山梨県':'#f0b0b0','長野県':'#f0c4b0',
-    '岐阜県':'#f0d4b0','静岡県':'#f0e4b0','愛知県':'#e4f0b0','三重県':'#cef0b0',
-    '滋賀県':'#b0f0b8','京都府':'#b0f0d0','大阪府':'#b0f0e8','兵庫県':'#b0e4f0',
-    '奈良県':'#b0cef0','和歌山県':'#b0b8f0','鳥取県':'#c4b0f0','島根県':'#dab0f0',
-    '岡山県':'#f0b0e4','広島県':'#f0b0ce','山口県':'#f0b0b8','徳島県':'#f4c0c0',
-    '香川県':'#f4cfc0','愛媛県':'#f4dcc0','高知県':'#f4eac0','福岡県':'#e8f4c0',
-    '佐賀県':'#d0f4c0','長崎県':'#c0f4c8','熊本県':'#c0f4dc','大分県':'#c0f4f0',
-    '宮崎県':'#c0e8f4','鹿児島県':'#c0d0f4','沖縄県':'#d0c0f4'
+    '北海道':'#ff6b6b','青森県':'#ff8c42','岩手県':'#ffa726','宮城県':'#ffcc02',
+    '秋田県':'#d4e157','山形県':'#9ccc65','福島県':'#66bb6a','茨城県':'#26c6da',
+    '栃木県':'#26a69a','群馬県':'#42a5f5','埼玉県':'#5c6bc0','千葉県':'#7e57c2',
+    '東京都':'#ab47bc','神奈川県':'#ec407a','新潟県':'#ef5350','富山県':'#ff7043',
+    '石川県':'#ffa000','福井県':'#c0ca33','山梨県':'#43a047','長野県':'#00897b',
+    '岐阜県':'#00acc1','静岡県':'#039be5','愛知県':'#3949ab','三重県':'#8e24aa',
+    '滋賀県':'#d81b60','京都府':'#e53935','大阪府':'#f4511e','兵庫県':'#fb8c00',
+    '奈良県':'#f9a825','和歌山県':'#827717','鳥取県':'#558b2f','島根県':'#00695c',
+    '岡山県':'#00838f','広島県':'#1565c0','山口県':'#283593','徳島県':'#4527a0',
+    '香川県':'#6a1b9a','愛媛県':'#ad1457','高知県':'#b71c1c','福岡県':'#bf360c',
+    '佐賀県':'#e65100','長崎県':'#f57f17','熊本県':'#9e9d24','大分県':'#33691e',
+    '宮崎県':'#1b5e20','鹿児島県':'#006064','沖縄県':'#0d47a1'
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     layer.bindTooltip(prefName, { sticky: true, direction: 'top' });
                     layer.on('click', () => {
                         selectedPref = prefName;
+                        openPanel();
                         renderRightPanel();
                     });
                 }
@@ -44,6 +45,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
     fetchMemories();
+
+    // メニューボタン
+    document.getElementById('menu-btn').addEventListener('click', () => {
+        selectedPref = null;
+        openPanel();
+        renderRightPanel();
+    });
 
     document.getElementById('btn-close-slider').addEventListener('click', () => {
         document.getElementById('slider-modal').classList.add('hidden');
@@ -56,35 +64,59 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+function openPanel() {
+    document.getElementById('right-panel').classList.add('open');
+}
+
+function closePanel() {
+    document.getElementById('right-panel').classList.remove('open');
+    selectedPref = null;
+}
+
+function updateCounter() {
+    const count = memoriesData.length;
+    document.getElementById('pref-counter').innerText = `${count} / 47`;
+}
+
 function renderRightPanel() {
     const panel = document.getElementById('right-panel');
 
     if (!selectedPref) {
         panel.style.backgroundColor = 'white';
-        let html = `<h2>記録された思い出</h2>`;
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">`;
+        html += `<h2 style="margin:0;">記録された思い出</h2>`;
+        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:22px; cursor:pointer;">✕</button>`;
+        html += `</div>`;
+
         if (memoriesData.length === 0) {
             html += `<p>地図から都道府県を選んで思い出を追加しましょう。</p>`;
         } else {
             memoriesData.forEach(m => {
-                html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; renderRightPanel();">${m.prefecture}（${m.date || "日付未設定"}）</button>`;
+                const color = PREF_COLORS[m.prefecture] || '#ccc';
+                html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; renderRightPanel();" 
+                    style="border-left: 5px solid ${color};">
+                    ${m.prefecture}　<span style="color:#888; font-size:0.9em;">${m.date || "日付未設定"}</span>
+                </button>`;
             });
         }
         panel.innerHTML = html;
-        updateMapColors();
     } else {
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
 
-        // 期間の開始日・終了日を分割
         const dateParts = (data.date || '').split('~');
         const dateFrom = (dateParts[0] || '').trim();
         const dateTo = (dateParts[1] || '').trim();
 
-        panel.style.backgroundColor = '#e8f4f8';
+        const color = PREF_COLORS[selectedPref] || '#3498db';
+        panel.style.backgroundColor = '#fafafa';
 
-        let html = `<button onclick="selectedPref=null; renderRightPanel();">← 一覧に戻る</button>`;
-        html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:8px; margin:15px 0;">${selectedPref}</h1>`;
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">`;
+        html += `<button onclick="selectedPref=null; renderRightPanel();">← 戻る</button>`;
+        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:22px;">✕</button>`;
+        html += `</div>`;
+        html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:8px; margin:0 0 10px; border-top: 5px solid ${color};">${selectedPref}</h1>`;
         html += `<p id="autosave-status" style="color:green; text-align:center; font-size:13px; min-height:20px;"></p>`;
 
         html += `<label>訪問期間</label>`;
@@ -111,11 +143,8 @@ function renderRightPanel() {
 
         panel.innerHTML = html;
 
-        // 日付変更で自動保存
         document.getElementById('input-date-from').addEventListener('change', triggerAutoSave);
         document.getElementById('input-date-to').addEventListener('change', triggerAutoSave);
-
-        // 写真追加で自動保存
         document.getElementById('input-photos').addEventListener('change', triggerAutoSave);
     }
 }
@@ -123,7 +152,6 @@ function renderRightPanel() {
 function triggerAutoSave() {
     const statusEl = document.getElementById('autosave-status');
     if (statusEl) statusEl.innerText = '入力中...';
-
     clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(async () => {
         await saveMemoryData();
@@ -134,7 +162,6 @@ async function saveMemoryData() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
     const files = document.getElementById('input-photos').files;
-
     if (!fromEl) return;
 
     const dateFrom = fromEl.value;
@@ -160,7 +187,7 @@ async function saveMemoryData() {
         });
 
         if (res.ok) {
-            await fetchMemories(false); // パネルを再描画しない
+            await fetchMemories(false);
             if (statusEl) statusEl.innerText = '✓ 保存しました';
             setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
         } else {
@@ -178,6 +205,7 @@ async function fetchMemories(redraw = true) {
         memoriesData = await res.json();
         if (redraw) renderRightPanel();
         updateMapColors();
+        updateCounter();
     } catch (e) { console.error("データ取得エラー", e); }
 }
 
