@@ -52,22 +52,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(map);
 
             const bounds = geoJsonLayer.getBounds();
-            map.fitBounds(bounds, { padding: [0, 0] });
+            // 上部に60pxの余白を作り、地図全体を少し下にずらす
+            map.fitBounds(bounds, { paddingTopLeft: [0, 60], paddingBottomRight: [0, 0] });
 
             setTimeout(() => {
                 initialBounds = map.getBounds();
                 const minZoom = map.getZoom();
                 map.setMinZoom(minZoom);
                 map.setMaxBounds(initialBounds.pad(0.05));
-                
-                // 初期状態（最小ズーム）ではマップのドラッグ移動を無効にする
                 map.dragging.disable();
             }, 100);
 
             updateMapColors();
         });
 
-    // ズームインした時だけドラッグを許可する処理
     map.on('zoomend', function() {
         if (map.getZoom() <= map.getMinZoom()) {
             map.dragging.disable();
@@ -205,7 +203,6 @@ function closePanel() {
     updateCounter();
 }
 
-// ---------------- 設定メニュー ----------------
 function openSettings() {
     settingsOpen = true;
     document.getElementById('settings-panel').classList.add('open');
@@ -225,16 +222,14 @@ function renderSettingsMenu() {
 
     let headerHtml = `
     <div class="panel-header">
-        <div class="panel-header-title-row">
-            <div style="flex:1;"></div>
-            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">設定</h2>
-            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
-        </div>
+        <div style="flex:1;"></div>
+        <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">設定</h2>
+        <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
     </div>`;
     
     let contentHtml = `
     <div class="panel-content">
-        <div style="display:flex; flex-direction:column; gap:15px;">
+        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
             <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 家を登録
             </button>
@@ -251,16 +246,14 @@ function renderHomeSettings() {
 
     let headerHtml = `
     <div class="panel-header">
-        <div class="panel-header-title-row">
-            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">家を登録</h2>
-            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
-        </div>
+        <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+        <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">家を登録</h2>
+        <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
     </div>`;
 
     let contentHtml = `
     <div class="panel-content">
-        <div style="text-align: left;">
+        <div style="margin-top: 20px; text-align: left;">
             <div style="display:flex; gap: 8px; margin-bottom: 20px;">
                 <select id="home-select" style="flex:1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-family:inherit; font-size:15px; background:white;">
                     ${options}
@@ -274,8 +267,6 @@ function renderHomeSettings() {
     panel.innerHTML = headerHtml + contentHtml;
     renderHomeList();
 }
-
-// ----------------------------------------------
 
 function addHomePrefecture() {
     const select = document.getElementById('home-select');
@@ -332,19 +323,15 @@ function updateUIVisibility() {
     }
 
     if (panelOpen && selectedPref !== null) {
-        // 都道府県詳細画面 -> 両方隠す
         menuBtn.classList.add('hidden-ui');
         if (settingsBtn) settingsBtn.classList.add('hidden-ui');
     } else if (panelOpen && selectedPref === null) {
-        // 一覧画面 -> メニューは残す、設定は隠す
         menuBtn.classList.remove('hidden-ui');
         if (settingsBtn) settingsBtn.classList.add('hidden-ui');
     } else if (settingsOpen) {
-        // 設定画面 -> 設定は残す、メニューは隠す
         menuBtn.classList.add('hidden-ui');
         if (settingsBtn) settingsBtn.classList.remove('hidden-ui');
     } else {
-        // 初期画面 -> 両方表示
         menuBtn.classList.remove('hidden-ui');
         if (settingsBtn) settingsBtn.classList.remove('hidden-ui');
     }
@@ -391,14 +378,12 @@ function renderRightPanel() {
     if (!selectedPref) {
         let headerHtml = `
         <div class="panel-header">
-            <div class="panel-header-title-row">
-                <div style="flex:1;"></div>
-                <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">一覧</h2>
-                <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0;">✕</button>
-            </div>
+            <div style="flex:1;"></div>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">一覧</h2>
+            <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0;">✕</button>
         </div>`;
 
-        let contentHtml = `<div class="panel-content">`;
+        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
@@ -439,7 +424,7 @@ function renderRightPanel() {
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
         
         let headerHtml = `
-        <div class="panel-header" style="border-bottom: 3px solid ${color};">
+        <div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom:15px;">
             <div class="panel-header-title-row" style="margin-bottom:15px;">
                 <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
                 <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">${selectedPref}</h2>
@@ -473,14 +458,16 @@ function renderRightPanel() {
                 <span style="color:#aaa;">-</span>
                 <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
             </div>
-            <div style="margin-bottom: 5px;">
-                <label for="input-photos" class="btn-full" style="display:block; text-align:center; cursor:pointer; margin:0; background:${color};">写真を追加</label>
+            <div style="margin-bottom: 5px; text-align: center;">
+                <label for="input-photos" style="display:inline-block; padding: 12px 40px; background:${color}; color:white; font-size:1.1rem; font-weight:bold; border-radius:30px; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: opacity 0.2s;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+                    ＋ 写真を追加
+                </label>
                 <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
             </div>
             <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0;"></p>
         </div>`;
 
-        let contentHtml = `<div class="panel-content">`;
+        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
         if (photos.length > 0) {
             contentHtml += `<div class="photo-grid">`;
             photos.forEach(url => {
