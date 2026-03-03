@@ -2,7 +2,6 @@ body, html {
     margin: 0;
     padding: 0;
     height: 100%;
-    /* フォントと背景色をおしゃれに */
     font-family: 'Zen Kaku Gothic New', sans-serif;
     background-color: #eef2f5;
     color: #333333;
@@ -177,6 +176,7 @@ input[type="file"] {
     position: relative;
     border-radius: 8px;
     overflow: hidden;
+    cursor: pointer;
 }
 
 .photo-grid-item img {
@@ -212,7 +212,6 @@ input[type="file"] {
     .list-section { width: 100%; }
 }
 
-/* 地図の海の部分の色を指定 */
 .leaflet-container { 
-    background: #eef2f5 !important; 
+    background: #ffffff !important; 
 }

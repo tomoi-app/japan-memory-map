@@ -49,8 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
-                // 未訪問の色をオフホワイト、県境を白に変更しておしゃれに
-                style: { fillColor: '#f8f9fa', weight: 1, color: '#ffffff', fillOpacity: 1 },
+                // 境界線を黒に固定
+                style: { fillColor: '#f8f9fa', weight: 1.2, color: '#000000', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
                     const prefName = feature.properties.nam_ja;
                     layer.bindTooltip(prefName, { sticky: true, direction: 'top' });
@@ -75,7 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updateMapColors();
         });
 
-    // 地図の空白部分ダブルクリックで初期状態に戻る（滑らかに移動＋パネルを閉じる）
     map.on('dblclick', function(e) {
         if (initialBounds) {
             map.flyToBounds(initialBounds, { duration: 0.6 });
@@ -206,7 +205,8 @@ function renderRightPanel() {
         const color = PREF_COLORS[selectedPref] || '#3498db';
 
         let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">`;
-        html += `<button onclick="selectedPref=null; updateUIVisibility(); renderRightPanel();" style="background:white;">← 戻る</button>`;
+        // 戻るボタンの挙動を「初期画面に戻す」に変更
+        html += `<button onclick="closePanel()" style="background:white; border:1px solid #ccc; padding:6px 12px; border-radius:6px;">← 戻る</button>`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; padding:0;">✕</button>`;
         html += `</div>`;
         html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:10px; margin:0 0 8px; border-top:5px solid ${color}; font-size:1.4rem;">${selectedPref}</h1>`;
@@ -224,7 +224,9 @@ function renderRightPanel() {
         if (photos.length > 0) {
             html += `<div class="photo-grid">`;
             photos.forEach(url => {
-                html += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${JSON.stringify(photos)})">
+                // 文字列変換時のエラーを回避するためにエスケープ処理を追加
+                const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
+                html += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})">
                             <img src="${url}">
                             <button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button>
                          </div>`;
@@ -320,10 +322,9 @@ function updateMapColors() {
         const pref = layer.feature.properties.nam_ja;
         const isVisited = memoriesData.some(m => m.prefecture === pref);
         layer.setStyle({
-            // スタイル適用：未訪問色と県境を白に
             fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f8f9fa',
-            weight: 1,
-            color: '#ffffff',
+            weight: 1.2,
+            color: '#000000', // 境界線を黒で固定
             fillOpacity: 1
         });
     });
