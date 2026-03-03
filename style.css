@@ -63,7 +63,6 @@ body, html {
     z-index: 1000;
     background: white;
     border-radius: 10px;
-    /* パディングとフォントサイズを大きくして見やすく */
     padding: 12px 24px;
     font-size: 20px;
     font-weight: 700;
@@ -138,15 +137,13 @@ body, html {
 
 #slide-image {
     max-width: 95%;
-    /* 画面下部のボタンと被らないように最大高さを調整 */
     max-height: calc(100vh - 160px);
     object-fit: contain;
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    margin-bottom: 40px; /* ボタン領域を避けるため上にずらす */
+    margin-bottom: 40px; 
 }
 
-/* ← → コントロールを画面下部に固定 */
 .slide-controls {
     position: fixed;
     bottom: 30px;
@@ -273,4 +270,30 @@ input[type="date"] {
 
 .leaflet-container { 
     background: #ffffff !important; 
+}
+
+/* --- 追加: 設定ボタン --- */
+.settings-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 52px;
+    height: 52px;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 26px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 600; /* パネルより上に表示 */
+    transition: transform 0.3s ease, background 0.2s;
+    color: #666;
+}
+
+.settings-btn:hover {
+    background: #f8f9fa;
+    transform: rotate(45deg); /* 歯車が回るアニメーション */
 }

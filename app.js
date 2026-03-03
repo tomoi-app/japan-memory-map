@@ -47,7 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(map);
 
             const bounds = geoJsonLayer.getBounds();
-            // 余白を最小限（[0, 0]）にして、地図を画面いっぱいに大きく表示
             map.fitBounds(bounds, { padding: [0, 0] });
 
             setTimeout(() => {
@@ -69,22 +68,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 2本指でのピンチズームに干渉しないようにする処理
     let lastTouchTime = 0;
     let isPinching = false;
 
     document.getElementById('map-container').addEventListener('touchstart', (e) => {
         if (e.touches.length > 1) {
-            isPinching = true; // 2本以上の指が触れたらピンチ操作中と判定
+            isPinching = true;
         }
     });
 
     document.getElementById('map-container').addEventListener('touchend', function(e) {
         if (isPinching) {
             if (e.touches.length === 0) {
-                isPinching = false; // すべての指が離れたらピンチ操作を解除
+                isPinching = false;
             }
-            return; // ピンチ操作直後はダブルタップ処理を無視する
+            return;
         }
 
         const currentTime = new Date().getTime();
@@ -136,6 +134,11 @@ function closePanel() {
     selectedPref = null;
     document.getElementById('right-panel').classList.remove('open');
     updateUIVisibility();
+}
+
+// 設定ボタンを押したときの処理
+function openSettings() {
+    alert("設定画面は準備中です。\n今後ここに各種設定機能を追加します！");
 }
 
 function updateUIVisibility() {
@@ -208,6 +211,10 @@ function renderRightPanel() {
                 </button>`;
             });
         }
+        
+        // --- 設定ボタン（歯車アイコン）を追加 ---
+        html += `<button class="settings-btn" onclick="openSettings()">⚙️</button>`;
+
         panel.innerHTML = html;
 
     } else {
