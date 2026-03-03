@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(map);
 
             const bounds = geoJsonLayer.getBounds();
-            map.fitBounds(bounds, { paddingTopLeft: [0, 60], paddingBottomRight: [0, 0] });
+            map.fitBounds(bounds, { paddingTopLeft: [0, 80], paddingBottomRight: [0, 0] });
 
             setTimeout(() => {
                 initialBounds = map.getBounds();
@@ -230,7 +230,7 @@ function renderSettingsMenu() {
     
     let contentHtml = `
     <div class="panel-content">
-        <div style="display:flex; flex-direction:column; gap:15px;">
+        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
             <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 家を登録
             </button>
@@ -256,7 +256,7 @@ function renderHomeSettings() {
 
     let contentHtml = `
     <div class="panel-content">
-        <div style="text-align: left;">
+        <div style="margin-top: 20px; text-align: left;">
             <div style="display:flex; gap: 8px; margin-bottom: 20px;">
                 <select id="home-select" style="flex:1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-family:inherit; font-size:15px; background:white;">
                     ${options}
@@ -388,7 +388,7 @@ function renderRightPanel() {
             </div>
         </div>`;
 
-        let contentHtml = `<div class="panel-content">`;
+        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
@@ -429,15 +429,21 @@ function renderRightPanel() {
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
         
         let headerHtml = `
-        <div class="panel-header" style="border-bottom: 3px solid ${color};">
-            <div class="panel-header-title-row" style="margin-bottom:15px;">
+        <div class="panel-header" style="padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <div class="panel-header-title-row" style="margin-bottom:20px;">
                 <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-                <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">${selectedPref}</h2>
                 <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
             </div>`;
 
         if (homePrefectures.includes(selectedPref)) {
-            headerHtml += `</div>`;
+            headerHtml += `
+                <div style="display:flex; justify-content:center;">
+                    <div style="display:inline-flex; align-items:center; background:${color}; border-radius:40px; padding:8px 30px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                        <h2 style="margin:0; font-size:1.5rem; color:white; letter-spacing:2px;">${selectedPref}</h2>
+                    </div>
+                </div>
+            </div>`;
+            
             let contentHtml = `
             <div class="panel-content">
                 <div style="text-align:center; margin-top: 20px; padding: 20px; background: #fffdf5; border-radius: 10px;">
@@ -454,25 +460,29 @@ function renderRightPanel() {
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
         
         if ((data.date || photos.length > 0) && (!data.date || photos.length === 0)) {
-            headerHtml += `<div class="warning-banner">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
+            headerHtml += `<div class="warning-banner" style="margin: -5px 0 15px 0;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
         }
         
         headerHtml += `
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
+            <div style="display:flex; justify-content:center; margin-bottom:20px;">
+                <div style="display:inline-flex; align-items:center; background:${color}; border-radius:40px; padding:6px 6px 6px 24px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                    <h2 style="margin:0; font-size:1.4rem; color:white; letter-spacing:2px; margin-right:15px;">${selectedPref}</h2>
+                    <label for="input-photos" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; background:white; color:${color}; font-size:24px; font-weight:bold; border-radius:50%; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.1); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="写真を追加">
+                        ＋
+                    </label>
+                    <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
+                </div>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:8px;">
                 <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                 <span style="color:#aaa;">-</span>
                 <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
             </div>
-            <div style="margin-bottom: 5px; text-align: center;">
-                <label for="input-photos" style="display:inline-block; padding: 12px 40px; background:${color}; color:white; font-size:1.1rem; font-weight:bold; border-radius:30px; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: opacity 0.2s;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
-                    ＋ 写真を追加
-                </label>
-                <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
-            </div>
-            <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0;"></p>
+            <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>
         </div>`;
 
-        let contentHtml = `<div class="panel-content">`;
+        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
         if (photos.length > 0) {
             contentHtml += `<div class="photo-grid">`;
             photos.forEach(url => {
@@ -480,12 +490,13 @@ function renderRightPanel() {
                 contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
             });
             contentHtml += `</div>`;
+        } else {
+            contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:20px;">上の「＋」ボタンから写真を追加できます</p>`;
         }
         contentHtml += `</div>`;
 
         panel.innerHTML = headerHtml + contentHtml;
 
-        // --- 追加: 日付の監視ロジック ---
         const fromInput = document.getElementById('input-date-from');
         const toInput = document.getElementById('input-date-to');
         const photoInput = document.getElementById('input-photos');
@@ -575,7 +586,7 @@ function updateMapColors() {
         }
         layer.setStyle({
             fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
-            weight: isHome ? 0.8 : 0.3,
+            weight: 0.3, // すべての都道府県で枠線の太さを0.3に統一
             color: '#000000',
             fillOpacity: 1
         });
