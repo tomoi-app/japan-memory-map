@@ -8,6 +8,9 @@ let autoSaveTimer = null;
 let panelOpen = false;
 let initialBounds;
 
+// ローカルストレージから家のリストを読み込む
+let homePrefectures = JSON.parse(localStorage.getItem('homePrefectures')) || [];
+
 const PREF_COLORS = {
     '北海道':'#9fb9c4','青森県':'#a2c4c3','岩手県':'#a1bda6','宮城県':'#b6c6a7',
     '秋田県':'#c1cda2','山形県':'#cdd3a1','福島県':'#d9d8a3','茨城県':'#e3d8a6',
@@ -120,7 +123,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (slideIndex < currentPhotos.length - 1) { slideIndex++; updateSlider(); }
     });
 
-    // 画面の右下に固定で設定ボタン（SVGイラスト）を追加
     if (!document.getElementById('settings-btn')) {
         const settingsBtn = document.createElement('button');
         settingsBtn.id = 'settings-btn';
@@ -136,9 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function openPanel() {
     panelOpen = true;
-    const panel = document.getElementById('right-panel');
-    panel.classList.add('open');
-    panel.scrollTop = 0;
+    document.getElementById('right-panel').classList.add('open');
     updateUIVisibility();
 }
 
@@ -150,17 +150,90 @@ function closePanel() {
 }
 
 function openSettings() {
-    alert("設定画面は準備中です。");
+    let modal = document.getElementById('settings-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'settings-modal';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+
+    const prefs = Object.keys(PREF_COLORS);
+    let options = prefs.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    let html = `
+    <div class="modal-content" style="background: white; padding: 25px; border-radius: 12px; text-align: left; max-width: 400px; width: 90%;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <h2 style="margin:0; font-size: 1.4rem; color: #444;">設定</h2>
+            <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="background:none; border:none; font-size:24px; color:#aaa; cursor:pointer; padding:0;">✕</button>
+        </div>
+        <div style="margin-bottom: 25px;">
+            <label style="font-weight: bold; color: #555; display:block; margin-bottom: 10px;">家（拠点）を登録</label>
+            <div style="display:flex; gap: 8px; margin-bottom: 15px;">
+                <select id="home-select" style="flex:1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family:inherit; font-size:14px; background:white;">
+                    ${options}
+                </select>
+                <button onclick="addHomePrefecture()" style="background:#6c8ca3; color:white; border:none; padding:10px 15px; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:bold;">追加</button>
+            </div>
+            <div id="home-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+    </div>`;
+
+    modal.innerHTML = html;
+    modal.classList.remove('hidden');
+    renderHomeList();
+}
+
+function addHomePrefecture() {
+    const select = document.getElementById('home-select');
+    const pref = select.value;
+    if (!homePrefectures.includes(pref)) {
+        homePrefectures.push(pref);
+        saveHomePrefectures();
+        renderHomeList();
+        updateMapColors();
+        updateCounter();
+        if (panelOpen) renderRightPanel();
+    }
+}
+
+function removeHomePrefecture(pref) {
+    homePrefectures = homePrefectures.filter(p => p !== pref);
+    saveHomePrefectures();
+    renderHomeList();
+    updateMapColors();
+    updateCounter();
+    if (panelOpen) renderRightPanel();
+}
+
+function saveHomePrefectures() {
+    localStorage.setItem('homePrefectures', JSON.stringify(homePrefectures));
+}
+
+function renderHomeList() {
+    const list = document.getElementById('home-list');
+    if (!list) return;
+    if (homePrefectures.length === 0) {
+        list.innerHTML = `<span style="color:#aaa; font-size:13px;">登録されていません</span>`;
+        return;
+    }
+    list.innerHTML = homePrefectures.map(pref => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f4f7f6; padding:10px 15px; border-radius:6px;">
+            <span style="font-weight:bold; color:#444; display:flex; align-items:center; gap:6px;">
+                🏠 ${pref}
+            </span>
+            <button onclick="removeHomePrefecture('${pref}')" style="background:rgba(0,0,0,0.1); border:none; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#555; cursor:pointer; font-size:12px;">✕</button>
+        </div>
+    `).join('');
 }
 
 function updateUIVisibility() {
     const counter = document.getElementById('pref-counter');
     const menuBtn = document.getElementById('menu-btn');
     const settingsBtn = document.getElementById('settings-btn');
-    
     if (panelOpen) {
         counter.classList.add('hidden-ui');
-        if (settingsBtn) settingsBtn.style.display = 'none'; // パネルが開いている時は歯車を隠す
+        if (settingsBtn) settingsBtn.style.display = 'none';
         if (selectedPref) {
             menuBtn.classList.add('hidden-ui');
         } else {
@@ -175,18 +248,17 @@ function updateUIVisibility() {
 
 function updateCounter() {
     const activeMemories = memoriesData.filter(m => {
+        if (homePrefectures.includes(m.prefecture)) return false;
         const photos = JSON.parse(m.photo_urls || "[]");
         return m.date || photos.length > 0;
     });
+    const totalVisited = activeMemories.length + homePrefectures.length;
+    document.getElementById('pref-counter').innerText = `${totalVisited} / 47`;
 
-    document.getElementById('pref-counter').innerText = `${activeMemories.length} / 47`;
-
-    // 警告チェック：日付か写真のどちらかが足りない県があるか判定
     const hasWarning = activeMemories.some(m => {
         const photos = JSON.parse(m.photo_urls || "[]");
         return !m.date || photos.length === 0;
     });
-
     const menuBtn = document.getElementById('menu-btn');
     if (hasWarning) {
         menuBtn.classList.add('warning');
@@ -214,25 +286,33 @@ function renderRightPanel() {
 
     if (!selectedPref) {
         panel.style.backgroundColor = '#ffffff';
-
         let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:24px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
 
+        homePrefectures.forEach(pref => {
+            html += `<button class="pref-btn" onclick="selectedPref='${pref}'; openPanel(); renderRightPanel();"
+                style="border-left: 6px solid ${PREF_COLORS[pref]}; background: #fffdf5;">
+                <span style="display:flex; align-items:center; gap:6px; font-weight:bold; color:#444;">
+                    🏠 ${pref}
+                </span>
+                <span style="color:#6c8ca3; font-size:0.85em; font-weight:bold;">拠点</span>
+            </button>`;
+        });
+
         const activeMemories = memoriesData.filter(m => {
+            if (homePrefectures.includes(m.prefecture)) return false;
             const photos = JSON.parse(m.photo_urls || "[]");
             return m.date || photos.length > 0;
         });
 
-        if (activeMemories.length === 0) {
+        if (activeMemories.length === 0 && homePrefectures.length === 0) {
             html += `<p style="color:#888; text-align:center; margin-top:40px;">地図から都道府県を選んで<br>思い出を追加しましょう</p>`;
         } else {
             activeMemories.forEach(m => {
                 const photos = JSON.parse(m.photo_urls || "[]");
                 const color = PREF_COLORS[m.prefecture] || '#aaa';
-                // どちらかが足りない場合にドットを表示する判定
                 const needsData = !m.date || photos.length === 0;
-                
                 html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
@@ -243,59 +323,47 @@ function renderRightPanel() {
             });
         }
         panel.innerHTML = html;
-
     } else {
         panel.style.backgroundColor = '#ffffff';
+        let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">`;
+        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
+        html += `</div>`;
+
+        if (homePrefectures.includes(selectedPref)) {
+            html += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${PREF_COLORS[selectedPref]}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>`;
+            html += `<div style="text-align:center; margin-top: 40px; padding: 20px; background: #fffdf5; border-radius: 10px;">`;
+            html += `<div style="font-size:48px; margin-bottom:10px;">🏠</div>`;
+            html += `<h3 style="color: #444; margin: 10px 0;">家に登録されています</h3>`;
+            html += `<p style="color: #777; font-size: 13px; line-height: 1.6;">拠点として設定されているため、<br>写真や日付の登録は不要です。</p>`;
+            html += `</div>`;
+            panel.innerHTML = html;
+            return;
+        }
 
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
-
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
-
-        let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">`;
-        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
-        html += `</div>`;
-        
-        // 警告メッセージの表示判定
-        const hasAny = data.date || photos.length > 0;
-        if (hasAny) {
-            if (!data.date) {
-                html += `<div class="warning-banner">日付を登録してください</div>`;
-            } else if (photos.length === 0) {
-                html += `<div class="warning-banner">写真を追加してください</div>`;
-            }
+        if ((data.date || photos.length > 0) && (!data.date || photos.length === 0)) {
+            html += `<div class="warning-banner">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
         }
-        
         html += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${color}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>`;
-        
         html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">`;
         html += `<input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">`;
         html += `<span style="color:#aaa;">-</span>`;
         html += `<input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">`;
         html += `</div>`;
-
-        html += `<div style="margin-bottom: 20px;">`;
-        html += `<label for="input-photos" class="btn-full" style="display:block; text-align:center; cursor:pointer; margin:0; background:${color};">写真を追加</label>`;
-        html += `<input type="file" id="input-photos" multiple accept="image/*" style="display:none;">`;
-        html += `</div>`;
-        
+        html += `<div style="margin-bottom: 20px;"><label for="input-photos" class="btn-full" style="display:block; text-align:center; cursor:pointer; margin:0; background:${color};">写真を追加</label><input type="file" id="input-photos" multiple accept="image/*" style="display:none;"></div>`;
         html += `<p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0 0 15px;"></p>`;
-
         if (photos.length > 0) {
             html += `<div class="photo-grid">`;
             photos.forEach(url => {
                 const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
-                html += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})">
-                            <img src="${url}">
-                            <button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button>
-                         </div>`;
+                html += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
             });
             html += `</div>`;
         }
-
         panel.innerHTML = html;
-
         document.getElementById('input-date-from').addEventListener('change', triggerAutoSave);
         document.getElementById('input-date-to').addEventListener('change', triggerAutoSave);
         document.getElementById('input-photos').addEventListener('change', triggerAutoSave);
@@ -314,26 +382,14 @@ async function saveMemoryData() {
     const toEl = document.getElementById('input-date-to');
     const files = document.getElementById('input-photos').files;
     if (!fromEl) return;
-
     const fromVal = toSlashDate(fromEl.value);
     const toVal = toSlashDate(toEl.value);
     const dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
-
     let base64Photos = [];
-    for (let file of files) {
-        const b64 = await compressImage(file);
-        base64Photos.push(b64);
-    }
-
+    for (let file of files) { base64Photos.push(await compressImage(file)); }
     const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: base64Photos };
-
     try {
-        const res = await fetch('/api', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
+        const res = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (res.ok) {
             await fetchMemories(false);
             renderRightPanel();
@@ -359,11 +415,7 @@ async function fetchMemories(redraw = true) {
 async function deletePhoto(url) {
     const payload = { action: "delete_photo", prefecture: selectedPref, photo_url: url };
     try {
-        await fetch('/api', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         await fetchMemories(false);
         renderRightPanel();
         updateMapColors();
@@ -376,14 +428,17 @@ function updateMapColors() {
     geoJsonLayer.eachLayer(layer => {
         const pref = layer.feature.properties.nam_ja;
         const memory = memoriesData.find(m => m.prefecture === pref);
-        let isVisited = false;
-        if (memory) {
+        const isHome = homePrefectures.includes(pref);
+        let isVisited = isHome;
+        if (!isVisited && memory) {
             const photos = JSON.parse(memory.photo_urls || "[]");
             if (memory.date || photos.length > 0) isVisited = true;
         }
         layer.setStyle({
             fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
-            weight: 0.5, color: '#000000', fillOpacity: 1
+            weight: isHome ? 1.5 : 0.5,
+            color: '#000000',
+            fillOpacity: 1
         });
     });
 }
