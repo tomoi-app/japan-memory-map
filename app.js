@@ -11,7 +11,6 @@ let initialBounds;
 // ローカルストレージから家のリストを読み込む
 let homePrefectures = JSON.parse(localStorage.getItem('homePrefectures')) || [];
 
-// 北海道から沖縄までの順番が定義されているオブジェクト
 const PREF_COLORS = {
     '北海道':'#9fb9c4','青森県':'#a2c4c3','岩手県':'#a1bda6','宮城県':'#b6c6a7',
     '秋田県':'#c1cda2','山形県':'#cdd3a1','福島県':'#d9d8a3','茨城県':'#e3d8a6',
@@ -31,14 +30,14 @@ document.addEventListener('DOMContentLoaded', () => {
     map = L.map('map-container', {
         zoomControl: false,
         attributionControl: false,
-        doubleClickZoom: false
+        doubleClickZoom: false,
+        zoomSnap: 0 // 限界まで大きく画面にフィットさせるための設定
     }).setView([38.0, 137.0], 5);
 
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
-                // マップの枠線をさらに細く（0.3）してスッキリさせる
                 style: { fillColor: '#f4f7f6', weight: 0.3, color: '#000000', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
                     const prefName = feature.properties.nam_ja;
@@ -105,7 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fetchMemories();
 
-    document.getElementById('menu-btn').addEventListener('click', () => {
+    const menuBtn = document.getElementById('menu-btn');
+    menuBtn.title = "一覧"; // カーソルを合わせた時の文字
+    menuBtn.addEventListener('click', () => {
         if (panelOpen && selectedPref === null) {
             closePanel();
         } else {
@@ -129,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const settingsBtn = document.createElement('button');
         settingsBtn.id = 'settings-btn';
         settingsBtn.className = 'settings-btn';
+        settingsBtn.title = "設定"; // カーソルを合わせた時の文字
         settingsBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -145,15 +147,46 @@ function openPanel() {
 }
 
 function closePanel() {
+    clearTimeout(autoSaveTimer);
+
+    // 日付だけ入力して閉じた場合、自動的にデータを消去する処理
+    if (selectedPref && !homePrefectures.includes(selectedPref)) {
+        const fromEl = document.getElementById('input-date-from');
+        const toEl = document.getElementById('input-date-to');
+        const hasDateInput = (fromEl && fromEl.value) || (toEl && toEl.value);
+
+        const data = memoriesData.find(m => m.prefecture === selectedPref);
+        let photoCount = 0;
+        if (data) {
+            try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
+        }
+
+        if (hasDateInput && photoCount === 0) {
+            // 写真が0枚で日付だけある場合はデータをDBから削除
+            if (data) data.date = ""; // ローカルデータを即時更新
+            const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [] };
+            fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                .then(() => fetchMemories(false));
+        }
+    }
+
     panelOpen = false;
     selectedPref = null;
     document.getElementById('right-panel').classList.remove('open');
     updateUIVisibility();
+    updateMapColors();
+    updateCounter();
 }
 
 // ---------------- 設定メニュー ----------------
 function openSettings() {
     let modal = document.getElementById('settings-modal');
+    // すでに開いている場合は閉じる（トグル機能）
+    if (modal && !modal.classList.contains('hidden')) {
+        modal.classList.add('hidden');
+        return;
+    }
+    
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'settings-modal';
@@ -166,13 +199,10 @@ function openSettings() {
 
 function renderSettingsMenu() {
     let modal = document.getElementById('settings-modal');
-    // タイトル左上、大きい✕ボタンを右上、大きな「家を登録」ボタン
     let html = `
-    <div class="modal-content" style="background: white; padding: 30px 25px; border-radius: 16px; text-align: left; max-width: 450px; width: 90%;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 30px;">
-            <h2 style="margin:0; font-size: 1.8rem; color: #333;">設定</h2>
-            <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="background:none; border:none; font-size:32px; color:#aaa; cursor:pointer; padding:0; line-height:1;">✕</button>
-        </div>
+    <div class="modal-content" style="background: white; padding: 30px 25px; border-radius: 16px; text-align: center; max-width: 450px; width: 90%; position: relative;">
+        <h2 style="margin: 0 0 25px 0; font-size: 1.8rem; color: #333;">設定</h2>
+        <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 32px; color: #aaa; cursor: pointer; padding: 0; line-height: 1;">✕</button>
         
         <div style="display:flex; flex-direction:column; gap:15px;">
             <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.3rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
@@ -189,16 +219,12 @@ function renderHomeSettings() {
     let options = prefs.map(p => `<option value="${p}">${p}</option>`).join('');
 
     let html = `
-    <div class="modal-content" style="background: white; padding: 30px 25px; border-radius: 16px; text-align: left; max-width: 450px; width: 90%;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 30px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1;">←</button>
-                <h2 style="margin:0; font-size: 1.8rem; color: #333;">家を登録</h2>
-            </div>
-            <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="background:none; border:none; font-size:32px; color:#aaa; cursor:pointer; padding:0; line-height:1;">✕</button>
-        </div>
+    <div class="modal-content" style="background: white; padding: 30px 25px; border-radius: 16px; text-align: center; max-width: 450px; width: 90%; position: relative;">
+        <button onclick="renderSettingsMenu()" style="position: absolute; top: 15px; left: 20px; background: none; border: none; font-size: 24px; color: #6c8ca3; cursor: pointer; padding: 0; font-weight: bold; line-height: 1.2;">←</button>
+        <h2 style="margin: 0 0 25px 0; font-size: 1.8rem; color: #333;">家を登録</h2>
+        <button onclick="document.getElementById('settings-modal').classList.add('hidden')" style="position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 32px; color: #aaa; cursor: pointer; padding: 0; line-height: 1;">✕</button>
         
-        <div style="margin-bottom: 25px;">
+        <div style="margin-bottom: 25px; text-align: left;">
             <div style="display:flex; gap: 8px; margin-bottom: 15px;">
                 <select id="home-select" style="flex:1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-family:inherit; font-size:15px; background:white;">
                     ${options}
@@ -247,7 +273,6 @@ function renderHomeList() {
         return;
     }
     
-    // 設定画面内のリストも北海道から順番にソート
     const prefOrder = Object.keys(PREF_COLORS);
     const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
 
@@ -316,7 +341,6 @@ function renderRightPanel() {
     panel.scrollTop = 0;
     updateUIVisibility();
 
-    // 順番をソートするための基準配列
     const prefOrder = Object.keys(PREF_COLORS);
 
     if (!selectedPref) {
@@ -325,7 +349,6 @@ function renderRightPanel() {
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
 
-        // 家リストも北海道から順番に表示
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
             html += `<button class="pref-btn" onclick="selectedPref='${pref}'; openPanel(); renderRightPanel();"
@@ -343,7 +366,6 @@ function renderRightPanel() {
         if (activeMemories.length === 0 && homePrefectures.length === 0) {
             html += `<p style="color:#888; text-align:center; margin-top:40px;">地図から都道府県を選んで<br>思い出を追加しましょう</p>`;
         } else {
-            // 思い出の県も北海道から順番にソートして表示
             const sortedMemories = [...activeMemories].sort((a, b) => prefOrder.indexOf(a.prefecture) - prefOrder.indexOf(b.prefecture));
             
             sortedMemories.forEach(m => {
@@ -472,7 +494,7 @@ function updateMapColors() {
         }
         layer.setStyle({
             fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
-            weight: isHome ? 0.8 : 0.3,  /* 家の枠線は少し強調し、それ以外は極細に */
+            weight: isHome ? 0.8 : 0.3,
             color: '#000000',
             fillOpacity: 1
         });
