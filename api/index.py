@@ -139,5 +139,64 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
 
+        elif action == "delete_photo":
+            pref = payload.get("prefecture", "")
+            url_to_delete = payload.get("photo_url", "")
+            filename = url_to_delete.split('/')[-1]
+
+            safe_pref = urllib.parse.quote(pref)
+            url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*"
+            req = urllib.request.Request(url)
+            req.add_header("apikey", supabase_key)
+            req.add_header("Authorization", f"Bearer {supabase_key}")
+
+            with urllib.request.urlopen(req, timeout=10) as res:
+                existing = json.loads(res.read())
+
+            if len(existing) == 0:
+                raise Exception("削除対象が見つかりません。")
+
+            row_id = existing[0]["id"]
+            photo_urls = []
+            try:
+                photo_urls = json.loads(existing[0].get("photo_urls", "[]"))
+            except:
+                pass
+
+            if url_to_delete in photo_urls:
+                photo_urls.remove(url_to_delete)
+
+            # Storageから削除
+            del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+            del_req = urllib.request.Request(del_url, method="DELETE")
+            del_req.add_header("apikey", supabase_key)
+            del_req.add_header("Authorization", f"Bearer {supabase_key}")
+            try:
+                with urllib.request.urlopen(del_req, timeout=10):
+                    pass
+            except:
+                pass
+
+            # DBのphoto_urlsを更新
+            db_payload = {"photo_urls": json.dumps(photo_urls)}
+            db_req = urllib.request.Request(
+                f"{supabase_url}/rest/v1/memories?id=eq.{row_id}",
+                data=json.dumps(db_payload).encode('utf-8'),
+                method="PATCH"
+            )
+            db_req.add_header("apikey", supabase_key)
+            db_req.add_header("Authorization", f"Bearer {supabase_key}")
+            db_req.add_header("Content-Type", "application/json")
+            db_req.add_header("Prefer", "return=representation")
+
+            with urllib.request.urlopen(db_req, timeout=10) as response:
+                data = response.read()
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(data)
+
         else:
             raise Exception(f"不明なアクションです: {action}")
