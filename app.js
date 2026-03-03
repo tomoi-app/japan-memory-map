@@ -88,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
-
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTouchTime;
         if (tapLength > 0 && tapLength < 400) {
@@ -106,10 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuBtn = document.getElementById('menu-btn');
     menuBtn.title = "一覧";
     menuBtn.addEventListener('click', () => {
-        if (settingsOpen) closeSettings();
-        if (panelOpen && selectedPref === null) {
-            closePanel();
+        if (panelOpen) {
+            closePanel(); // 開いていれば閉じる（トグル）
         } else {
+            if (settingsOpen) closeSettings();
             selectedPref = null;
             openPanel();
             renderRightPanel();
@@ -135,7 +134,15 @@ document.addEventListener('DOMContentLoaded', () => {
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>`;
-        settingsBtn.onclick = openSettings;
+        
+        settingsBtn.onclick = () => {
+            if (settingsOpen) {
+                closeSettings(); // 開いていれば閉じる（トグル）
+            } else {
+                if (panelOpen) closePanel();
+                openSettings();
+            }
+        };
         document.querySelector('.main-layout').appendChild(settingsBtn);
     }
 
@@ -183,16 +190,12 @@ function closePanel() {
     updateCounter();
 }
 
+// ---------------- 設定メニュー ----------------
 function openSettings() {
-    if (panelOpen) closePanel();
-    if (settingsOpen) {
-        closeSettings();
-        return;
-    }
     settingsOpen = true;
     document.getElementById('settings-panel').classList.add('open');
     updateUIVisibility();
-    renderSettingsPanel();
+    renderSettingsMenu();
 }
 
 function closeSettings() {
@@ -201,20 +204,45 @@ function closeSettings() {
     updateUIVisibility();
 }
 
-function renderSettingsPanel() {
+function renderSettingsMenu() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+
+    let headerHtml = `
+    <div class="panel-header">
+        <div style="flex:1;"></div>
+        <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">設定</h2>
+        <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
+    </div>`;
+    
+    let contentHtml = `
+    <div class="panel-content">
+        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+            <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                家を登録
+            </button>
+        </div>
+    </div>`;
+    
+    panel.innerHTML = headerHtml + contentHtml;
+}
+
+function renderHomeSettings() {
     const panel = document.getElementById('settings-panel');
     const prefOrder = Object.keys(PREF_COLORS);
     let options = prefOrder.map(p => `<option value="${p}">${p}</option>`).join('');
-    
-    let html = `
-    <div class="panel-header" style="text-align: center; min-height: 40px;">
-        <h2 style="margin: 0; font-size: 1.6rem; color: #333;">設定</h2>
-        <button class="panel-close-btn" onclick="closeSettings()">✕</button>
-    </div>
+
+    let headerHtml = `
+    <div class="panel-header">
+        <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+        <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">家を登録</h2>
+        <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+    </div>`;
+
+    let contentHtml = `
     <div class="panel-content">
-        <div style="margin-top: 10px; text-align: left;">
-            <label style="font-weight: bold; color: #555; display:block; margin-bottom: 10px;">家を登録</label>
-            <div style="display:flex; gap: 8px; margin-bottom: 15px;">
+        <div style="margin-top: 20px; text-align: left;">
+            <div style="display:flex; gap: 8px; margin-bottom: 20px;">
                 <select id="home-select" style="flex:1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-family:inherit; font-size:15px; background:white;">
                     ${options}
                 </select>
@@ -224,9 +252,11 @@ function renderSettingsPanel() {
         </div>
     </div>`;
     
-    panel.innerHTML = html;
+    panel.innerHTML = headerHtml + contentHtml;
     renderHomeList();
 }
+
+// ----------------------------------------------
 
 function addHomePrefecture() {
     const select = document.getElementById('home-select');
@@ -273,18 +303,12 @@ function renderHomeList() {
 
 function updateUIVisibility() {
     const counter = document.getElementById('pref-counter');
-    const menuBtn = document.getElementById('menu-btn');
-    const settingsBtn = document.getElementById('settings-btn');
-    
     if (panelOpen || settingsOpen) {
         counter.classList.add('hidden-ui');
-        if (settingsBtn) settingsBtn.style.display = 'none';
-        menuBtn.classList.add('hidden-ui');
     } else {
         counter.classList.remove('hidden-ui');
-        menuBtn.classList.remove('hidden-ui');
-        if (settingsBtn) settingsBtn.style.display = 'flex';
     }
+    // アイコンは常に表示するため、何も隠さない
 }
 
 function updateCounter() {
@@ -323,14 +347,17 @@ function formatDate(dateStr) {
 function renderRightPanel() {
     const panel = document.getElementById('right-panel');
     const prefOrder = Object.keys(PREF_COLORS);
+    panel.style.backgroundColor = '#ffffff';
 
     if (!selectedPref) {
         let headerHtml = `
-        <div class="panel-header" style="min-height: 30px;">
-            <button class="panel-close-btn" onclick="closePanel()">✕</button>
+        <div class="panel-header">
+            <div style="flex:1;"></div>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">一覧</h2>
+            <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0;">✕</button>
         </div>`;
-        
-        let contentHtml = `<div class="panel-content">`;
+
+        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
@@ -368,13 +395,16 @@ function renderRightPanel() {
         panel.innerHTML = headerHtml + contentHtml;
         
     } else {
+        const color = PREF_COLORS[selectedPref] || '#6c8ca3';
+
         let headerHtml = `
-        <div class="panel-header">
-            <button class="panel-close-btn" onclick="closePanel()">✕</button>
-        `;
+        <div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom:15px;">
+            <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">${selectedPref}</h2>
+            <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>`;
 
         if (homePrefectures.includes(selectedPref)) {
-            headerHtml += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${PREF_COLORS[selectedPref]}; margin:0; font-size:1.6rem; color:#333;">${selectedPref}</h1></div>`;
             let contentHtml = `
             <div class="panel-content">
                 <div style="text-align:center; margin-top: 20px; padding: 20px; background: #fffdf5; border-radius: 10px;">
@@ -389,14 +419,14 @@ function renderRightPanel() {
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
-        const color = PREF_COLORS[selectedPref] || '#6c8ca3';
         
+        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
+
         if ((data.date || photos.length > 0) && (!data.date || photos.length === 0)) {
-            headerHtml += `<div class="warning-banner">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
+            contentHtml += `<div class="warning-banner">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
         }
         
-        headerHtml += `
-            <h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${color}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>
+        contentHtml += `
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
                 <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                 <span style="color:#aaa;">-</span>
@@ -407,11 +437,10 @@ function renderRightPanel() {
                 <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
             </div>
             <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0;"></p>
-        </div>`;
+        `;
 
-        let contentHtml = `<div class="panel-content">`;
         if (photos.length > 0) {
-            contentHtml += `<div class="photo-grid">`;
+            contentHtml += `<div class="photo-grid" style="margin-top:15px;">`;
             photos.forEach(url => {
                 const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
                 contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
