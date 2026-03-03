@@ -428,19 +428,14 @@ function renderRightPanel() {
     } else {
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
         
-        let headerHtml = `
-        <div class="panel-header" style="padding-bottom: 15px; border-bottom: 1px solid #eee;">
-            <div class="panel-header-title-row" style="margin-bottom:20px;">
-                <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-                <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
-            </div>`;
+        let headerHtml = `<div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom: 15px;">`;
 
         if (homePrefectures.includes(selectedPref)) {
             headerHtml += `
-                <div style="display:flex; justify-content:center;">
-                    <div style="display:inline-flex; align-items:center; background:${color}; border-radius:40px; padding:8px 30px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
-                        <h2 style="margin:0; font-size:1.5rem; color:white; letter-spacing:2px;">${selectedPref}</h2>
-                    </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+                    <h2 style="margin: 0; font-size: 1.6rem; color: #333;">${selectedPref}</h2>
+                    <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
                 </div>
             </div>`;
             
@@ -458,40 +453,47 @@ function renderRightPanel() {
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
-        
-        if ((data.date || photos.length > 0) && (!data.date || photos.length === 0)) {
-            headerHtml += `<div class="warning-banner" style="margin: -5px 0 15px 0;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
-        }
-        
+
         headerHtml += `
-            <div style="display:flex; justify-content:center; margin-bottom:20px;">
-                <div style="display:inline-flex; align-items:center; background:${color}; border-radius:40px; padding:6px 6px 6px 24px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
-                    <h2 style="margin:0; font-size:1.4rem; color:white; letter-spacing:2px; margin-right:15px;">${selectedPref}</h2>
-                    <label for="input-photos" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; background:white; color:${color}; font-size:24px; font-weight:bold; border-radius:50%; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.1); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="写真を追加">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+                
+                <div style="display:inline-flex; align-items:center; background:${color}; border-radius:40px; padding:6px 6px 6px 20px; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+                    <h2 style="margin:0; font-size:1.3rem; color:white; letter-spacing:2px; margin-right:10px;">${selectedPref}</h2>
+                    <label for="input-photos" style="display:flex; align-items:center; justify-content:center; width:34px; height:34px; background:white; color:${color}; font-size:24px; font-weight:bold; border-radius:50%; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.1); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="写真を追加">
                         ＋
                     </label>
                     <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
                 </div>
+
+                <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
             </div>
-            
+        </div>`;
+
+        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
+        
+        if ((data.date || photos.length > 0) && (!data.date || photos.length === 0)) {
+            contentHtml += `<div class="warning-banner" style="margin: -5px 0 15px 0;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
+        }
+        
+        contentHtml += `
             <div style="display:flex; align-items:center; gap:8px;">
                 <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                 <span style="color:#aaa;">-</span>
                 <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
             </div>
             <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>
-        </div>`;
+        `;
 
-        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
         if (photos.length > 0) {
-            contentHtml += `<div class="photo-grid">`;
+            contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
             photos.forEach(url => {
                 const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
                 contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
             });
             contentHtml += `</div>`;
         } else {
-            contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:20px;">上の「＋」ボタンから写真を追加できます</p>`;
+            contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">上の「＋」ボタンから写真を追加できます</p>`;
         }
         contentHtml += `</div>`;
 
@@ -586,7 +588,7 @@ function updateMapColors() {
         }
         layer.setStyle({
             fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
-            weight: 0.3, // すべての都道府県で枠線の太さを0.3に統一
+            weight: 0.3,
             color: '#000000',
             fillOpacity: 1
         });
