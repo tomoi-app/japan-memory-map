@@ -428,18 +428,19 @@ function renderRightPanel() {
     } else {
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
         
-        let headerHtml = `
-        <div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom: 15px;">
-            <div class="panel-header-title-row" style="margin-bottom:20px;">
-                <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-                <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
-            </div>`;
+        let headerHtml = `<div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom: 15px;">`;
 
         if (homePrefectures.includes(selectedPref)) {
             headerHtml += `
-                <div style="display:flex; justify-content:center; align-items:center; gap: 10px;">
-                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                    <h2 style="margin:0; font-size:1.8rem; color:#333; letter-spacing:2px;">${selectedPref}</h2>
+                <div style="display:flex; justify-content:center; align-items:center; position:relative; min-height:44px;">
+                    <button onclick="selectedPref=null; renderRightPanel();" style="position:absolute; left:0; top:50%; transform:translateY(-50%); background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; z-index:2;">←</button>
+                    
+                    <div style="display:flex; align-items:center; gap: 10px;">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                        <h2 style="margin:0; font-size:1.8rem; color:#333; letter-spacing:2px;">${selectedPref}</h2>
+                    </div>
+
+                    <button class="panel-close-btn" onclick="closePanel()" style="position:absolute; right:0; top:50%; transform:translateY(-50%); z-index:2;">✕</button>
                 </div>
             </div>`;
             
@@ -457,21 +458,28 @@ function renderRightPanel() {
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
-        
-        if ((data.date || photos.length > 0) && (!data.date || photos.length === 0)) {
-            headerHtml += `<div class="warning-banner" style="margin: -5px 0 15px 0;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
+        const hasWarning = (data.date || photos.length > 0) && (!data.date || photos.length === 0);
+
+        headerHtml += `
+            <div style="display:flex; justify-content:center; align-items:center; position:relative; min-height:44px; margin-bottom: ${hasWarning ? '15px' : '20px'};">
+                <button onclick="selectedPref=null; renderRightPanel();" style="position:absolute; left:0; top:50%; transform:translateY(-50%); background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; z-index:2;">←</button>
+                
+                <div style="display:flex; align-items:center; gap: 15px;">
+                    <h2 style="margin:0; font-size:1.8rem; color:#333; letter-spacing:2px;">${selectedPref}</h2>
+                    <label for="input-photos" style="display:flex; align-items:center; justify-content:center; width:40px; height:40px; background:${color}; color:white; border-radius:50%; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); transition:transform 0.2s, opacity 0.2s;" onmouseover="this.style.transform='scale(1.1)'; this.style.opacity='0.9';" onmouseout="this.style.transform='scale(1)'; this.style.opacity='1';" title="写真を追加">
+                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </label>
+                    <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
+                </div>
+
+                <button class="panel-close-btn" onclick="closePanel()" style="position:absolute; right:0; top:50%; transform:translateY(-50%); z-index:2;">✕</button>
+            </div>`;
+            
+        if (hasWarning) {
+            headerHtml += `<div class="warning-banner" style="margin-bottom: 15px;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
         }
         
-        // --- ダークなテキストと独立した＋ボタンによる美しいデザイン ---
         headerHtml += `
-            <div style="display:flex; justify-content:center; align-items:center; gap: 15px; margin-bottom:20px;">
-                <h2 style="margin:0; font-size:1.8rem; color:#333; letter-spacing:2px;">${selectedPref}</h2>
-                <label for="input-photos" style="display:flex; align-items:center; justify-content:center; width:44px; height:44px; background:${color}; color:white; border-radius:50%; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); transition:transform 0.2s, opacity 0.2s;" onmouseover="this.style.transform='scale(1.1)'; this.style.opacity='0.9';" onmouseout="this.style.transform='scale(1)'; this.style.opacity='1';" title="写真を追加">
-                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                </label>
-                <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
-            </div>
-            
             <div style="display:flex; align-items:center; gap:8px;">
                 <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                 <span style="color:#aaa;">-</span>
