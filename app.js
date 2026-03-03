@@ -6,7 +6,7 @@ let currentPhotos = [];
 let slideIndex = 0;
 let autoSaveTimer = null;
 let panelOpen = false;
-let minZoom;
+let initialBounds;
 
 const PREF_COLORS = {
     '北海道':'#f08080','青森県':'#f0956a','岩手県':'#f0b060','宮城県':'#f0cc50',
@@ -39,7 +39,11 @@ const PREF_COLORS_LIGHT = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    map = L.map('map-container', { zoomControl: false, attributionControl: false }).setView([38.0, 137.0], 5);
+    map = L.map('map-container', {
+        zoomControl: false,
+        attributionControl: false,
+        doubleClickZoom: false
+    }).setView([38.0, 137.0], 5);
 
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
         .then(res => res.json())
@@ -60,14 +64,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const bounds = geoJsonLayer.getBounds();
             map.fitBounds(bounds);
 
-            // fitBounds後のzoomを最小値として固定
             setTimeout(() => {
-                minZoom = map.getZoom();
+                initialBounds = map.getBounds();
+                const minZoom = map.getZoom();
                 map.setMinZoom(minZoom);
+                map.setMaxBounds(initialBounds.pad(0.05));
             }, 100);
 
             updateMapColors();
         });
+
+    // 地図の空白部分ダブルクリックで初期状態に戻る
+    map.on('dblclick', function(e) {
+        // GeoJSON上のクリックは都道府県が処理するので、ここは空白部分のみ
+        if (initialBounds) {
+            map.fitBounds(initialBounds);
+        }
+    });
 
     fetchMemories();
 
@@ -110,11 +123,9 @@ function closePanel() {
 function updateUIVisibility() {
     const counter = document.getElementById('pref-counter');
     const menuBtn = document.getElementById('menu-btn');
-
     if (panelOpen) {
         counter.classList.add('hidden-ui');
         if (selectedPref) {
-            // 都道府県を開いているときはメニューボタンも非表示
             menuBtn.classList.add('hidden-ui');
         } else {
             menuBtn.classList.remove('hidden-ui');
@@ -127,6 +138,34 @@ function updateUIVisibility() {
 
 function updateCounter() {
     document.getElementById('pref-counter').innerText = `${memoriesData.length} / 47`;
+}
+
+function toSlashDate(val) {
+    // "2026-03-03" → "2026/03/03"
+    return val ? val.replace(/-/g, '/') : '';
+}
+
+function toDashDate(val) {
+    // "2026/03/03" → "2026-03-03" (input[type=date]用)
+    return val ? val.replace(/\//g, '-') : '';
+}
+
+function getDateFrom(dateStr) {
+    if (!dateStr) return '';
+    return toDashDate((dateStr.split('~')[0] || '').trim());
+}
+
+function getDateTo(dateStr) {
+    if (!dateStr) return '';
+    return toDashDate((dateStr.split('~')[1] || '').trim());
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '日付未設定';
+    const parts = dateStr.split('~');
+    const from = toSlashDate(parts[0].trim());
+    const to = parts[1] ? toSlashDate(parts[1].trim()) : '';
+    return to ? `${from} 〜 ${to}` : from;
 }
 
 function renderRightPanel() {
@@ -172,7 +211,6 @@ function renderRightPanel() {
         html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:10px; margin:0 0 8px; border-top:5px solid ${color}; font-size:1.4rem;">${selectedPref}</h1>`;
         html += `<p id="autosave-status" style="color:#555; text-align:center; font-size:13px; min-height:20px; margin:0 0 12px;"></p>`;
 
-        // 訪問期間（ラベルなし）
         html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">`;
         html += `<input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px; background:white;">`;
         html += `<span style="color:#666;">〜</span>`;
@@ -183,12 +221,11 @@ function renderRightPanel() {
         html += `<input type="file" id="input-photos" multiple accept="image/*">`;
 
         if (photos.length > 0) {
-            html += `<button class="btn-full" onclick='openSlider(${JSON.stringify(photos)})' style="margin-top:12px;">写真を拡大して見る</button>`;
             html += `<div class="photo-grid">`;
             photos.forEach(url => {
-                html += `<div class="photo-grid-item">
+                html += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${JSON.stringify(photos)})">
                             <img src="${url}">
-                            <button class="photo-delete-btn" onclick="deletePhoto('${url}')">✕</button>
+                            <button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button>
                          </div>`;
             });
             html += `</div>`;
@@ -200,25 +237,6 @@ function renderRightPanel() {
         document.getElementById('input-date-to').addEventListener('change', triggerAutoSave);
         document.getElementById('input-photos').addEventListener('change', triggerAutoSave);
     }
-}
-
-function getDateFrom(dateStr) {
-    if (!dateStr) return '';
-    return (dateStr.split('~')[0] || '').trim();
-}
-
-function getDateTo(dateStr) {
-    if (!dateStr) return '';
-    return (dateStr.split('~')[1] || '').trim();
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '日付未設定';
-    const parts = dateStr.split('~');
-    if (parts.length === 2 && parts[1].trim()) {
-        return `${parts[0].trim()} 〜 ${parts[1].trim()}`;
-    }
-    return parts[0].trim();
 }
 
 function triggerAutoSave() {
@@ -234,9 +252,10 @@ async function saveMemoryData() {
     const files = document.getElementById('input-photos').files;
     if (!fromEl) return;
 
-    const dateValue = fromEl.value && toEl.value
-        ? `${fromEl.value}~${toEl.value}`
-        : fromEl.value || toEl.value || '';
+    // 保存はスラッシュ形式で
+    const fromVal = toSlashDate(fromEl.value);
+    const toVal = toSlashDate(toEl.value);
+    const dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
 
     const statusEl = document.getElementById('autosave-status');
     if (statusEl) statusEl.innerText = '保存中...';
@@ -326,6 +345,14 @@ function compressImage(file) {
             };
         };
     });
+}
+
+function openSliderAt(url, photos) {
+    currentPhotos = photos;
+    slideIndex = photos.indexOf(url);
+    if (slideIndex < 0) slideIndex = 0;
+    updateSlider();
+    document.getElementById('slider-modal').classList.remove('hidden');
 }
 
 function openSlider(photos) {
