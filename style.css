@@ -33,40 +33,44 @@ body, html {
     top: 0; left: 0; right: 0; bottom: 0;
 }
 
+/* メニューボタン（右下に固定・丸型に変更） */
 #menu-btn {
-    position: absolute;
-    top: 15px;
-    left: 15px;
+    position: fixed;
+    bottom: 85px; /* 歯車ボタンの上に配置 */
+    right: 25px;
     z-index: 1000;
     background: white;
     border: none;
-    border-radius: 10px;
-    width: 48px;
-    height: 48px;
-    font-size: 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 50%; /* 丸に変更 */
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #555;
-    transition: background-color 0.2s;
+    transition: transform 0.3s ease, background 0.2s;
+    padding: 0;
 }
 
-/* メニューボタンの黄色マーク（未入力ありの場合） */
 #menu-btn.warning::after {
     content: '';
     position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 10px;
-    height: 10px;
+    top: 4px;
+    right: 4px;
+    width: 12px;
+    height: 12px;
     background-color: #ffca28;
     border-radius: 50%;
     border: 2px solid white;
 }
 
-#menu-btn:hover { background: #f8f9fa; }
+#menu-btn:hover { 
+    background: #f8f9fa; 
+    transform: scale(1.05);
+}
 #menu-btn.hidden-ui { display: none; }
 
 #pref-counter {
@@ -103,7 +107,6 @@ body, html {
 
 .list-section.open { transform: translateX(0); }
 
-/* 都道府県名の横に出る黄色ドット */
 .status-dot {
     width: 10px;
     height: 10px;
@@ -113,7 +116,6 @@ body, html {
     margin-left: 10px;
 }
 
-/* 登録を促すバナー */
 .warning-banner {
     background-color: #fff9c4;
     color: #f57f17;
@@ -289,7 +291,6 @@ input[type="date"] {
 
 .leaflet-container { background: #ffffff !important; }
 
-/* シンプルな設定ボタン（初期画面の右下に固定） */
 .settings-btn {
     position: fixed;
     bottom: 25px;
