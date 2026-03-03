@@ -190,9 +190,8 @@ function cleanupEmptyDate() {
 
         if (hasDateInput && photoCount === 0) {
             if (data) data.date = "";
-            const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [] };
-            fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-                .then(() => fetchMemories(false));
+            const payload = { prefecture: selectedPref, date: "", photo_urls: "[]" };
+            supabaseClient.from('memories').upsert(payload).then(() => fetchMemories(false));
         }
     }
 }
@@ -528,7 +527,6 @@ function renderRightPanel() {
     }
 }
 
-// --- 画像をバイナリ(Blob)に変換する関数 ---
 function compressImageToBlob(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -557,7 +555,21 @@ function triggerAutoSave() {
     autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
 }
 
-// --- Supabase Storage を使った爆速アップロード処理 ---
+// ==========================================
+// データベース（テーブル）との完全連携処理
+// ==========================================
+
+async function fetchMemories(redraw = true) {
+    try {
+        const { data, error } = await supabaseClient.from('memories').select('*');
+        if (error) throw error;
+        memoriesData = data || [];
+        if (redraw) renderRightPanel();
+        updateMapColors();
+        updateCounter();
+    } catch (e) { console.error("データ取得エラー", e); }
+}
+
 async function saveMemoryData() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
@@ -573,27 +585,21 @@ async function saveMemoryData() {
 
     try {
         let photoUrls = [];
-        
         const existingData = memoriesData.find(m => m.prefecture === selectedPref);
         if (existingData && existingData.photo_urls) {
             try { photoUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
-        // 写真が選ばれている場合のみアップロード処理を行う
         if (files.length > 0) {
             const uploadPromises = Array.from(files).map(async (file) => {
                 const blob = await compressImageToBlob(file);
                 const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
                 
-                // supabaseClient を使ってアップロード
                 const { error } = await supabaseClient.storage
                     .from('photos2')
                     .upload(fileName, blob, { contentType: 'image/jpeg' });
                     
-                if (error) {
-                    console.error("Supabase Upload Error:", error);
-                    throw error;
-                }
+                if (error) throw error;
                     
                 const { data: publicUrlData } = supabaseClient.storage
                     .from('photos2')
@@ -603,45 +609,46 @@ async function saveMemoryData() {
             });
 
             const newPhotoUrls = await Promise.all(uploadPromises);
-            photoUrls = [...photoUrls, ...newPhotoUrls]; // 既存の写真URLに追加
+            photoUrls = [...photoUrls, ...newPhotoUrls];
         }
 
-        const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: photoUrls };
+        const payload = { 
+            prefecture: selectedPref, 
+            date: dateValue, 
+            photo_urls: JSON.stringify(photoUrls) 
+        };
         
-        const res = await fetch('/api', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(payload) 
-        });
+        const { error } = await supabaseClient.from('memories').upsert(payload);
+        if (error) throw error;
         
-        if (res.ok) {
-            await fetchMemories(false);
-            renderRightPanel();
-            updateMapColors();
-            updateCounter();
-            if (statusEl) statusEl.innerText = '保存完了';
-            setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
-        }
+        await fetchMemories(false);
+        renderRightPanel();
+        updateMapColors();
+        updateCounter();
+        if (statusEl) { statusEl.innerText = '保存完了'; setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000); }
     } catch(e) { 
         console.error("Save Error", e); 
-        if (statusEl) statusEl.innerText = 'エラー発生: コンソールを確認してください';
+        if (statusEl) statusEl.innerText = 'エラー発生';
     }
 }
 
-async function fetchMemories(redraw = true) {
-    try {
-        const res = await fetch('/api');
-        memoriesData = await res.json();
-        if (redraw) renderRightPanel();
-        updateMapColors();
-        updateCounter();
-    } catch (e) { console.error("データ取得エラー", e); }
-}
-
 async function deletePhoto(url) {
-    const payload = { action: "delete_photo", prefecture: selectedPref, photo_url: url };
     try {
-        await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const existingData = memoriesData.find(m => m.prefecture === selectedPref);
+        if (!existingData) return;
+        
+        let photos = JSON.parse(existingData.photo_urls || "[]");
+        photos = photos.filter(p => p !== url);
+        
+        const payload = { 
+            prefecture: selectedPref, 
+            date: existingData.date || "", 
+            photo_urls: JSON.stringify(photos) 
+        };
+        
+        const { error } = await supabaseClient.from('memories').upsert(payload);
+        if (error) throw error;
+
         await fetchMemories(false);
         renderRightPanel();
         updateMapColors();
