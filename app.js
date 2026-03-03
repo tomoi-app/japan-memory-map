@@ -47,7 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(map);
 
             const bounds = geoJsonLayer.getBounds();
-            map.fitBounds(bounds);
+            // 余白を最小限（[0, 0]）にして、地図を画面いっぱいに大きく表示
+            map.fitBounds(bounds, { padding: [0, 0] });
 
             setTimeout(() => {
                 initialBounds = map.getBounds();
@@ -59,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updateMapColors();
         });
 
-    // PC用のダブルクリック検知
     map.on('dblclick', function(e) {
         if (initialBounds) {
             map.flyToBounds(initialBounds, { duration: 0.6 });
@@ -69,12 +69,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // スマホ用のダブルタッチ検知
+    // 2本指でのピンチズームに干渉しないようにする処理
     let lastTouchTime = 0;
+    let isPinching = false;
+
+    document.getElementById('map-container').addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) {
+            isPinching = true; // 2本以上の指が触れたらピンチ操作中と判定
+        }
+    });
+
     document.getElementById('map-container').addEventListener('touchend', function(e) {
+        if (isPinching) {
+            if (e.touches.length === 0) {
+                isPinching = false; // すべての指が離れたらピンチ操作を解除
+            }
+            return; // ピンチ操作直後はダブルタップ処理を無視する
+        }
+
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTouchTime;
-        // 400ミリ秒以内の連続タップをダブルタッチと判定
         if (tapLength > 0 && tapLength < 400) {
             if (initialBounds) {
                 map.flyToBounds(initialBounds, { duration: 0.6 });
@@ -178,7 +192,6 @@ function renderRightPanel() {
     if (!selectedPref) {
         panel.style.backgroundColor = '#ffffff';
 
-        // 「記録一覧」の文字を削除し、✕ボタンのみを右寄せで配置
         let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:24px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
@@ -206,7 +219,6 @@ function renderRightPanel() {
 
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
 
-        // 「戻る」ボタンを削除し、✕ボタンのみを右寄せで配置
         let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
