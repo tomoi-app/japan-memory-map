@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTouchTime;
         if (tapLength > 0 && tapLength < 400) {
@@ -106,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     menuBtn.title = "一覧";
     menuBtn.addEventListener('click', () => {
         if (panelOpen) {
-            closePanel(); // 開いていれば閉じる（トグル）
+            closePanel();
         } else {
             if (settingsOpen) closeSettings();
             selectedPref = null;
@@ -137,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         settingsBtn.onclick = () => {
             if (settingsOpen) {
-                closeSettings(); // 開いていれば閉じる（トグル）
+                closeSettings();
             } else {
                 if (panelOpen) closePanel();
                 openSettings();
@@ -301,14 +302,36 @@ function renderHomeList() {
     `).join('');
 }
 
+// --- メニューと設定アイコンの表示・非表示を厳格に制御 ---
 function updateUIVisibility() {
     const counter = document.getElementById('pref-counter');
+    const menuBtn = document.getElementById('menu-btn');
+    const settingsBtn = document.getElementById('settings-btn');
+    
+    // カウンターはパネルが開いていたら隠す
     if (panelOpen || settingsOpen) {
         counter.classList.add('hidden-ui');
     } else {
         counter.classList.remove('hidden-ui');
     }
-    // アイコンは常に表示するため、何も隠さない
+
+    if (panelOpen && selectedPref !== null) {
+        // 1. 都道府県詳細画面（写真・日付入力）が開いている時 -> 両方消す
+        menuBtn.classList.add('hidden-ui');
+        if (settingsBtn) settingsBtn.classList.add('hidden-ui');
+    } else if (panelOpen && selectedPref === null) {
+        // 2. 一覧画面が開いている時 -> メニューアイコンは残し(閉じるため)、設定アイコンは消す
+        menuBtn.classList.remove('hidden-ui');
+        if (settingsBtn) settingsBtn.classList.add('hidden-ui');
+    } else if (settingsOpen) {
+        // 3. 設定画面が開いている時 -> 設定アイコンは残し(閉じるため)、メニューアイコンは消す
+        menuBtn.classList.add('hidden-ui');
+        if (settingsBtn) settingsBtn.classList.remove('hidden-ui');
+    } else {
+        // 4. 何も開いていない初期画面 -> 両方表示
+        menuBtn.classList.remove('hidden-ui');
+        if (settingsBtn) settingsBtn.classList.remove('hidden-ui');
+    }
 }
 
 function updateCounter() {

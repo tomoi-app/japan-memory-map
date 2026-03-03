@@ -1,7 +1,10 @@
 body, html {
     margin: 0;
     padding: 0;
+    width: 100%;
     height: 100%;
+    overflow: hidden;
+    position: fixed; /* スマホ等で画面外にはみ出してスクロールできるのを防ぐ */
     font-family: 'Zen Kaku Gothic New', sans-serif;
     background-color: #eef2f5;
     color: #333333;
@@ -33,12 +36,11 @@ body, html {
     top: 0; left: 0; right: 0; bottom: 0;
 }
 
-/* メニューボタン（右下に固定・パネルを開いても消えない） */
 #menu-btn {
     position: fixed;
-    bottom: 85px; 
+    bottom: 85px;
     right: 25px;
-    z-index: 3000; /* パネルより前面に */
+    z-index: 3000;
     background: white;
     border: none;
     border-radius: 50%;
@@ -71,7 +73,9 @@ body, html {
     background: #f8f9fa; 
     transform: scale(1.05);
 }
-#menu-btn.hidden-ui { display: none; }
+
+/* アイコン非表示を確実に適用する */
+#menu-btn.hidden-ui, .settings-btn.hidden-ui { display: none !important; }
 
 #pref-counter {
     position: absolute;
@@ -90,14 +94,15 @@ body, html {
 
 #pref-counter.hidden-ui { display: none; }
 
-/* パネル全体の設定（外側はスクロールさせない） */
+/* パネル全体の設定 */
 .list-section {
     width: 380px;
     height: 100%;
     padding: 0;
     box-sizing: border-box;
-    box-shadow: -2px 0 15px rgba(0,0,0,0.05);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+    /* 閉じている時は影をなくすことで「右に残るバグ」を解消 */
+    box-shadow: none; 
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
     z-index: 500;
     transform: translateX(100%);
     position: absolute;
@@ -106,12 +111,14 @@ body, html {
     display: flex;
     flex-direction: column;
     background-color: #ffffff;
-    overflow: hidden; /* 追加: 全体のスクロールを無効化 */
+    overflow: hidden;
 }
 
-.list-section.open { transform: translateX(0); }
+.list-section.open { 
+    transform: translateX(0); 
+    box-shadow: -2px 0 15px rgba(0,0,0,0.1); /* 開いた時だけ影をつける */
+}
 
-/* --- 追加: パネル上部の固定エリア --- */
 .panel-header {
     flex-shrink: 0;
     padding: 20px 25px;
@@ -125,14 +132,12 @@ body, html {
     z-index: 10;
 }
 
-/* --- 追加: パネル下部のスクロールエリア --- */
 .panel-content {
     flex: 1;
     overflow-y: auto;
-    padding: 20px 25px 120px; /* アイコンと被らないように下部余白を多めに */
+    padding: 20px 25px 120px;
 }
 
-/* --- 追加: 固定用の×ボタン --- */
 .panel-close-btn {
     background: none;
     border: none;
@@ -345,7 +350,7 @@ input[type="date"] {
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    z-index: 3000; /* パネルより前面に */
+    z-index: 3000;
     color: #555;
     transition: transform 0.3s ease, background 0.2s;
     padding: 0;
