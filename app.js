@@ -4,6 +4,7 @@ let selectedPref = null;
 let memoriesData = [];
 let currentPhotos = [];
 let slideIndex = 0;
+let autoSaveTimer = null;
 
 const PREF_COLORS = {
     '北海道':'#e8a0a0','青森県':'#e8b8a0','岩手県':'#e8cba0','宮城県':'#e8dda0',
@@ -28,15 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
-                style: function(feature) {
-                    const pref = feature.properties.nam_ja;
-                    return {
-                        fillColor: PREF_COLORS[pref] || '#ffffff',
-                        weight: 0.8,
-                        color: '#333333',
-                        fillOpacity: 1
-                    };
-                },
+                style: { fillColor: '#ffffff', weight: 0.8, color: '#333333', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
                     const prefName = feature.properties.nam_ja;
                     layer.bindTooltip(prefName, { sticky: true, direction: 'top' });
@@ -83,19 +76,26 @@ function renderRightPanel() {
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
 
+        // 期間の開始日・終了日を分割
+        const dateParts = (data.date || '').split('~');
+        const dateFrom = (dateParts[0] || '').trim();
+        const dateTo = (dateParts[1] || '').trim();
+
         panel.style.backgroundColor = '#e8f4f8';
-        
+
         let html = `<button onclick="selectedPref=null; renderRightPanel();">← 一覧に戻る</button>`;
-        html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:8px; margin: 15px 0;">${selectedPref}</h1>`;
-        
-        html += `<label>日付</label>`;
-        html += `<input type="date" id="input-date" value="${data.date}" style="width:100%; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:16px;">`;
-        
-        html += `<label style="margin-top:12px; display:block;">写真を追加（最大10枚）</label>`;
+        html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:8px; margin:15px 0;">${selectedPref}</h1>`;
+        html += `<p id="autosave-status" style="color:green; text-align:center; font-size:13px; min-height:20px;"></p>`;
+
+        html += `<label>訪問期間</label>`;
+        html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">`;
+        html += `<input type="date" id="input-date-from" value="${dateFrom}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px;">`;
+        html += `<span>〜</span>`;
+        html += `<input type="date" id="input-date-to" value="${dateTo}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px;">`;
+        html += `</div>`;
+
+        html += `<label>写真を追加（最大10枚）</label>`;
         html += `<input type="file" id="input-photos" multiple accept="image/*">`;
-        
-        html += `<button id="btn-save-memory" class="btn-full" style="background-color: #2ecc71; margin-top: 15px;">保存する</button>`;
-        html += `<p id="upload-status" style="color:blue; display:none; text-align:center; margin-top:10px; font-weight:bold;">保存中...</p>`;
 
         if (photos.length > 0) {
             html += `<button class="btn-full" onclick='openSlider(${JSON.stringify(photos)})' style="margin-top:20px;">写真を拡大して見る</button>`;
@@ -110,16 +110,39 @@ function renderRightPanel() {
         }
 
         panel.innerHTML = html;
-        document.getElementById('btn-save-memory').addEventListener('click', saveMemoryData);
+
+        // 日付変更で自動保存
+        document.getElementById('input-date-from').addEventListener('change', triggerAutoSave);
+        document.getElementById('input-date-to').addEventListener('change', triggerAutoSave);
+
+        // 写真追加で自動保存
+        document.getElementById('input-photos').addEventListener('change', triggerAutoSave);
     }
 }
 
+function triggerAutoSave() {
+    const statusEl = document.getElementById('autosave-status');
+    if (statusEl) statusEl.innerText = '入力中...';
+
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(async () => {
+        await saveMemoryData();
+    }, 800);
+}
+
 async function saveMemoryData() {
-    const dateValue = document.getElementById('input-date').value;
+    const fromEl = document.getElementById('input-date-from');
+    const toEl = document.getElementById('input-date-to');
     const files = document.getElementById('input-photos').files;
 
-    document.getElementById('upload-status').style.display = 'block';
-    document.getElementById('btn-save-memory').disabled = true;
+    if (!fromEl) return;
+
+    const dateFrom = fromEl.value;
+    const dateTo = toEl.value;
+    const dateValue = dateFrom && dateTo ? `${dateFrom}~${dateTo}` : dateFrom || dateTo || '';
+
+    const statusEl = document.getElementById('autosave-status');
+    if (statusEl) statusEl.innerText = '保存中...';
 
     let base64Photos = [];
     for (let file of files) {
@@ -128,40 +151,33 @@ async function saveMemoryData() {
     }
 
     const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: base64Photos };
-    
+
     try {
-        const res = await fetch('/api', { 
-            method: 'POST', 
+        const res = await fetch('/api', {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload) 
+            body: JSON.stringify(payload)
         });
-        
-        const responseText = await res.text();
 
         if (res.ok) {
-            await fetchMemories();
-            alert("保存しました！");
+            await fetchMemories(false); // パネルを再描画しない
+            if (statusEl) statusEl.innerText = '✓ 保存しました';
+            setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
         } else {
-            try {
-                const errData = JSON.parse(responseText);
-                alert("データベースの拒否エラー: " + (errData.error || "詳細不明"));
-            } catch(e) {
-                alert(`サーバーの致命的エラー (Status ${res.status}):\n${responseText.substring(0, 150)}...`);
-            }
+            const errData = await res.json().catch(() => ({}));
+            if (statusEl) statusEl.innerText = '保存失敗: ' + (errData.error || '不明なエラー');
         }
     } catch(e) {
-        alert(`ネットワーク遮断エラーの詳細:\n${e.message}`);
-    } finally {
-        if(document.getElementById('upload-status')) document.getElementById('upload-status').style.display = 'none';
-        if(document.getElementById('btn-save-memory')) document.getElementById('btn-save-memory').disabled = false;
+        if (statusEl) statusEl.innerText = 'ネットワークエラー';
     }
 }
 
-async function fetchMemories() {
+async function fetchMemories(redraw = true) {
     try {
         const res = await fetch('/api');
         memoriesData = await res.json();
-        renderRightPanel();
+        if (redraw) renderRightPanel();
+        updateMapColors();
     } catch (e) { console.error("データ取得エラー", e); }
 }
 
@@ -177,9 +193,8 @@ function updateMapColors() {
     geoJsonLayer.eachLayer(layer => {
         const pref = layer.feature.properties.nam_ja;
         const isVisited = memoriesData.some(m => m.prefecture === pref);
-        const baseColor = PREF_COLORS[pref] || '#ffffff';
         layer.setStyle({
-            fillColor: isVisited ? '#a2d9ce' : baseColor,
+            fillColor: isVisited ? (PREF_COLORS[pref] || '#a2d9ce') : '#ffffff',
             fillOpacity: 1
         });
     });
