@@ -7,6 +7,15 @@ body, html {
     color: #333333;
 }
 
+/* 地図クリック時の枠線（四角）やタップハイライトを消す */
+*:focus {
+    outline: none !important;
+}
+.leaflet-interactive {
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
+}
+
 .main-layout {
     display: flex;
     height: 100vh;
@@ -82,10 +91,11 @@ body, html {
 
 .list-section.open { transform: translateX(0); }
 
+/* モーダル（写真拡大）のデザイン */
 .modal {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.85);
+    background: rgba(0,0,0,0.9); /* 少し暗くして写真を際立たせる */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -94,57 +104,74 @@ body, html {
 
 .modal.hidden { display: none; }
 
+/* 右上の✕ボタン */
+.modal-close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2100;
+    transition: background 0.2s;
+}
+
+.modal-close-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
 .modal-content {
     background: transparent;
-    padding: 20px;
-    width: 90%;
-    max-width: 600px;
+    padding: 0;
+    width: 95%; /* 横幅も最大限使う */
+    max-width: 1000px;
     text-align: center;
 }
 
 #slide-image {
     max-width: 100%;
-    max-height: 70vh;
+    max-height: 80vh; /* 写真をより大きく表示 */
     object-fit: contain;
     margin-bottom: 15px;
     border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
 .slide-controls {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    margin-bottom: 20px;
+    gap: 20px;
     color: white;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
 }
-
-button {
-    cursor: pointer;
-    background: white;
-    border-radius: 8px;
-    font-family: inherit;
-    transition: opacity 0.2s;
-}
-
-button:hover { opacity: 0.8; }
 
 .slide-controls button {
     background: rgba(255,255,255,0.2);
     border: none;
     color: white;
-    padding: 8px 16px;
+    padding: 10px 24px;
+    font-size: 1.2rem;
+    border-radius: 30px; /* 丸みのあるボタン */
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
-.btn-full {
-    width: 100%;
-    background: #6c8ca3; /* おしゃれなスレートブルー */
-    color: white;
-    border: none;
-    padding: 14px;
-    font-size: 1.05rem;
-    border-radius: 8px;
-    font-weight: 500;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+.slide-controls button:hover {
+    background: rgba(255,255,255,0.4);
+}
+
+button {
+    font-family: inherit;
 }
 
 .pref-btn {
@@ -160,6 +187,7 @@ button:hover { opacity: 0.8; }
     display: flex;
     align-items: center;
     justify-content: space-between;
+    cursor: pointer;
 }
 
 .pref-btn:hover { background: #fafafa; transform: translateY(-1px); }
@@ -212,10 +240,23 @@ input[type="date"] {
     justify-content: center;
     padding: 0;
     line-height: 1;
+    cursor: pointer;
 }
 
 .photo-grid-item:hover .photo-delete-btn {
     display: flex;
+}
+
+.btn-full {
+    width: 100%;
+    background: #6c8ca3; 
+    color: white;
+    border: none;
+    padding: 14px;
+    font-size: 1.05rem;
+    border-radius: 8px;
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 @media (max-width: 768px) {
