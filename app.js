@@ -119,6 +119,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-next').addEventListener('click', () => {
         if (slideIndex < currentPhotos.length - 1) { slideIndex++; updateSlider(); }
     });
+
+    // 画面の右下に固定で設定ボタン（SVGイラスト）を追加
+    if (!document.getElementById('settings-btn')) {
+        const settingsBtn = document.createElement('button');
+        settingsBtn.id = 'settings-btn';
+        settingsBtn.className = 'settings-btn';
+        settingsBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>`;
+        settingsBtn.onclick = openSettings;
+        document.querySelector('.main-layout').appendChild(settingsBtn);
+    }
 });
 
 function openPanel() {
@@ -143,8 +156,11 @@ function openSettings() {
 function updateUIVisibility() {
     const counter = document.getElementById('pref-counter');
     const menuBtn = document.getElementById('menu-btn');
+    const settingsBtn = document.getElementById('settings-btn');
+    
     if (panelOpen) {
         counter.classList.add('hidden-ui');
+        if (settingsBtn) settingsBtn.style.display = 'none'; // パネルが開いている時は歯車を隠す
         if (selectedPref) {
             menuBtn.classList.add('hidden-ui');
         } else {
@@ -153,36 +169,36 @@ function updateUIVisibility() {
     } else {
         counter.classList.remove('hidden-ui');
         menuBtn.classList.remove('hidden-ui');
+        if (settingsBtn) settingsBtn.style.display = 'flex';
     }
 }
 
 function updateCounter() {
-    // 実際に「訪問済み（日付あり or 写真あり）」の数だけカウント
-    const visitedCount = memoriesData.filter(m => {
+    const activeMemories = memoriesData.filter(m => {
         const photos = JSON.parse(m.photo_urls || "[]");
         return m.date || photos.length > 0;
-    }).length;
-    document.getElementById('pref-counter').innerText = `${visitedCount} / 47`;
+    });
+
+    document.getElementById('pref-counter').innerText = `${activeMemories.length} / 47`;
+
+    // 警告チェック：日付か写真のどちらかが足りない県があるか判定
+    const hasWarning = activeMemories.some(m => {
+        const photos = JSON.parse(m.photo_urls || "[]");
+        return !m.date || photos.length === 0;
+    });
+
+    const menuBtn = document.getElementById('menu-btn');
+    if (hasWarning) {
+        menuBtn.classList.add('warning');
+    } else {
+        menuBtn.classList.remove('warning');
+    }
 }
 
-function toSlashDate(val) {
-    return val ? val.replace(/-/g, '/') : '';
-}
-
-function toDashDate(val) {
-    return val ? val.replace(/\//g, '-') : '';
-}
-
-function getDateFrom(dateStr) {
-    if (!dateStr) return '';
-    return toDashDate((dateStr.split('~')[0] || '').trim());
-}
-
-function getDateTo(dateStr) {
-    if (!dateStr) return '';
-    return toDashDate((dateStr.split('~')[1] || '').trim());
-}
-
+function toSlashDate(val) { return val ? val.replace(/-/g, '/') : ''; }
+function toDashDate(val) { return val ? val.replace(/\//g, '-') : ''; }
+function getDateFrom(dateStr) { return toDashDate((dateStr?.split('~')[0] || '').trim()); }
+function getDateTo(dateStr) { return toDashDate((dateStr?.split('~')[1] || '').trim()); }
 function formatDate(dateStr) {
     if (!dateStr) return '';
     const parts = dateStr.split('~');
@@ -198,11 +214,11 @@ function renderRightPanel() {
 
     if (!selectedPref) {
         panel.style.backgroundColor = '#ffffff';
+
         let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:24px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
 
-        // 有効なデータのみ表示
         const activeMemories = memoriesData.filter(m => {
             const photos = JSON.parse(m.photo_urls || "[]");
             return m.date || photos.length > 0;
@@ -212,27 +228,45 @@ function renderRightPanel() {
             html += `<p style="color:#888; text-align:center; margin-top:40px;">地図から都道府県を選んで<br>思い出を追加しましょう</p>`;
         } else {
             activeMemories.forEach(m => {
+                const photos = JSON.parse(m.photo_urls || "[]");
                 const color = PREF_COLORS[m.prefecture] || '#aaa';
+                // どちらかが足りない場合にドットを表示する判定
+                const needsData = !m.date || photos.length === 0;
+                
                 html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
-                    <span style="font-weight:bold; color:#444;">${m.prefecture}</span>
+                    <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
+                        ${m.prefecture}${needsData ? '<span class="status-dot"></span>' : ''}
+                    </span>
                     <span style="color:#999; font-size:0.85em;">${formatDate(m.date)}</span>
                 </button>`;
             });
         }
-        html += `<button class="settings-btn" onclick="openSettings()">⚙️</button>`;
         panel.innerHTML = html;
 
     } else {
         panel.style.backgroundColor = '#ffffff';
+
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
+
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
 
         let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
+        
+        // 警告メッセージの表示判定
+        const hasAny = data.date || photos.length > 0;
+        if (hasAny) {
+            if (!data.date) {
+                html += `<div class="warning-banner">日付を登録してください</div>`;
+            } else if (photos.length === 0) {
+                html += `<div class="warning-banner">写真を追加してください</div>`;
+            }
+        }
+        
         html += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${color}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>`;
         
         html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">`;
@@ -259,6 +293,7 @@ function renderRightPanel() {
             });
             html += `</div>`;
         }
+
         panel.innerHTML = html;
 
         document.getElementById('input-date-from').addEventListener('change', triggerAutoSave);
@@ -302,16 +337,13 @@ async function saveMemoryData() {
         if (res.ok) {
             await fetchMemories(false);
             renderRightPanel();
-            // 保存後に地図の色とカウンターを更新
             updateMapColors();
             updateCounter();
             const statusEl = document.getElementById('autosave-status');
             if (statusEl) statusEl.innerText = '保存完了';
             setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
         }
-    } catch(e) {
-        console.error("Save Error", e);
-    }
+    } catch(e) { console.error("Save Error", e); }
 }
 
 async function fetchMemories(redraw = true) {
@@ -334,12 +366,9 @@ async function deletePhoto(url) {
         });
         await fetchMemories(false);
         renderRightPanel();
-        // 削除後も色とカウンターを即座にチェック
         updateMapColors();
         updateCounter();
-    } catch(e) {
-        console.error("削除エラー", e);
-    }
+    } catch(e) { console.error("削除エラー", e); }
 }
 
 function updateMapColors() {
@@ -347,21 +376,14 @@ function updateMapColors() {
     geoJsonLayer.eachLayer(layer => {
         const pref = layer.feature.properties.nam_ja;
         const memory = memoriesData.find(m => m.prefecture === pref);
-        
         let isVisited = false;
         if (memory) {
             const photos = JSON.parse(memory.photo_urls || "[]");
-            // 「日付がある」または「写真が1枚以上ある」場合のみ色をつける
-            if (memory.date || photos.length > 0) {
-                isVisited = true;
-            }
+            if (memory.date || photos.length > 0) isVisited = true;
         }
-
         layer.setStyle({
             fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
-            weight: 0.5,
-            color: '#000000',
-            fillOpacity: 1
+            weight: 0.5, color: '#000000', fillOpacity: 1
         });
     });
 }
