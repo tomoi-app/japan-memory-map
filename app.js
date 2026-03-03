@@ -49,7 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
-                style: { fillColor: '#ffffff', weight: 1.2, color: '#000000', fillOpacity: 1 },
+                // 未訪問の色をオフホワイト、県境を白に変更しておしゃれに
+                style: { fillColor: '#f8f9fa', weight: 1, color: '#ffffff', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
                     const prefName = feature.properties.nam_ja;
                     layer.bindTooltip(prefName, { sticky: true, direction: 'top' });
@@ -74,11 +75,13 @@ document.addEventListener('DOMContentLoaded', () => {
             updateMapColors();
         });
 
-    // 地図の空白部分ダブルクリックで初期状態に戻る
+    // 地図の空白部分ダブルクリックで初期状態に戻る（滑らかに移動＋パネルを閉じる）
     map.on('dblclick', function(e) {
-        // GeoJSON上のクリックは都道府県が処理するので、ここは空白部分のみ
         if (initialBounds) {
-            map.fitBounds(initialBounds);
+            map.flyToBounds(initialBounds, { duration: 0.6 });
+        }
+        if (panelOpen) {
+            closePanel();
         }
     });
 
@@ -141,12 +144,10 @@ function updateCounter() {
 }
 
 function toSlashDate(val) {
-    // "2026-03-03" → "2026/03/03"
     return val ? val.replace(/-/g, '/') : '';
 }
 
 function toDashDate(val) {
-    // "2026/03/03" → "2026-03-03" (input[type=date]用)
     return val ? val.replace(/\//g, '-') : '';
 }
 
@@ -252,7 +253,6 @@ async function saveMemoryData() {
     const files = document.getElementById('input-photos').files;
     if (!fromEl) return;
 
-    // 保存はスラッシュ形式で
     const fromVal = toSlashDate(fromEl.value);
     const toVal = toSlashDate(toEl.value);
     const dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
@@ -320,9 +320,10 @@ function updateMapColors() {
         const pref = layer.feature.properties.nam_ja;
         const isVisited = memoriesData.some(m => m.prefecture === pref);
         layer.setStyle({
-            fillColor: isVisited ? (PREF_COLORS[pref] || '#a0c0ff') : '#ffffff',
-            weight: 1.2,
-            color: '#000000',
+            // スタイル適用：未訪問色と県境を白に
+            fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f8f9fa',
+            weight: 1,
+            color: '#ffffff',
             fillOpacity: 1
         });
     });

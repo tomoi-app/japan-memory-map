@@ -2,8 +2,10 @@ body, html {
     margin: 0;
     padding: 0;
     height: 100%;
-    font-family: sans-serif;
-    background-color: #f5f7fa;
+    /* フォントと背景色をおしゃれに */
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    background-color: #eef2f5;
+    color: #333333;
 }
 
 .main-layout {
@@ -122,6 +124,7 @@ button {
     padding: 10px 15px;
     border-radius: 8px;
     font-weight: bold;
+    font-family: inherit;
 }
 
 .btn-full {
@@ -144,9 +147,14 @@ button {
     font-size: 1.1rem;
     border-radius: 8px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    font-family: inherit;
 }
 
 .pref-btn:hover { background: #f5f5f5; }
+
+input[type="file"], input[type="date"] {
+    font-family: inherit;
+}
 
 input[type="file"] {
     width: 100%;
@@ -204,4 +212,7 @@ input[type="file"] {
     .list-section { width: 100%; }
 }
 
-.leaflet-container { background: #ffffff !important; }
+/* 地図の海の部分の色を指定 */
+.leaflet-container { 
+    background: #eef2f5 !important; 
+}
