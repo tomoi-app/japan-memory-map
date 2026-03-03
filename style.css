@@ -40,9 +40,11 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: opacity 0.2s;
 }
 
 #menu-btn:hover { background: #f0f0f0; }
+#menu-btn.hidden-ui { display: none; }
 
 #pref-counter {
     position: absolute;
@@ -56,7 +58,10 @@ body, html {
     font-weight: bold;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     color: #333;
+    transition: opacity 0.2s;
 }
+
+#pref-counter.hidden-ui { display: none; }
 
 .list-section {
     width: 380px;
@@ -73,9 +78,7 @@ body, html {
     top: 0;
 }
 
-.list-section.open {
-    transform: translateX(0);
-}
+.list-section.open { transform: translateX(0); }
 
 .modal {
     position: fixed;
