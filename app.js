@@ -1,6 +1,7 @@
 const SUPABASE_URL = 'https://uclkhpnpyeirxcvdtjwp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjbGtocG5weWVpcnhjdmR0andwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTYzNzYsImV4cCI6MjA4NzkzMjM3Nn0.fwb79w4zemD6u41X2fIH2IvwAFJzlW__I4w4o7BufI0';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// 名前を supabase から supabaseClient に変更しました
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let map;
 let geoJsonLayer;
@@ -160,9 +161,11 @@ async function saveMemoryData() {
             const newUrls = await Promise.all(Array.from(ph.files).map(async file => {
                 const blob = await compressImageToBlob(file);
                 const name = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-                const { error } = await supabase.storage.from('photos2').upload(name, blob, { contentType: 'image/jpeg' });
+                // supabaseClient に変更
+                const { error } = await supabaseClient.storage.from('photos2').upload(name, blob, { contentType: 'image/jpeg' });
                 if (error) throw error;
-                return supabase.storage.from('photos2').getPublicUrl(name).data.publicUrl;
+                // supabaseClient に変更
+                return supabaseClient.storage.from('photos2').getPublicUrl(name).data.publicUrl;
             }));
             urls = [...urls, ...newUrls];
         }
