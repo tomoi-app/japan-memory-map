@@ -16,8 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
             geoJsonLayer = L.geoJson(data, {
                 style: { fillColor: '#ffffff', weight: 1.5, color: '#333333', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
+                    const prefName = feature.properties.nam_ja;
+                    layer.bindTooltip(prefName, { sticky: true, direction: 'top' });
                     layer.on('click', () => {
-                        selectedPref = feature.properties.nam_ja;
+                        selectedPref = prefName;
                         renderRightPanel();
                     });
                 }
