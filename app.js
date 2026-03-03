@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(map);
 
             const bounds = geoJsonLayer.getBounds();
-            // 上部に60pxの余白を作り、地図全体を少し下にずらす
             map.fitBounds(bounds, { paddingTopLeft: [0, 60], paddingBottomRight: [0, 0] });
 
             setTimeout(() => {
@@ -222,14 +221,16 @@ function renderSettingsMenu() {
 
     let headerHtml = `
     <div class="panel-header">
-        <div style="flex:1;"></div>
-        <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">設定</h2>
-        <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
+        <div class="panel-header-title-row">
+            <div style="flex:1;"></div>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">設定</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
+        </div>
     </div>`;
     
     let contentHtml = `
     <div class="panel-content">
-        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+        <div style="display:flex; flex-direction:column; gap:15px;">
             <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 家を登録
             </button>
@@ -246,14 +247,16 @@ function renderHomeSettings() {
 
     let headerHtml = `
     <div class="panel-header">
-        <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-        <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">家を登録</h2>
-        <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">家を登録</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
     </div>`;
 
     let contentHtml = `
     <div class="panel-content">
-        <div style="margin-top: 20px; text-align: left;">
+        <div style="text-align: left;">
             <div style="display:flex; gap: 8px; margin-bottom: 20px;">
                 <select id="home-select" style="flex:1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-family:inherit; font-size:15px; background:white;">
                     ${options}
@@ -378,12 +381,14 @@ function renderRightPanel() {
     if (!selectedPref) {
         let headerHtml = `
         <div class="panel-header">
-            <div style="flex:1;"></div>
-            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">一覧</h2>
-            <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0;">✕</button>
+            <div class="panel-header-title-row">
+                <div style="flex:1;"></div>
+                <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">一覧</h2>
+                <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0;">✕</button>
+            </div>
         </div>`;
 
-        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
+        let contentHtml = `<div class="panel-content">`;
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
@@ -424,7 +429,7 @@ function renderRightPanel() {
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
         
         let headerHtml = `
-        <div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom:15px;">
+        <div class="panel-header" style="border-bottom: 3px solid ${color};">
             <div class="panel-header-title-row" style="margin-bottom:15px;">
                 <button onclick="selectedPref=null; renderRightPanel();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
                 <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">${selectedPref}</h2>
@@ -467,7 +472,7 @@ function renderRightPanel() {
             <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0;"></p>
         </div>`;
 
-        let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
+        let contentHtml = `<div class="panel-content">`;
         if (photos.length > 0) {
             contentHtml += `<div class="photo-grid">`;
             photos.forEach(url => {
@@ -479,9 +484,28 @@ function renderRightPanel() {
         contentHtml += `</div>`;
 
         panel.innerHTML = headerHtml + contentHtml;
-        document.getElementById('input-date-from').addEventListener('change', triggerAutoSave);
-        document.getElementById('input-date-to').addEventListener('change', triggerAutoSave);
-        document.getElementById('input-photos').addEventListener('change', triggerAutoSave);
+
+        // --- 追加: 日付の監視ロジック ---
+        const fromInput = document.getElementById('input-date-from');
+        const toInput = document.getElementById('input-date-to');
+        const photoInput = document.getElementById('input-photos');
+
+        const handleDateChange = () => {
+            if (fromInput.value && toInput.value) {
+                if (fromInput.value === toInput.value) {
+                    toInput.value = '';
+                } else if (new Date(fromInput.value) > new Date(toInput.value)) {
+                    const temp = fromInput.value;
+                    fromInput.value = toInput.value;
+                    toInput.value = temp;
+                }
+            }
+            triggerAutoSave();
+        };
+
+        if (fromInput) fromInput.addEventListener('change', handleDateChange);
+        if (toInput) toInput.addEventListener('change', handleDateChange);
+        if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
     }
 }
 
