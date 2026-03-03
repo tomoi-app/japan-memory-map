@@ -13,7 +13,6 @@ body, html {
     overflow: hidden;
 }
 
-/* 地図エリア */
 .map-section {
     flex: 1;
     position: relative;
@@ -25,7 +24,6 @@ body, html {
     top: 0; left: 0; right: 0; bottom: 0;
 }
 
-/* 左上メニューボタン */
 #menu-btn {
     position: absolute;
     top: 15px;
@@ -44,11 +42,8 @@ body, html {
     justify-content: center;
 }
 
-#menu-btn:hover {
-    background: #f0f0f0;
-}
+#menu-btn:hover { background: #f0f0f0; }
 
-/* 右上カウンター */
 #pref-counter {
     position: absolute;
     top: 15px;
@@ -63,13 +58,12 @@ body, html {
     color: #333;
 }
 
-/* 右パネル */
 .list-section {
     width: 380px;
     height: 100%;
     overflow-y: auto;
     padding: 25px;
-    background-color: white;
+    background-color: #eeeeee;
     box-sizing: border-box;
     box-shadow: -2px 0 10px rgba(0,0,0,0.1);
     transition: transform 0.3s ease, background-color 0.3s ease;
@@ -80,11 +74,8 @@ body, html {
     top: 0;
 }
 
-.list-section.open {
-    transform: translateX(0);
-}
+.list-section.open { transform: translateX(0); }
 
-/* モーダル */
 .modal {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -144,15 +135,14 @@ button {
     text-align: left;
     padding: 15px;
     margin-bottom: 10px;
-    background: #f8f9fa;
+    background: white;
     border: none;
     font-size: 1.1rem;
     border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
 
-.pref-btn:hover {
-    background: #e8f4f8;
-}
+.pref-btn:hover { background: #f0f0f0; }
 
 input[type="text"], input[type="file"] {
     width: 100%;
@@ -178,11 +168,7 @@ input[type="text"], input[type="file"] {
 }
 
 @media (max-width: 768px) {
-    .list-section {
-        width: 100%;
-    }
+    .list-section { width: 100%; }
 }
 
-.leaflet-container {
-    background: #ffffff !important;
-}
+.leaflet-container { background: #ffffff !important; }

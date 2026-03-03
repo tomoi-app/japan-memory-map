@@ -5,37 +5,37 @@ let memoriesData = [];
 let currentPhotos = [];
 let slideIndex = 0;
 let autoSaveTimer = null;
+let panelOpen = false;
 
 const PREF_COLORS = {
-    '北海道':'#ff6b6b','青森県':'#ff8c42','岩手県':'#ffa726','宮城県':'#ffcc02',
-    '秋田県':'#d4e157','山形県':'#9ccc65','福島県':'#66bb6a','茨城県':'#26c6da',
-    '栃木県':'#26a69a','群馬県':'#42a5f5','埼玉県':'#5c6bc0','千葉県':'#7e57c2',
-    '東京都':'#ab47bc','神奈川県':'#ec407a','新潟県':'#ef5350','富山県':'#ff7043',
-    '石川県':'#ffa000','福井県':'#c0ca33','山梨県':'#43a047','長野県':'#00897b',
-    '岐阜県':'#00acc1','静岡県':'#039be5','愛知県':'#3949ab','三重県':'#8e24aa',
-    '滋賀県':'#d81b60','京都府':'#e53935','大阪府':'#f4511e','兵庫県':'#fb8c00',
-    '奈良県':'#f9a825','和歌山県':'#827717','鳥取県':'#558b2f','島根県':'#00695c',
-    '岡山県':'#00838f','広島県':'#1565c0','山口県':'#283593','徳島県':'#4527a0',
-    '香川県':'#6a1b9a','愛媛県':'#ad1457','高知県':'#b71c1c','福岡県':'#bf360c',
-    '佐賀県':'#e65100','長崎県':'#f57f17','熊本県':'#9e9d24','大分県':'#33691e',
-    '宮崎県':'#1b5e20','鹿児島県':'#006064','沖縄県':'#0d47a1'
+    '北海道':'#f4b8b8','青森県':'#f4c4b0','岩手県':'#f4d0a8','宮城県':'#f4dca0',
+    '秋田県':'#f4e8a0','山形県':'#e8f4a0','福島県':'#d4f4a8','茨城県':'#b8f4b8',
+    '栃木県':'#a8f4cc','群馬県':'#a0f4e0','埼玉県':'#a0ecf4','千葉県':'#a0d8f4',
+    '東京都':'#a8c8f4','神奈川県':'#b4b8f4','新潟県':'#c8b0f4','富山県':'#dcb0f4',
+    '石川県':'#f0b0e8','福井県':'#f4b0d4','山梨県':'#f4b0bc','長野県':'#f9cec0',
+    '岐阜県':'#f9d8c0','静岡県':'#f9e4c0','愛知県':'#f0f4b8','三重県':'#d8f4b8',
+    '滋賀県':'#bcf4c4','京都府':'#b0f4d8','大阪府':'#b0f0f4','兵庫県':'#b0dcf4',
+    '奈良県':'#b8c8f4','和歌山県':'#ccb8f4','鳥取県':'#e4b8f4','島根県':'#f4b8e8',
+    '岡山県':'#f4b8cc','広島県':'#f4c0c0','山口県':'#fad0b8','徳島県':'#fae0b8',
+    '香川県':'#faecb8','愛媛県':'#e8fab8','高知県':'#ccfab8','福岡県':'#b8fac8',
+    '佐賀県':'#b8fadc','長崎県':'#b8f4fa','熊本県':'#b8e0fa','大分県':'#c4c8fa',
+    '宮崎県':'#dcc0fa','鹿児島県':'#fac0f0','沖縄県':'#fac0d4'
 };
 
 document.addEventListener('DOMContentLoaded', () => {
     map = L.map('map-container', { zoomControl: false, attributionControl: false }).setView([38.0, 137.0], 5);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
-                style: { fillColor: '#ffffff', weight: 0.8, color: '#333333', fillOpacity: 1 },
+                style: { fillColor: '#ffffff', weight: 0.8, color: '#aaaaaa', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
                     const prefName = feature.properties.nam_ja;
                     layer.bindTooltip(prefName, { sticky: true, direction: 'top' });
                     layer.on('click', () => {
                         selectedPref = prefName;
-                        openPanel();
+                        if (!panelOpen) openPanel();
                         renderRightPanel();
                     });
                 }
@@ -46,11 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fetchMemories();
 
-    // メニューボタン
     document.getElementById('menu-btn').addEventListener('click', () => {
-        selectedPref = null;
-        openPanel();
-        renderRightPanel();
+        if (panelOpen && selectedPref === null) {
+            closePanel();
+        } else {
+            selectedPref = null;
+            openPanel();
+            renderRightPanel();
+        }
     });
 
     document.getElementById('btn-close-slider').addEventListener('click', () => {
@@ -65,42 +68,47 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function openPanel() {
+    panelOpen = true;
     document.getElementById('right-panel').classList.add('open');
 }
 
 function closePanel() {
-    document.getElementById('right-panel').classList.remove('open');
+    panelOpen = false;
     selectedPref = null;
+    document.getElementById('right-panel').classList.remove('open');
 }
 
 function updateCounter() {
-    const count = memoriesData.length;
-    document.getElementById('pref-counter').innerText = `${count} / 47`;
+    document.getElementById('pref-counter').innerText = `${memoriesData.length} / 47`;
 }
 
 function renderRightPanel() {
     const panel = document.getElementById('right-panel');
 
     if (!selectedPref) {
-        panel.style.backgroundColor = 'white';
+        panel.style.backgroundColor = '#eeeeee';
         let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">`;
         html += `<h2 style="margin:0;">記録された思い出</h2>`;
-        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:22px; cursor:pointer;">✕</button>`;
+        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:22px;">✕</button>`;
         html += `</div>`;
 
         if (memoriesData.length === 0) {
             html += `<p>地図から都道府県を選んで思い出を追加しましょう。</p>`;
         } else {
             memoriesData.forEach(m => {
-                const color = PREF_COLORS[m.prefecture] || '#ccc';
-                html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; renderRightPanel();" 
+                const color = PREF_COLORS[m.prefecture] || '#eee';
+                html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; renderRightPanel();"
                     style="border-left: 5px solid ${color};">
                     ${m.prefecture}　<span style="color:#888; font-size:0.9em;">${m.date || "日付未設定"}</span>
                 </button>`;
             });
         }
         panel.innerHTML = html;
+
     } else {
+        const color = PREF_COLORS[selectedPref] || '#e0f0ff';
+        panel.style.backgroundColor = color;
+
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
@@ -109,25 +117,22 @@ function renderRightPanel() {
         const dateFrom = (dateParts[0] || '').trim();
         const dateTo = (dateParts[1] || '').trim();
 
-        const color = PREF_COLORS[selectedPref] || '#3498db';
-        panel.style.backgroundColor = '#fafafa';
-
         let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">`;
         html += `<button onclick="selectedPref=null; renderRightPanel();">← 戻る</button>`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:22px;">✕</button>`;
         html += `</div>`;
-        html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:8px; margin:0 0 10px; border-top: 5px solid ${color};">${selectedPref}</h1>`;
-        html += `<p id="autosave-status" style="color:green; text-align:center; font-size:13px; min-height:20px;"></p>`;
+        html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:8px; margin:0 0 10px;">${selectedPref}</h1>`;
+        html += `<p id="autosave-status" style="color:#555; text-align:center; font-size:13px; min-height:20px;"></p>`;
 
         html += `<label>訪問期間</label>`;
         html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">`;
-        html += `<input type="date" id="input-date-from" value="${dateFrom}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px;">`;
+        html += `<input type="date" id="input-date-from" value="${dateFrom}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px; background:white;">`;
         html += `<span>〜</span>`;
-        html += `<input type="date" id="input-date-to" value="${dateTo}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px;">`;
+        html += `<input type="date" id="input-date-to" value="${dateTo}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px; background:white;">`;
         html += `</div>`;
 
         html += `<label>写真を追加（最大10枚）</label>`;
-        html += `<input type="file" id="input-photos" multiple accept="image/*">`;
+        html += `<input type="file" id="input-photos" multiple accept="image/*" style="background:white;">`;
 
         if (photos.length > 0) {
             html += `<button class="btn-full" onclick='openSlider(${JSON.stringify(photos)})' style="margin-top:20px;">写真を拡大して見る</button>`;
@@ -135,7 +140,7 @@ function renderRightPanel() {
             photos.forEach(url => {
                 html += `<div>
                             <img src="${url}">
-                            <button style="width:100%; color:red; margin-top:5px;" onclick="deletePhoto('${url}')">削除</button>
+                            <button style="width:100%; color:red; margin-top:5px; background:white;" onclick="deletePhoto('${url}')">削除</button>
                          </div>`;
             });
             html += `</div>`;
@@ -153,9 +158,7 @@ function triggerAutoSave() {
     const statusEl = document.getElementById('autosave-status');
     if (statusEl) statusEl.innerText = '入力中...';
     clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(async () => {
-        await saveMemoryData();
-    }, 800);
+    autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
 }
 
 async function saveMemoryData() {
@@ -164,10 +167,7 @@ async function saveMemoryData() {
     const files = document.getElementById('input-photos').files;
     if (!fromEl) return;
 
-    const dateFrom = fromEl.value;
-    const dateTo = toEl.value;
-    const dateValue = dateFrom && dateTo ? `${dateFrom}~${dateTo}` : dateFrom || dateTo || '';
-
+    const dateValue = fromEl.value && toEl.value ? `${fromEl.value}~${toEl.value}` : fromEl.value || toEl.value || '';
     const statusEl = document.getElementById('autosave-status');
     if (statusEl) statusEl.innerText = '保存中...';
 
@@ -222,7 +222,7 @@ function updateMapColors() {
         const pref = layer.feature.properties.nam_ja;
         const isVisited = memoriesData.some(m => m.prefecture === pref);
         layer.setStyle({
-            fillColor: isVisited ? (PREF_COLORS[pref] || '#a2d9ce') : '#ffffff',
+            fillColor: isVisited ? (PREF_COLORS[pref] || '#c8e6c9') : '#ffffff',
             fillOpacity: 1
         });
     });
