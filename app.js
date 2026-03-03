@@ -136,9 +136,8 @@ function closePanel() {
     updateUIVisibility();
 }
 
-// 設定ボタンを押したときの処理
 function openSettings() {
-    alert("設定画面は準備中です。\n今後ここに各種設定機能を追加します！");
+    alert("設定画面は準備中です。");
 }
 
 function updateUIVisibility() {
@@ -158,7 +157,12 @@ function updateUIVisibility() {
 }
 
 function updateCounter() {
-    document.getElementById('pref-counter').innerText = `${memoriesData.length} / 47`;
+    // 実際に「訪問済み（日付あり or 写真あり）」の数だけカウント
+    const visitedCount = memoriesData.filter(m => {
+        const photos = JSON.parse(m.photo_urls || "[]");
+        return m.date || photos.length > 0;
+    }).length;
+    document.getElementById('pref-counter').innerText = `${visitedCount} / 47`;
 }
 
 function toSlashDate(val) {
@@ -194,15 +198,20 @@ function renderRightPanel() {
 
     if (!selectedPref) {
         panel.style.backgroundColor = '#ffffff';
-
         let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:24px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
 
-        if (memoriesData.length === 0) {
+        // 有効なデータのみ表示
+        const activeMemories = memoriesData.filter(m => {
+            const photos = JSON.parse(m.photo_urls || "[]");
+            return m.date || photos.length > 0;
+        });
+
+        if (activeMemories.length === 0) {
             html += `<p style="color:#888; text-align:center; margin-top:40px;">地図から都道府県を選んで<br>思い出を追加しましょう</p>`;
         } else {
-            memoriesData.forEach(m => {
+            activeMemories.forEach(m => {
                 const color = PREF_COLORS[m.prefecture] || '#aaa';
                 html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
@@ -211,25 +220,19 @@ function renderRightPanel() {
                 </button>`;
             });
         }
-        
-        // --- 設定ボタン（歯車アイコン）を追加 ---
         html += `<button class="settings-btn" onclick="openSettings()">⚙️</button>`;
-
         panel.innerHTML = html;
 
     } else {
         panel.style.backgroundColor = '#ffffff';
-
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
-
         const color = PREF_COLORS[selectedPref] || '#6c8ca3';
 
         let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">`;
         html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
-        
         html += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${color}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>`;
         
         html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">`;
@@ -256,7 +259,6 @@ function renderRightPanel() {
             });
             html += `</div>`;
         }
-
         panel.innerHTML = html;
 
         document.getElementById('input-date-from').addEventListener('change', triggerAutoSave);
@@ -282,9 +284,6 @@ async function saveMemoryData() {
     const toVal = toSlashDate(toEl.value);
     const dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
 
-    const statusEl = document.getElementById('autosave-status');
-    if (statusEl) statusEl.innerText = '保存中...';
-
     let base64Photos = [];
     for (let file of files) {
         const b64 = await compressImage(file);
@@ -303,14 +302,15 @@ async function saveMemoryData() {
         if (res.ok) {
             await fetchMemories(false);
             renderRightPanel();
+            // 保存後に地図の色とカウンターを更新
+            updateMapColors();
+            updateCounter();
+            const statusEl = document.getElementById('autosave-status');
             if (statusEl) statusEl.innerText = '保存完了';
             setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
-        } else {
-            const errData = await res.json().catch(() => ({}));
-            if (statusEl) statusEl.innerText = '保存失敗';
         }
     } catch(e) {
-        if (statusEl) statusEl.innerText = '通信エラー';
+        console.error("Save Error", e);
     }
 }
 
@@ -334,6 +334,9 @@ async function deletePhoto(url) {
         });
         await fetchMemories(false);
         renderRightPanel();
+        // 削除後も色とカウンターを即座にチェック
+        updateMapColors();
+        updateCounter();
     } catch(e) {
         console.error("削除エラー", e);
     }
@@ -343,7 +346,17 @@ function updateMapColors() {
     if (!geoJsonLayer) return;
     geoJsonLayer.eachLayer(layer => {
         const pref = layer.feature.properties.nam_ja;
-        const isVisited = memoriesData.some(m => m.prefecture === pref);
+        const memory = memoriesData.find(m => m.prefecture === pref);
+        
+        let isVisited = false;
+        if (memory) {
+            const photos = JSON.parse(memory.photo_urls || "[]");
+            // 「日付がある」または「写真が1枚以上ある」場合のみ色をつける
+            if (memory.date || photos.length > 0) {
+                isVisited = true;
+            }
+        }
+
         layer.setStyle({
             fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
             weight: 0.5,
@@ -376,13 +389,6 @@ function openSliderAt(url, photos) {
     currentPhotos = photos;
     slideIndex = photos.indexOf(url);
     if (slideIndex < 0) slideIndex = 0;
-    updateSlider();
-    document.getElementById('slider-modal').classList.remove('hidden');
-}
-
-function openSlider(photos) {
-    currentPhotos = photos;
-    slideIndex = 0;
     updateSlider();
     document.getElementById('slider-modal').classList.remove('hidden');
 }
