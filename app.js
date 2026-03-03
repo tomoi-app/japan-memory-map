@@ -8,34 +8,20 @@ let autoSaveTimer = null;
 let panelOpen = false;
 let initialBounds;
 
+// 彩度を落としたおしゃれなくすみカラーパレット
 const PREF_COLORS = {
-    '北海道':'#f08080','青森県':'#f0956a','岩手県':'#f0b060','宮城県':'#f0cc50',
-    '秋田県':'#d4e060','山形県':'#a0d870','福島県':'#70d880','茨城県':'#50d4c0',
-    '栃木県':'#50c8b8','群馬県':'#60b8f0','埼玉県':'#7090e0','千葉県':'#9070d8',
-    '東京都':'#b860d8','神奈川県':'#e060a0','新潟県':'#e85050','富山県':'#e87040',
-    '石川県':'#e89030','福井県':'#c8c030','山梨県':'#60b060','長野県':'#30a898',
-    '岐阜県':'#30b0d0','静岡県':'#3090d8','愛知県':'#5070c8','三重県':'#8040b8',
-    '滋賀県':'#c03080','京都府':'#d83030','大阪府':'#e04818','兵庫県':'#e87010',
-    '奈良県':'#d89010','和歌山県':'#787010','鳥取県':'#507828','島根県':'#108060',
-    '岡山県':'#107888','広島県':'#104888','山口県':'#202878','徳島県':'#3818a0',
-    '香川県':'#680898','愛媛県':'#a01060','高知県':'#a01010','福岡県':'#a02808',
-    '佐賀県':'#d04800','長崎県':'#d07000','熊本県':'#888010','大分県':'#285010',
-    '宮崎県':'#104010','鹿児島県':'#005048','沖縄県':'#003478'
-};
-
-const PREF_COLORS_LIGHT = {
-    '北海道':'#fde8e8','青森県':'#fdeee6','岩手県':'#fdf3e0','宮城県':'#fdf8da',
-    '秋田県':'#f5fada','山形県':'#e8fada','福島県':'#d8fae0','茨城県':'#d0faf4',
-    '栃木県':'#d0f8f2','群馬県':'#d8f0fc','埼玉県':'#dce8fc','千葉県':'#e6dcfc',
-    '東京都':'#f2dcfc','神奈川県':'#fcdcee','新潟県':'#fcdcdc','富山県':'#fde4da',
-    '石川県':'#fdeeda','福井県':'#fdfada','山梨県':'#e0f4e0','長野県':'#d0f4f0',
-    '岐阜県':'#d0f0f8','静岡県':'#d8ecfc','愛知県':'#dce4fc','三重県':'#ecd8fc',
-    '滋賀県':'#fcd8ec','京都府':'#fcd8d8','大阪府':'#fde0d8','兵庫県':'#fdecd8',
-    '奈良県':'#fdf6d8','和歌山県':'#f4f2d0','鳥取県':'#e0f0d0','島根県':'#d0f0e8',
-    '岡山県':'#d0f0f4','広島県':'#d0e4f8','山口県':'#d4d8f8','徳島県':'#dcd0f8',
-    '香川県':'#ecd0f8','愛媛県':'#f8d0e8','高知県':'#f8d0d0','福岡県':'#f8dcd0',
-    '佐賀県':'#fcecd0','長崎県':'#fcf4d0','熊本県':'#f0f4d0','大分県':'#d8f0d0',
-    '宮崎県':'#d0f0d8','鹿児島県':'#d0f0ee','沖縄県':'#d0e4f8'
+    '北海道':'#9fb9c4','青森県':'#a2c4c3','岩手県':'#a1bda6','宮城県':'#b6c6a7',
+    '秋田県':'#c1cda2','山形県':'#cdd3a1','福島県':'#d9d8a3','茨城県':'#e3d8a6',
+    '栃木県':'#ead2a8','群馬県':'#ebc8a5','埼玉県':'#e8bba1','千葉県':'#e3afa2',
+    '東京都':'#dda2a5','神奈川県':'#d698a9','新潟県':'#c59eb1','富山県':'#b2a1b7',
+    '石川県':'#a2a5bb','福井県':'#96a7bc','山梨県':'#8eb0c2','長野県':'#85b9c4',
+    '岐阜県':'#8bc1c0','静岡県':'#91c6b8','愛知県':'#9bcbb0','三重県':'#a9ceaa',
+    '滋賀県':'#b7cfa6','京都府':'#c7d1a3','大阪府':'#d7d1a2','兵庫県':'#e4d0a2',
+    '奈良県':'#eed0a4','和歌山県':'#f3cda8','鳥取県':'#f4c7ad','島根県':'#f1bfb2',
+    '岡山県':'#ecb8b7','広島県':'#e4b1bd','山口県':'#d9abc2','徳島県':'#cda6c5',
+    '香川県':'#bea1c6','愛媛県':'#afa0c5','高知県':'#a19fc1','福岡県':'#93a0bb',
+    '佐賀県':'#88a2b5','長崎県':'#81a6ae','熊本県':'#7eaba5','大分県':'#7eb09a',
+    '宮崎県':'#83b48e','鹿児島県':'#8ab784','沖縄県':'#96b87b'
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,8 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
-                // 境界線を黒に固定
-                style: { fillColor: '#f8f9fa', weight: 1.2, color: '#000000', fillOpacity: 1 },
+                // 枠線を0.5にして繊細でおしゃれな印象に
+                style: { fillColor: '#f4f7f6', weight: 0.5, color: '#000000', fillOpacity: 1 },
                 onEachFeature: function (feature, layer) {
                     const prefName = feature.properties.nam_ja;
                     layer.bindTooltip(prefName, { sticky: true, direction: 'top' });
@@ -161,11 +147,11 @@ function getDateTo(dateStr) {
 }
 
 function formatDate(dateStr) {
-    if (!dateStr) return '日付未設定';
+    if (!dateStr) return '';
     const parts = dateStr.split('~');
     const from = toSlashDate(parts[0].trim());
     const to = parts[1] ? toSlashDate(parts[1].trim()) : '';
-    return to ? `${from} 〜 ${to}` : from;
+    return to ? `${from} - ${to}` : from;
 }
 
 function renderRightPanel() {
@@ -174,57 +160,61 @@ function renderRightPanel() {
     updateUIVisibility();
 
     if (!selectedPref) {
-        panel.style.backgroundColor = '#e0e0e0';
+        panel.style.backgroundColor = '#ffffff';
 
-        let html = `<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">`;
-        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; padding:0;">✕</button>`;
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">`;
+        html += `<h2 style="margin:0; font-size:1.2rem; color:#444;">記録一覧</h2>`;
+        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
 
         if (memoriesData.length === 0) {
-            html += `<p style="color:#666;">地図から都道府県を選んで思い出を追加しましょう。</p>`;
+            html += `<p style="color:#888; text-align:center; margin-top:40px;">地図から都道府県を選んで<br>思い出を追加しましょう</p>`;
         } else {
             memoriesData.forEach(m => {
                 const color = PREF_COLORS[m.prefecture] || '#aaa';
                 html += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
-                    style="border-left: 5px solid ${color};">
-                    <span style="font-weight:bold;">${m.prefecture}</span>
-                    <span style="color:#888; font-size:0.85em; margin-left:8px;">${formatDate(m.date)}</span>
+                    style="border-left: 6px solid ${color};">
+                    <span style="font-weight:bold; color:#444;">${m.prefecture}</span>
+                    <span style="color:#999; font-size:0.85em;">${formatDate(m.date)}</span>
                 </button>`;
             });
         }
         panel.innerHTML = html;
 
     } else {
-        const lightColor = PREF_COLORS_LIGHT[selectedPref] || '#f0f0f0';
-        panel.style.backgroundColor = lightColor;
+        // 個別パネルの背景色も白で統一し、洗練された印象に
+        panel.style.backgroundColor = '#ffffff';
 
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
 
-        const color = PREF_COLORS[selectedPref] || '#3498db';
+        const color = PREF_COLORS[selectedPref] || '#6c8ca3';
 
-        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">`;
-        // 戻るボタンの挙動を「初期画面に戻す」に変更
-        html += `<button onclick="closePanel()" style="background:white; border:1px solid #ccc; padding:6px 12px; border-radius:6px;">← 戻る</button>`;
-        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; padding:0;">✕</button>`;
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">`;
+        html += `<button onclick="closePanel()" style="background:none; border:none; color:#6c8ca3; font-weight:bold; font-size:15px; padding:0;">← 戻る</button>`;
+        html += `<button onclick="closePanel()" style="border:none; background:none; font-size:24px; color:#aaa; padding:0;">✕</button>`;
         html += `</div>`;
-        html += `<h1 style="text-align:center; background:white; padding:15px; border-radius:10px; margin:0 0 8px; border-top:5px solid ${color}; font-size:1.4rem;">${selectedPref}</h1>`;
-        html += `<p id="autosave-status" style="color:#555; text-align:center; font-size:13px; min-height:20px; margin:0 0 12px;"></p>`;
-
-        html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">`;
-        html += `<input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px; background:white;">`;
-        html += `<span style="color:#666;">〜</span>`;
-        html += `<input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:15px; background:white;">`;
+        
+        html += `<h1 style="text-align:center; padding-bottom:15px; border-bottom:3px solid ${color}; margin:0 0 15px; font-size:1.6rem; color:#333;">${selectedPref}</h1>`;
+        
+        html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">`;
+        html += `<input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">`;
+        html += `<span style="color:#aaa;">-</span>`;
+        html += `<input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">`;
         html += `</div>`;
 
-        html += `<label style="font-weight:bold; display:block; margin-bottom:6px;">写真を追加（最大10枚）</label>`;
-        html += `<input type="file" id="input-photos" multiple accept="image/*">`;
+        // 無駄なテキストを省き、おしゃれなボタンでファイル選択を代用
+        html += `<div style="margin-bottom: 20px;">`;
+        html += `<label for="input-photos" class="btn-full" style="display:block; text-align:center; cursor:pointer; margin:0; background:${color};">写真を追加</label>`;
+        html += `<input type="file" id="input-photos" multiple accept="image/*" style="display:none;">`;
+        html += `</div>`;
+        
+        html += `<p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:0 0 15px;"></p>`;
 
         if (photos.length > 0) {
             html += `<div class="photo-grid">`;
             photos.forEach(url => {
-                // 文字列変換時のエラーを回避するためにエスケープ処理を追加
                 const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
                 html += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})">
                             <img src="${url}">
@@ -244,7 +234,7 @@ function renderRightPanel() {
 
 function triggerAutoSave() {
     const statusEl = document.getElementById('autosave-status');
-    if (statusEl) statusEl.innerText = '入力中...';
+    if (statusEl) statusEl.innerText = '保存中...';
     clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
 }
@@ -280,14 +270,14 @@ async function saveMemoryData() {
         if (res.ok) {
             await fetchMemories(false);
             renderRightPanel();
-            if (statusEl) statusEl.innerText = '✓ 保存しました';
+            if (statusEl) statusEl.innerText = '保存完了';
             setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
         } else {
             const errData = await res.json().catch(() => ({}));
-            if (statusEl) statusEl.innerText = '保存失敗: ' + (errData.error || '不明なエラー');
+            if (statusEl) statusEl.innerText = '保存失敗';
         }
     } catch(e) {
-        if (statusEl) statusEl.innerText = 'ネットワークエラー';
+        if (statusEl) statusEl.innerText = '通信エラー';
     }
 }
 
@@ -322,9 +312,9 @@ function updateMapColors() {
         const pref = layer.feature.properties.nam_ja;
         const isVisited = memoriesData.some(m => m.prefecture === pref);
         layer.setStyle({
-            fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f8f9fa',
-            weight: 1.2,
-            color: '#000000', // 境界線を黒で固定
+            fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
+            weight: 0.5, // 枠線を細く
+            color: '#000000',
             fillOpacity: 1
         });
     });
