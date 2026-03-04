@@ -149,7 +149,8 @@ class handler(BaseHTTPRequestHandler):
                 "title": "Memory",
                 "lat": 0.0,
                 "lng": 0.0,
-                "user_id": current_user_id
+                "user_id": current_user_id,
+                "is_home": False
             }
 
             if row_id:
@@ -178,6 +179,72 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(data)
+
+        elif action == "save_home":
+            home_prefs = payload.get("home_prefectures", [])
+
+            # 現在のis_home=trueを全部falseにリセット
+            reset_req = urllib.request.Request(
+                f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&is_home=eq.true",
+                data=json.dumps({"is_home": False}).encode('utf-8'),
+                method="PATCH"
+            )
+            reset_req.add_header("apikey", supabase_key)
+            reset_req.add_header("Authorization", f"Bearer {supabase_key}")
+            reset_req.add_header("Content-Type", "application/json")
+            reset_req.add_header("Prefer", "return=minimal")
+            try:
+                urllib.request.urlopen(reset_req, timeout=10)
+            except:
+                pass
+
+            # 各home都道府県をupsert
+            for pref in home_prefs:
+                safe_pref = urllib.parse.quote(pref)
+                chk_url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=id"
+                chk_req = urllib.request.Request(chk_url)
+                chk_req.add_header("apikey", supabase_key)
+                chk_req.add_header("Authorization", f"Bearer {supabase_key}")
+                with urllib.request.urlopen(chk_req, timeout=10) as r:
+                    rows = json.loads(r.read())
+
+                if rows:
+                    row_id = rows[0]["id"]
+                    up_req = urllib.request.Request(
+                        f"{supabase_url}/rest/v1/memories?id=eq.{row_id}",
+                        data=json.dumps({"is_home": True}).encode('utf-8'),
+                        method="PATCH"
+                    )
+                else:
+                    up_req = urllib.request.Request(
+                        f"{supabase_url}/rest/v1/memories",
+                        data=json.dumps({
+                            "prefecture": pref,
+                            "date": "",
+                            "photo_urls": "[]",
+                            "title": "Memory",
+                            "lat": 0.0,
+                            "lng": 0.0,
+                            "user_id": current_user_id,
+                            "is_home": True
+                        }).encode('utf-8'),
+                        method="POST"
+                    )
+
+                up_req.add_header("apikey", supabase_key)
+                up_req.add_header("Authorization", f"Bearer {supabase_key}")
+                up_req.add_header("Content-Type", "application/json")
+                up_req.add_header("Prefer", "return=minimal")
+                try:
+                    urllib.request.urlopen(up_req, timeout=10)
+                except:
+                    pass
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
 
         elif action == "delete_photo":
             pref = payload.get("prefecture", "")

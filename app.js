@@ -101,8 +101,17 @@ document.addEventListener('keydown', (e) => {
 function startApp(session) {
     currentUser = session.user;
     currentToken = session.access_token;
+    // 状態を初期化してから表示
+    panelOpen = false;
+    settingsOpen = false;
+    selectedPref = null;
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-screen').classList.remove('hidden');
+    // パネルが開いていたら閉じる
+    const rightPanel = document.getElementById('right-panel');
+    const settingsPanel = document.getElementById('settings-panel');
+    if (rightPanel) rightPanel.classList.remove('open');
+    if (settingsPanel) settingsPanel.classList.remove('open');
     initApp();
 }
 
@@ -159,7 +168,7 @@ let panelOpen = false;
 let settingsOpen = false;
 let initialBounds;
 
-let homePrefectures = JSON.parse(localStorage.getItem('homePrefectures')) || [];
+let homePrefectures = [];
 
 const PREF_COLORS = {
     '北海道':'#9fb9c4','青森県':'#a2c4c3','岩手県':'#a1bda6','宮城県':'#b6c6a7',
@@ -420,7 +429,6 @@ async function deleteAllData() {
         showLoading();
         
         homePrefectures = [];
-        localStorage.removeItem('homePrefectures');
         memoriesData = [];
         selectedPref = null;
         currentPhotos = [];
@@ -476,12 +484,12 @@ function renderAccountSettings() {
                 パスワードを変更
             </button>
 
-            <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
-                ログアウト
-            </button>
-
             <button onclick="deleteAllData()" style="${dangerBtnStyle}">
                 すべてのデータを削除
+            </button>
+
+            <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
+                ログアウト
             </button>
         </div>
     </div>`;
@@ -497,7 +505,7 @@ function renderChangePassword() {
     <div class="panel-header">
         <div class="panel-header-title-row">
             <button onclick="renderAccountSettings()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">パスワード変更</h2>
+            <h2 style="margin: 0; font-size: 1.1rem; color: #333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">パスワード変更</h2>
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
         </div>
     </div>`;
@@ -612,7 +620,10 @@ function removeHomePrefecture(pref) {
 }
 
 function saveHomePrefectures() {
-    localStorage.setItem('homePrefectures', JSON.stringify(homePrefectures));
+    apiFetch({
+        method: 'POST',
+        body: JSON.stringify({ action: "save_home", home_prefectures: homePrefectures })
+    }).catch(e => console.error("home save error", e));
 }
 
 function renderHomeList() {
@@ -931,6 +942,11 @@ async function fetchMemories(redraw = true) {
             }
         });
         memoriesData = Object.values(uniqueData);
+
+        // is_homeフラグからhomePrefecturesを復元
+        homePrefectures = memoriesData
+            .filter(m => m.is_home === true)
+            .map(m => m.prefecture);
 
         if (redraw) renderRightPanel();
         updateMapColors();
