@@ -2005,12 +2005,12 @@ function showTutorialStep() {
         const margin  = 20;
         let bx, by, arrowDir;
 
-        // バブル位置：常に画面中央固定・少し左寄り
-        bx = window.innerWidth / 2 - bubbleW / 2 - 20;
+        // バブル位置：完全固定（left/top固定値）
+        bx = 28;
         by = window.innerHeight / 2 - bubbleH / 2;
         arrowDir = null;
 
-        bubbleStyle = `position:fixed; left:${bx}px; top:${by}px; width:${bubbleW}px; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
+        bubbleStyle = `position:fixed; left:28px; right:28px; top:${by}px; width:auto; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
 
         if (arrowDir === 'up') {
             arrowStyle = `position:absolute; left:${cx - bx - 10}px; top:-10px; width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:10px solid white;`;
