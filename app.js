@@ -474,6 +474,7 @@ function initApp() {
     });
 
     fetchMemories();
+    checkAndStartTutorial();
 
     const menuBtn = document.getElementById('menu-btn');
     menuBtn.title = "一覧";
@@ -616,6 +617,9 @@ function renderSettingsMenu() {
             </button>
             <button onclick="renderFeatureSettings()" style="${btnS}">
                 機能の変更
+            </button>
+            <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); startTutorial();" style="${btnS}">
+                チュートリアル
             </button>
             <button onclick="renderThemeSettings()" style="${btnS}">
                 テーマの変更
@@ -1507,4 +1511,174 @@ function openSliderAt(url, photos) {
 function updateSlider() {
     document.getElementById('slide-image').src = currentPhotos[slideIndex];
     document.getElementById('slide-counter').innerText = `${slideIndex + 1} / ${currentPhotos.length}`;
+}
+// =============================================
+// チュートリアル
+// =============================================
+const TUTORIAL_STEPS = [
+    {
+        targetId: 'map-container',
+        position: 'center',
+        title: '地図',
+        text: '都道府県をタップすると
+記録を追加できます'
+    },
+    {
+        targetId: 'menu-btn',
+        position: 'auto',
+        title: '一覧',
+        text: '訪問した都道府県を
+一覧で確認できます'
+    },
+    {
+        targetId: '__photo-fab__',
+        position: 'auto',
+        title: '写真・日付・メモ',
+        text: '都道府県を選択後、＋ボタンから
+写真・日付・メモを追加できます'
+    },
+    {
+        targetId: 'settings-btn',
+        position: 'auto',
+        title: '設定',
+        text: 'テーマ変更・家の登録・
+アカウント管理ができます'
+    },
+];
+
+let tutorialStep = 0;
+
+function startTutorial() {
+    tutorialStep = 0;
+    showTutorialStep();
+}
+
+function showTutorialStep() {
+    // 既存オーバーレイ削除
+    const old = document.getElementById('tutorial-overlay');
+    if (old) old.remove();
+
+    if (tutorialStep >= TUTORIAL_STEPS.length) {
+        localStorage.setItem('tutorialDone', '1');
+        return;
+    }
+
+    const step = TUTORIAL_STEPS[tutorialStep];
+
+    // ターゲット要素の位置取得
+    let targetEl = document.getElementById(step.targetId);
+    if (step.targetId === '__photo-fab__') {
+        targetEl = document.querySelector('.add-photo-fab');
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'tutorial-overlay';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:9999; pointer-events:none;';
+
+    let spotStyle = '';
+    let bubbleStyle = '';
+    let arrowStyle = '';
+
+    if (targetEl) {
+        const rect = targetEl.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const r  = Math.max(rect.width, rect.height) * 0.8 + 20;
+
+        // スポットライト（SVGクリップ）
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; pointer-events:all;';
+        svg.innerHTML = `
+            <defs>
+                <mask id="tut-mask">
+                    <rect width="100%" height="100%" fill="white"/>
+                    <circle cx="${cx}" cy="${cy}" r="${r}" fill="black"/>
+                </mask>
+            </defs>
+            <rect width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#tut-mask)" onclick="skipTutorial()"/>
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="white" stroke-width="2.5" opacity="0.8"/>
+        `;
+        overlay.appendChild(svg);
+
+        // バブルの位置を決める
+        const bubbleW = 220;
+        const bubbleH = 110;
+        const margin  = 20;
+        let bx, by, arrowDir;
+
+        // 上下左右で空きスペースが多い方に配置
+        if (cy > window.innerHeight / 2) {
+            // ターゲットが下半分 → バブルを上に
+            by = cy - r - bubbleH - 16;
+            bx = Math.min(Math.max(cx - bubbleW / 2, margin), window.innerWidth - bubbleW - margin);
+            arrowDir = 'down';
+        } else {
+            // ターゲットが上半分 → バブルを下に
+            by = cy + r + 16;
+            bx = Math.min(Math.max(cx - bubbleW / 2, margin), window.innerWidth - bubbleW - margin);
+            arrowDir = 'up';
+        }
+
+        // map-containerは中央に表示
+        if (step.position === 'center') {
+            bx = window.innerWidth / 2 - bubbleW / 2;
+            by = window.innerHeight / 2 - bubbleH / 2 + 60;
+            arrowDir = null;
+        }
+
+        bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:${bubbleW}px; background:white; border-radius:16px; padding:18px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
+
+        if (arrowDir === 'up') {
+            arrowStyle = `position:absolute; left:${cx - bx - 10}px; top:-10px; width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:10px solid white;`;
+        } else if (arrowDir === 'down') {
+            arrowStyle = `position:absolute; left:${cx - bx - 10}px; bottom:-10px; width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid white;`;
+        }
+    } else {
+        // ターゲットが見つからない場合は中央に表示
+        const bx = window.innerWidth / 2 - 110;
+        const by = window.innerHeight / 2 - 55;
+        bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:220px; background:white; border-radius:16px; padding:18px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
+        const svg = document.createElement('div');
+        svg.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.6); pointer-events:all;';
+        svg.onclick = skipTutorial;
+        overlay.appendChild(svg);
+    }
+
+    // バブル本体
+    const bubble = document.createElement('div');
+    bubble.style.cssText = bubbleStyle;
+    bubble.innerHTML = `
+        ${arrowStyle ? `<div style="${arrowStyle}"></div>` : ''}
+        <div style="font-size:1rem; font-weight:bold; color:#333; margin-bottom:8px;">${step.title}</div>
+        <div style="font-size:0.88rem; color:#666; line-height:1.6; white-space:pre-line;">${step.text}</div>
+        <div style="display:flex; gap:8px; margin-top:14px; justify-content:center;">
+            <button onclick="skipTutorial()" style="flex:1; padding:9px; background:#f4f7f6; border:none; border-radius:8px; font-size:0.85rem; color:#888; cursor:pointer; font-family:inherit; font-weight:bold;">スキップ</button>
+            <button onclick="nextTutorialStep()" style="flex:1; padding:9px; background:#6c8ca3; color:white; border:none; border-radius:8px; font-size:0.85rem; cursor:pointer; font-family:inherit; font-weight:bold;">${tutorialStep < TUTORIAL_STEPS.length - 1 ? '次へ' : '完了'}</button>
+        </div>
+        <div style="margin-top:10px; display:flex; justify-content:center; gap:6px;">
+            ${TUTORIAL_STEPS.map((_, i) => `<span style="width:7px; height:7px; border-radius:50%; background:${i === tutorialStep ? '#6c8ca3' : '#ddd'}; display:inline-block;"></span>`).join('')}
+        </div>
+    `;
+    overlay.appendChild(bubble);
+
+    document.body.appendChild(overlay);
+}
+
+function nextTutorialStep() {
+    tutorialStep++;
+    showTutorialStep();
+}
+
+function skipTutorial() {
+    const el = document.getElementById('tutorial-overlay');
+    if (el) el.remove();
+    localStorage.setItem('tutorialDone', '1');
+}
+
+function checkAndStartTutorial() {
+    if (!localStorage.getItem('tutorialDone')) {
+        // 地図の初期化を待ってから開始
+        setTimeout(startTutorial, 800);
+    }
 }
