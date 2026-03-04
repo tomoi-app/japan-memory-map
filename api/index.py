@@ -67,7 +67,7 @@ class handler(BaseHTTPRequestHandler):
         if action == "save_memory":
             pref = payload.get("prefecture", "")
             date_str = payload.get("date", "")
-            incoming_photos = payload.get("photos", []) # アプリから送られてきた写真のリスト
+            incoming_photos = payload.get("photos", [])
 
             safe_pref = urllib.parse.quote(pref)
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*"
@@ -78,18 +78,26 @@ class handler(BaseHTTPRequestHandler):
             with urllib.request.urlopen(req, timeout=10) as res:
                 existing = json.loads(res.read())
 
-            row_id = existing[0]["id"] if len(existing) > 0 else None
+            row_id = None
+            if len(existing) > 0:
+                row_id = existing[0]["id"]
+                # --- ゴーストデータ（重複）が見つかったら、裏でこっそり削除する ---
+                if len(existing) > 1:
+                    for duplicate in existing[1:]:
+                        dup_id = duplicate["id"]
+                        del_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{dup_id}", method="DELETE")
+                        del_req.add_header("apikey", supabase_key)
+                        del_req.add_header("Authorization", f"Bearer {supabase_key}")
+                        try:
+                            urllib.request.urlopen(del_req, timeout=10)
+                        except:
+                            pass
 
-            # アプリの指示通りに上書きするための最終的な写真リスト
             final_photo_urls = []
-
-            # アプリから送られてきたデータを1つずつ確認する
             for item in incoming_photos:
                 if item.startswith("http"):
-                    # すでにアップロード済みのURLなら、そのままリストに残す
                     final_photo_urls.append(item)
                 else:
-                    # 新しい写真（Base64形式）なら、変換してStorageにアップロードする
                     if "," in item:
                         _, encoded = item.split(",", 1)
                     else:
@@ -105,11 +113,10 @@ class handler(BaseHTTPRequestHandler):
                     with urllib.request.urlopen(up_req, timeout=10):
                         final_photo_urls.append(f"{supabase_url}/storage/v1/object/public/photos/{filename}")
 
-            # データベースを確実に上書きする
             db_payload = {
                 "prefecture": pref,
                 "date": date_str,
-                "photo_urls": json.dumps(final_photo_urls), # 空ならちゃんと "[]" になる
+                "photo_urls": json.dumps(final_photo_urls),
                 "title": "Memory",
                 "lat": 0.0,
                 "lng": 0.0
@@ -169,7 +176,6 @@ class handler(BaseHTTPRequestHandler):
             if url_to_delete in photo_urls:
                 photo_urls.remove(url_to_delete)
 
-            # Storageから削除
             del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
             del_req = urllib.request.Request(del_url, method="DELETE")
             del_req.add_header("apikey", supabase_key)
@@ -180,7 +186,6 @@ class handler(BaseHTTPRequestHandler):
             except:
                 pass
 
-            # DBのphoto_urlsを更新
             db_payload = {"photo_urls": json.dumps(photo_urls)}
             db_req = urllib.request.Request(
                 f"{supabase_url}/rest/v1/memories?id=eq.{row_id}",
@@ -200,6 +205,31 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(data)
+
+        # --- 新規追加：すべてのデータを一撃で完全に削除する命令 ---
+        elif action == "delete_all":
+            req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?select=id")
+            req.add_header("apikey", supabase_key)
+            req.add_header("Authorization", f"Bearer {supabase_key}")
+            with urllib.request.urlopen(req, timeout=10) as res:
+                all_records = json.loads(res.read())
+            
+            for record in all_records:
+                r_id = record["id"]
+                d_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{r_id}", method="DELETE")
+                d_req.add_header("apikey", supabase_key)
+                d_req.add_header("Authorization", f"Bearer {supabase_key}")
+                try:
+                    urllib.request.urlopen(d_req, timeout=10)
+                except:
+                    pass
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+            return
 
         else:
             raise Exception(f"不明なアクションです: {action}")

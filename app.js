@@ -163,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- ローディング表示制御 ---
 function showLoading() {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
@@ -264,16 +263,12 @@ function renderSettingsMenu() {
 }
 
 // ------------------------------------------
-// 強制・全データ削除の処理（完全版）
+// 強制・一撃で全データ削除の処理（API呼び出しを1回に変更）
 // ------------------------------------------
 async function deleteAllData() {
     if (confirm("すべてのデータを削除してもよろしいでしょうか。\nこの操作は取り消せません。")) {
         showLoading();
         
-        // サーバーに送るための「現在保存されている県」のリストを確保
-        const activeMemories = memoriesData.filter(m => m.date !== "" || (m.photo_urls && m.photo_urls !== "[]"));
-
-        // 1. 画面上のデータを完全に空にする（ここで白地図・一覧空っぽが確定）
         homePrefectures = [];
         localStorage.removeItem('homePrefectures');
         memoriesData = [];
@@ -281,7 +276,6 @@ async function deleteAllData() {
         currentPhotos = [];
         slideIndex = 0;
 
-        // 2. 画面の表示を強制的にリセット
         closeSettings();
         if (panelOpen) closePanel();
         renderRightPanel();
@@ -289,24 +283,19 @@ async function deleteAllData() {
         updateCounter();
 
         try {
-            // 3. サーバー側にあるデータだけを狙って空送信（無駄な通信を省く）
-            for (let i = 0; i < activeMemories.length; i++) {
-                let payload = { action: "save_memory", prefecture: activeMemories[i].prefecture, date: "", photos: [] };
-                await fetch('/api', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify(payload) 
-                });
-            }
-            
-            // ※ここで fetchMemories() は呼び出しません。画面はすでに空だからです。
+            // サーバーに「全部消せ」という命令を1回だけ送る
+            await fetch('/api', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ action: "delete_all" }) 
+            });
             
             hideLoading();
-            setTimeout(() => alert("すべてのデータを削除しました。"), 100);
+            setTimeout(() => alert("すべてのデータを完全に削除しました。"), 100);
         } catch(e) {
             console.error("全削除エラー", e);
             hideLoading();
-            alert("画面上のデータはリセットされましたが、サーバーとの通信に一部失敗しました。");
+            alert("通信エラーが発生しました。");
         }
     }
 }
@@ -621,7 +610,6 @@ async function saveMemoryData() {
     
     const statusEl = document.getElementById('autosave-status');
     
-    // 写真がある場合は時間がかかるので全画面のローディングを表示
     if (files.length > 0) {
         if (statusEl) statusEl.innerText = 'アップロード中...';
         showLoading();
@@ -629,7 +617,6 @@ async function saveMemoryData() {
 
     try {
         let photoUrls = [];
-        
         const existingData = memoriesData.find(m => m.prefecture === selectedPref);
         if (existingData && existingData.photo_urls) {
             try { photoUrls = JSON.parse(existingData.photo_urls); } catch(e){}
@@ -667,10 +654,27 @@ async function saveMemoryData() {
     }
 }
 
+// --- ゴーストデータを画面に表示させない処理を追加 ---
 async function fetchMemories(redraw = true) {
     try {
         const res = await fetch('/api?t=' + new Date().getTime());
-        memoriesData = await res.json();
+        const rawData = await res.json();
+        
+        // 同じ都道府県があったら1つにまとめる（ダミーを排除）
+        const uniqueData = {};
+        rawData.forEach(item => {
+            if (!uniqueData[item.prefecture]) {
+                uniqueData[item.prefecture] = item;
+            } else {
+                const existingPhotos = JSON.parse(uniqueData[item.prefecture].photo_urls || "[]");
+                const newPhotos = JSON.parse(item.photo_urls || "[]");
+                if ((!uniqueData[item.prefecture].date && !existingPhotos.length) && (item.date || newPhotos.length)) {
+                    uniqueData[item.prefecture] = item;
+                }
+            }
+        });
+        memoriesData = Object.values(uniqueData);
+
         if (redraw) renderRightPanel();
         updateMapColors();
         updateCounter();
