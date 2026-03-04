@@ -743,11 +743,8 @@ function renderSettingsMenu() {
             <button onclick="renderGroupSettings()" style="${btnS}">
                 お互いの記録が1つの地図に
             </button>
-            <button onclick="renderFeatureSettings()" style="${btnS}">
-                機能の変更
-            </button>
-            <button onclick="renderThemeSettings()" style="${btnS}">
-                テーマの変更
+            <button onclick="renderFeatureThemeSettings()" style="${btnS}">
+                機能・テーマの変更
             </button>
             <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); startTutorial();" style="${btnS}">
                 チュートリアル
@@ -975,7 +972,7 @@ function renderShareSettings() {
     <div class="panel-header">
         <div class="panel-header-title-row">
             <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-            <h2 style="margin:0; font-size:1.6rem; color:#333; position:absolute; left:50%; transform:translateX(-50%);">あしあとを共有</h2>
+            <h2 style="margin:0; font-size:1.25rem; color:#333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">あしあとを共有</h2>
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
         </div>
     </div>
@@ -1029,6 +1026,56 @@ function renderGroupSettings() {
     </div>`;
 }
 
+function renderFeatureThemeSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+
+    const headerHtml = '<div class="panel-header"><div class="panel-header-title-row">' +
+        '<button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>' +
+        '<h2 style="margin:0; font-size:1.3rem; color:#333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">機能・テーマの変更</h2>' +
+        '<button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>' +
+        '</div></div>';
+
+    const knobOn  = 'position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; background:white; transition:all 0.2s;';
+    const knobOff = 'position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:white; transition:all 0.2s;';
+    const btnBase = 'display:flex; align-items:center; justify-content:space-between; padding:18px 20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit; width:100%; box-sizing:border-box;';
+
+    function makeToggle(label, isOn, onToggle) {
+        return '<button onclick="' + onToggle + '" style="' + btnBase + '">' +
+            '<span>' + label + '</span>' +
+            '<span style="position:relative; width:52px; height:28px; border-radius:14px; background:' + (isOn ? '#6c8ca3' : '#ccc') + '; display:inline-block; transition:background 0.2s; flex-shrink:0;">' +
+            '<span style="' + (isOn ? knobOn : knobOff) + '"></span>' +
+            '</span></button>';
+    }
+
+    const themeBtns = Object.entries(MAP_THEMES).map(function(entry) {
+        const key = entry[0]; const t = entry[1];
+        const isActive = key === currentTheme;
+        const swatches = t.preview.map(function(c) {
+            return '<span style="width:18px; height:18px; border-radius:3px; background:' + c + '; display:inline-block;"></span>';
+        }).join('');
+        return '<button onclick="applyTheme(\'' + key + '\'); renderFeatureThemeSettings();" ' +
+            'style="display:flex; align-items:center; gap:14px; padding:14px 18px; background:' + (isActive ? '#eef2f5' : '#f9f9f9') + '; border:2px solid ' + (isActive ? '#6c8ca3' : '#eee') + '; border-radius:12px; cursor:pointer; font-family:inherit; width:100%; box-sizing:border-box;">' +
+            '<div style="display:flex; gap:3px; flex-shrink:0;">' + swatches + '</div>' +
+            '<span style="font-size:1.05rem; font-weight:bold; color:#444;">' + t.name + '</span>' +
+            (isActive ? '<span style="margin-left:auto; color:#6c8ca3; font-size:1.2rem;">✓</span>' : '') +
+            '</button>';
+    }).join('');
+
+    const contentHtml =
+        '<div class="panel-content">' +
+        '<p style="font-size:0.85rem; color:#aaa; margin:20px 0 8px 4px;">機能</p>' +
+        '<div style="display:flex; flex-direction:column; gap:12px;">' +
+        makeToggle('期間', featureShowDate, "featureShowDate=!featureShowDate; localStorage.setItem('featureShowDate', featureShowDate); renderRightPanel(); renderFeatureThemeSettings();") +
+        makeToggle('メモ', featureShowMemo, "featureShowMemo=!featureShowMemo; localStorage.setItem('featureShowMemo', featureShowMemo); renderRightPanel(); renderFeatureThemeSettings();") +
+        '</div>' +
+        '<p style="font-size:0.85rem; color:#aaa; margin:20px 0 8px 4px;">地図テーマ</p>' +
+        '<div style="display:flex; flex-direction:column; gap:12px;">' + themeBtns + '</div>' +
+        '</div>';
+
+    panel.innerHTML = headerHtml + contentHtml;
+}
+
 function renderFeatureSettings() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
@@ -1057,8 +1104,8 @@ function renderFeatureSettings() {
     let contentHtml = `
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">
-            ${makeToggle('date', '期間', featureShowDate, "featureShowDate=!featureShowDate; localStorage.setItem('featureShowDate', featureShowDate); renderRightPanel(); renderFeatureSettings();")}
-            ${makeToggle('memo', 'メモ', featureShowMemo, "featureShowMemo=!featureShowMemo; localStorage.setItem('featureShowMemo', featureShowMemo); renderRightPanel(); renderFeatureSettings();")}
+            ${makeToggle('date', '期間', featureShowDate, "featureShowDate=!featureShowDate; localStorage.setItem('featureShowDate', featureShowDate); renderRightPanel(); renderFeatureThemeSettings();")}
+            ${makeToggle('memo', 'メモ', featureShowMemo, "featureShowMemo=!featureShowMemo; localStorage.setItem('featureShowMemo', featureShowMemo); renderRightPanel(); renderFeatureThemeSettings();")}
         </div>
     </div>`;
 
@@ -1083,7 +1130,7 @@ function renderThemeSettings() {
         const swatches = t.preview.map(c =>
             `<span style="width:18px; height:18px; border-radius:3px; background:${c}; display:inline-block;"></span>`
         ).join('');
-        return `<button onclick="applyTheme('${key}'); renderThemeSettings();"
+        return `<button onclick="applyTheme('${key}'); renderFeatureThemeSettings();"
             style="display:flex; align-items:center; gap:14px; padding:14px 18px; background:${isActive ? '#eef2f5' : '#f9f9f9'}; border:2px solid ${isActive ? '#6c8ca3' : '#eee'}; border-radius:12px; cursor:pointer; font-family:inherit; transition:all 0.2s; width:100%; box-sizing:border-box;">
             <div style="display:flex; gap:3px; flex-shrink:0;">${swatches}</div>
             <span style="font-size:1.05rem; font-weight:bold; color:#444;">${t.name}</span>
