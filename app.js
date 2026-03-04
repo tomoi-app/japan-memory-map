@@ -1791,6 +1791,127 @@ function updateSlider() {
     document.getElementById('slide-image').src = currentPhotos[slideIndex];
     document.getElementById('slide-counter').innerText = `${slideIndex + 1} / ${currentPhotos.length}`;
 }
+
+// =============================================
+// インストールスライド（チュートリアル前）
+// =============================================
+function showInstallSlides() {
+    const el = document.getElementById('install-slides');
+    if (el) el.remove();
+
+    let selectedOS = null;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'install-slides';
+    overlay.style.cssText = 'position:fixed; inset:0; background:rgba(255,255,255,0.97); z-index:9998; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px 24px; box-sizing:border-box;';
+
+    function renderSlide(slide) {
+        overlay.innerHTML = '';
+
+        // スキップボタン
+        const skipBtn = document.createElement('button');
+        skipBtn.textContent = 'スキップ';
+        skipBtn.style.cssText = 'position:absolute; top:20px; right:20px; background:none; border:none; color:#aaa; font-size:0.9rem; cursor:pointer; font-family:inherit;';
+        skipBtn.onclick = () => { overlay.remove(); startTutorial(); };
+        overlay.appendChild(skipBtn);
+
+        // コンテンツ
+        const box = document.createElement('div');
+        box.style.cssText = 'width:100%; max-width:360px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:20px;';
+        box.innerHTML = slide.html;
+        overlay.appendChild(box);
+
+        // ドット
+        const dots = document.createElement('div');
+        dots.style.cssText = 'position:absolute; bottom:100px; display:flex; gap:8px;';
+        [0,1,2].forEach(i => {
+            const d = document.createElement('span');
+            d.style.cssText = 'width:8px; height:8px; border-radius:50%; background:' + (i === slide.index ? '#6c8ca3' : '#ddd') + ';';
+            dots.appendChild(d);
+        });
+        overlay.appendChild(dots);
+    }
+
+    // スライド1: ようこそ
+    function slide1() {
+        renderSlide({ index: 0, html:
+            '<div style="font-size:3.5rem; margin-bottom:8px;">🗾</div>' +
+            '<h1 style="font-size:1.8rem; color:#333; margin:0; letter-spacing:2px;">あしあとへようこそ</h1>' +
+            '<p style="color:#888; font-size:0.95rem; line-height:1.8; margin:0;">日本地図に旅の思い出を記録して<br>あなただけの足跡を残しましょう。</p>' +
+            '<button onclick="installSlide2()" style="margin-top:16px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
+        });
+        window.installSlide2 = slide2;
+    }
+
+    // スライド2: OS選択
+    function slide2() {
+        renderSlide({ index: 1, html:
+            '<div style="font-size:2.5rem; margin-bottom:4px;">📲</div>' +
+            '<h2 style="font-size:1.4rem; color:#333; margin:0;">アプリとして使おう</h2>' +
+            '<p style="color:#888; font-size:0.9rem; line-height:1.8; margin:0;">ホーム画面に追加するとアプリのように使えます。</p>' +
+            '<div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">' +
+            '<button onclick="installSlide3ios()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">🍎 iPhone / iPad</button>' +
+            '<button onclick="installSlide3android()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">🤖 Android</button>' +
+            '</div>' +
+            '<button onclick="installSlide4()" style="margin-top:4px; background:none; border:none; color:#aaa; font-size:0.88rem; cursor:pointer; font-family:inherit;">スキップ</button>'
+        });
+        window.installSlide3ios = slide3ios;
+        window.installSlide3android = slide3android;
+        window.installSlide4 = slide4;
+    }
+
+    // スライド3a: iOS手順
+    function slide3ios() {
+        renderSlide({ index: 2, html:
+            '<h2 style="font-size:1.3rem; color:#333; margin:0;">iPhoneの場合</h2>' +
+            '<div style="width:100%; background:#f4f7f6; border-radius:14px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:14px;">' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">1</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">Safariでこのページを開く</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">2</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">下部の 共有ボタン（四角と↑）をタップ</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">3</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「ホーム画面に追加」を選択</span></div>' +
+            '</div>' +
+            '<button onclick="installSlide4()" style="margin-top:8px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
+        });
+        window.installSlide4 = slide4;
+    }
+
+    // スライド3b: Android手順
+    function slide3android() {
+        renderSlide({ index: 2, html:
+            '<h2 style="font-size:1.3rem; color:#333; margin:0;">Androidの場合</h2>' +
+            '<div style="width:100%; background:#f4f7f6; border-radius:14px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:14px;">' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">1</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">Chromeでこのページを開く</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">2</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">右上のメニュー（⋮）をタップ</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">3</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「ホーム画面に追加」を選択</span></div>' +
+            '</div>' +
+            '<button onclick="installSlide4()" style="margin-top:8px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
+        });
+        window.installSlide4 = slide4;
+    }
+
+    // スライド4: 完了
+    function slide4() {
+        overlay.innerHTML = '';
+        overlay.style.justifyContent = 'center';
+
+        const box = document.createElement('div');
+        box.style.cssText = 'width:100%; max-width:360px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:20px;';
+        box.innerHTML =
+            '<div style="font-size:3.5rem;">✅</div>' +
+            '<h2 style="font-size:1.6rem; color:#333; margin:0;">準備完了！</h2>' +
+            '<p style="color:#888; font-size:0.95rem; line-height:1.8; margin:0;">次に、アプリの使い方を<br>かんたんにご説明します。</p>' +
+            '<button id="install-start-btn" style="margin-top:16px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">はじめる</button>';
+        overlay.appendChild(box);
+
+        document.getElementById('install-start-btn').addEventListener('click', () => {
+            overlay.remove();
+            startTutorial();
+        });
+    }
+
+    document.body.appendChild(overlay);
+    slide1();
+}
+
 // =============================================
 // チュートリアル
 // =============================================
@@ -1957,11 +2078,10 @@ function skipTutorial() {
 
 function checkAndStartTutorial() {
     if (!localStorage.getItem('tutorialDone')) {
-        // app-screenが表示されている時のみ開始
         setTimeout(() => {
             const appScreen = document.getElementById('app-screen');
             if (appScreen && !appScreen.classList.contains('hidden')) {
-                startTutorial();
+                showInstallSlides();
             }
         }, 800);
     }
