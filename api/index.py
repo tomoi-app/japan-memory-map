@@ -38,6 +38,7 @@ class handler(BaseHTTPRequestHandler):
     def process_api(self, method):
         supabase_url = os.environ.get("SUPABASE_URL", "").strip().rstrip('/')
         supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
+        resend_key   = os.environ.get("RESEND_API_KEY", "").strip()
 
         if not supabase_url or not supabase_key:
             raise Exception("SUPABASE_URL or SUPABASE_KEY is missing in Vercel.")
@@ -310,9 +311,8 @@ class handler(BaseHTTPRequestHandler):
             return
 
         elif action == "send_contact":
-            resend_key = os.environ.get("RESEND_API_KEY", "").strip()
             if not resend_key:
-                raise Exception("RESEND_API_KEY is missing.")
+                raise Exception("RESEND_API_KEY is not set in Vercel environment variables.")
 
             name       = payload.get("name", "（名前未記入）")
             body       = payload.get("body", "")

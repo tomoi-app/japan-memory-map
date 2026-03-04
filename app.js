@@ -737,7 +737,7 @@ function renderChangePassword() {
             <div id="pw-error" style="color:#d32f2f; font-size:0.9rem; text-align:center; min-height:18px;"></div>
             <div id="pw-success" style="color:#2e7d32; font-size:0.9rem; text-align:center; min-height:18px;"></div>
             <button onclick="doChangePassword()"
-                style="padding:16px; background:#6c8ca3; color:white; border:none; border-radius:10px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:pointer; transition:background 0.2s;">
+                style="padding:16px; background:#eef2f5; color:#444; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
                 変更する
             </button>
         </div>
@@ -882,7 +882,7 @@ function renderContactSettings() {
             <div id="contact-success" style="color:#2e7d32; font-size:0.88rem; text-align:center; min-height:16px;"></div>
 
             <button onclick="submitContact()"
-                style="padding:16px; background:#6c8ca3; color:white; border:none; border-radius:10px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:pointer;">
+                style="padding:16px; background:#eef2f5; color:#444; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
                 送信する
             </button>
         </div>
@@ -976,7 +976,7 @@ function renderHomeSettings() {
                 <select id="home-select" style="flex:1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-family:inherit; font-size:15px; background:white;">
                     ${options}
                 </select>
-                <button onclick="addHomePrefecture()" style="background:#6c8ca3; color:white; border:none; padding:12px 20px; border-radius:8px; font-size:15px; cursor:pointer; font-family:inherit; font-weight:bold;">追加</button>
+                <button onclick="addHomePrefecture()" style="background:#eef2f5; color:#444; border:none; padding:12px 20px; border-radius:10px; font-size:15px; cursor:pointer; font-family:inherit; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.05);">追加</button>
             </div>
             <div id="home-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
