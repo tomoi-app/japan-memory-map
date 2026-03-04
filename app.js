@@ -678,7 +678,7 @@ function renderAccountSettings() {
     let contentHtml = `
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
-            <div style="background:#f4f7f6; border-radius:12px; padding:16px 20px; font-size:0.95rem; color:#666;">
+            <div style="background:#eef2f5; border-radius:12px; padding:16px 20px; font-size:0.95rem; color:#666;">
                 <span style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:4px;">ログイン中のアカウント</span>
                 <span style="font-weight:bold; color:#444;">${email}</span>
             </div>
