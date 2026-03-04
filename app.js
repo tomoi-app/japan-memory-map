@@ -121,7 +121,7 @@ let isPasswordRecoveryMode = false;
 
 // 機能ON/OFF設定
 let featureShowDate = localStorage.getItem('featureShowDate') !== 'false';
-let featureShowMemo = localStorage.getItem('featureShowMemo') !== 'false';
+let featureShowMemo = localStorage.getItem('featureShowMemo') === 'true';
 
 // ログイン ↔ サインアップ 切り替え
 function switchToSignup() {
