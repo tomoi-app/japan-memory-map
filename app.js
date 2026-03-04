@@ -11,24 +11,111 @@ let currentToken = null;
 let currentAuthTab = 'login';
 
 // =============================================
-// テーマ設定
+// 地図カラーテーマ設定
 // =============================================
-const THEMES = {
-    blue:   { name: 'ブルーグレー', accent: '#6c8ca3', bg: '#eef2f5', light: '#dce6ee' },
-    green:  { name: 'フォレスト',   accent: '#5a8a6a', bg: '#eef5f0', light: '#d4e8da' },
-    rose:   { name: 'ローズ',       accent: '#a06080', bg: '#f5eef2', light: '#e8d4de' },
-    sand:   { name: 'サンド',       accent: '#8a7055', bg: '#f5f0ea', light: '#e8ddd0' },
-    navy:   { name: 'ネイビー',     accent: '#3a5278', bg: '#eaeef5', light: '#ccd5e8' },
+const MAP_THEMES = {
+    default: {
+        name: 'デフォルト',
+        preview: ['#9fb9c4','#b6c6a7','#dda2a5','#c59eb1','#8bc1c0','#d7d1a2','#93a0bb'],
+        colors: {
+            '北海道':'#9fb9c4','青森県':'#a2c4c3','岩手県':'#a1bda6','宮城県':'#b6c6a7',
+            '秋田県':'#c1cda2','山形県':'#cdd3a1','福島県':'#d9d8a3','茨城県':'#e3d8a6',
+            '栃木県':'#ead2a8','群馬県':'#ebc8a5','埼玉県':'#e8bba1','千葉県':'#e3afa2',
+            '東京都':'#dda2a5','神奈川県':'#d698a9','新潟県':'#c59eb1','富山県':'#b2a1b7',
+            '石川県':'#a2a5bb','福井県':'#96a7bc','山梨県':'#8eb0c2','長野県':'#85b9c4',
+            '岐阜県':'#8bc1c0','静岡県':'#91c6b8','愛知県':'#9bcbb0','三重県':'#a9ceaa',
+            '滋賀県':'#b7cfa6','京都府':'#c7d1a3','大阪府':'#d7d1a2','兵庫県':'#e4d0a2',
+            '奈良県':'#eed0a4','和歌山県':'#f3cda8','鳥取県':'#f4c7ad','島根県':'#f1bfb2',
+            '岡山県':'#ecb8b7','広島県':'#e4b1bd','山口県':'#d9abc2','徳島県':'#cda6c5',
+            '香川県':'#bea1c6','愛媛県':'#afa0c5','高知県':'#a19fc1','福岡県':'#93a0bb',
+            '佐賀県':'#88a2b5','長崎県':'#81a6ae','熊本県':'#7eaba5','大分県':'#7eb09a',
+            '宮崎県':'#83b48e','鹿児島県':'#8ab784','沖縄県':'#96b87b'
+        }
+    },
+    warm: {
+        name: 'ウォーム',
+        preview: ['#e8a87c','#e8b87c','#e8c87c','#d4956a','#c98060','#e0b090','#d4a070'],
+        colors: {
+            '北海道':'#e8a87c','青森県':'#e8ac7a','岩手県':'#e8b07a','宮城県':'#e8b47c',
+            '秋田県':'#e8b87c','山形県':'#e8bc7e','福島県':'#e8c07e','茨城県':'#e8c480',
+            '栃木県':'#e8c882','群馬県':'#e8c882','埼玉県':'#e4c080','千葉県':'#e0b87e',
+            '東京都':'#ddb07c','神奈川県':'#d9a87a','新潟県':'#d4a078','富山県':'#ce9876',
+            '石川県':'#c89074','福井県':'#c28872','山梨県':'#c08070','長野県':'#be7870',
+            '岐阜県':'#c07870','静岡県':'#c27c70','愛知県':'#c48072','三重県':'#c88474',
+            '滋賀県':'#cc8876','京都府':'#d08c78','大阪府':'#d4907a','兵庫県':'#d8947c',
+            '奈良県':'#dc987e','和歌山県':'#e09c80','鳥取県':'#e09c80','島根県':'#de9880',
+            '岡山県':'#dc947e','広島県':'#da907c','山口県':'#d88c7a','徳島県':'#d88a7a',
+            '香川県':'#d68878','愛媛県':'#d48676','高知県':'#d28474','福岡県':'#d08272',
+            '佐賀県':'#ce8070','長崎県':'#cc7e6e','熊本県':'#ca7c6c','大分県':'#c87a6a',
+            '宮崎県':'#c87c6c','鹿児島県':'#ca7e6e','沖縄県':'#cc8070'
+        }
+    },
+    cool: {
+        name: 'クール',
+        preview: ['#7ab0d4','#7abcd4','#7ac8d4','#6a9ec4','#6090b8','#80b4d8','#70a0c8'],
+        colors: {
+            '北海道':'#7ab0d4','青森県':'#7ab4d4','岩手県':'#7ab8d4','宮城県':'#7abcd4',
+            '秋田県':'#7ac0d4','山形県':'#7ac4d4','福島県':'#7ac8d4','茨城県':'#7cccd4',
+            '栃木県':'#7eccd0','群馬県':'#80cccc','埼玉県':'#80c8c8','千葉県':'#7ec4c4',
+            '東京都':'#7cc0c0','神奈川県':'#7abcbc','新潟県':'#7ab8b8','富山県':'#78b4b4',
+            '石川県':'#76b0b0','福井県':'#74acac','山梨県':'#72a8a8','長野県':'#70a4a4',
+            '岐阜県':'#6ea0a0','静岡県':'#6c9c9c','愛知県':'#6a9898','三重県':'#6c9ca4',
+            '滋賀県':'#6ea0a8','京都府':'#70a4ac','大阪府':'#72a8b0','兵庫県':'#74acb4',
+            '奈良県':'#76b0b8','和歌山県':'#78b4bc','鳥取県':'#78b4bc','島根県':'#76b0b8',
+            '岡山県':'#74acb4','広島県':'#72a8b0','山口県':'#70a4ac','徳島県':'#6ea0a8',
+            '香川県':'#6c9ca4','愛媛県':'#6a98a0','高知県':'#68949c','福岡県':'#6690a0',
+            '佐賀県':'#648ca0','長崎県':'#6288a0','熊本県':'#6084a0','大分県':'#5e80a0',
+            '宮崎県':'#6082a0','鹿児島県':'#6284a0','沖縄県':'#6486a0'
+        }
+    },
+    forest: {
+        name: 'フォレスト',
+        preview: ['#7ab87a','#8abc7a','#9ac07a','#6aac6a','#5a9c5a','#80b880','#70ac70'],
+        colors: {
+            '北海道':'#7ab87a','青森県':'#7ebc7a','岩手県':'#82be7a','宮城県':'#86c07a',
+            '秋田県':'#8ac27c','山形県':'#8ec47c','福島県':'#92c67e','茨城県':'#96c880',
+            '栃木県':'#9aca80','群馬県':'#9ecc82','埼玉県':'#9cca82','千葉県':'#98c880',
+            '東京都':'#94c67e','神奈川県':'#90c47c','新潟県':'#8cc27c','富山県':'#88c07a',
+            '石川県':'#84be7a','福井県':'#80bc7a','山梨県':'#7cba78','長野県':'#78b878',
+            '岐阜県':'#76b678','静岡県':'#78b878','愛知県':'#7aba78','三重県':'#7cbc7a',
+            '滋賀県':'#7eba7a','京都府':'#80bc7a','大阪府':'#82be7c','兵庫県':'#84c07c',
+            '奈良県':'#86c27e','和歌山県':'#88c47e','鳥取県':'#88c47e','島根県':'#86c27c',
+            '岡山県':'#84c07c','広島県':'#82be7a','山口県':'#80bc7a','徳島県':'#7eba7a',
+            '香川県':'#7cb878','愛媛県':'#7ab678','高知県':'#78b478','福岡県':'#76b276',
+            '佐賀県':'#74b076','長崎県':'#72ae76','熊本県':'#70ac74','大分県':'#6eaa74',
+            '宮崎県':'#70ac74','鹿児島県':'#72ae76','沖縄県':'#74b076'
+        }
+    },
+    mono: {
+        name: 'モノクロ',
+        preview: ['#a0a0a0','#b0b0b0','#c0c0c0','#909090','#888888','#aaaaaa','#989898'],
+        colors: {
+            '北海道':'#a8a8a8','青森県':'#ababab','岩手県':'#aeaeae','宮城県':'#b1b1b1',
+            '秋田県':'#b4b4b4','山形県':'#b7b7b7','福島県':'#bababa','茨城県':'#bdbdbd',
+            '栃木県':'#c0c0c0','群馬県':'#c3c3c3','埼玉県':'#c0c0c0','千葉県':'#bdbdbd',
+            '東京都':'#bababa','神奈川県':'#b7b7b7','新潟県':'#b4b4b4','富山県':'#b1b1b1',
+            '石川県':'#aeaeae','福井県':'#ababab','山梨県':'#a8a8a8','長野県':'#a5a5a5',
+            '岐阜県':'#a2a2a2','静岡県':'#a5a5a5','愛知県':'#a8a8a8','三重県':'#ababab',
+            '滋賀県':'#aeaeae','京都府':'#b1b1b1','大阪府':'#b4b4b4','兵庫県':'#b7b7b7',
+            '奈良県':'#bababa','和歌山県':'#bdbdbd','鳥取県':'#bdbdbd','島根県':'#bababa',
+            '岡山県':'#b7b7b7','広島県':'#b4b4b4','山口県':'#b1b1b1','徳島県':'#aeaeae',
+            '香川県':'#ababab','愛媛県':'#a8a8a8','高知県':'#a5a5a5','福岡県':'#a2a2a2',
+            '佐賀県':'#9f9f9f','長崎県':'#9c9c9c','熊本県':'#999999','大分県':'#969696',
+            '宮崎県':'#999999','鹿児島県':'#9c9c9c','沖縄県':'#9f9f9f'
+        }
+    },
 };
-let currentTheme = localStorage.getItem('theme') || 'blue';
+
+let currentTheme = localStorage.getItem('mapTheme') || 'default';
 
 function applyTheme(themeKey) {
-    const t = THEMES[themeKey] || THEMES.blue;
     currentTheme = themeKey;
-    localStorage.setItem('theme', themeKey);
-    document.documentElement.style.setProperty('--accent', t.accent);
-    document.documentElement.style.setProperty('--bg', t.bg);
-    document.documentElement.style.setProperty('--light', t.light);
+    localStorage.setItem('mapTheme', themeKey);
+    updateMapColors();
+}
+
+function getCurrentColors() {
+    return (MAP_THEMES[currentTheme] || MAP_THEMES.default).colors;
 }
 let isPasswordRecoveryMode = false;
 
@@ -292,20 +379,7 @@ let initialBounds;
 
 let homePrefectures = [];
 
-const PREF_COLORS = {
-    '北海道':'#9fb9c4','青森県':'#a2c4c3','岩手県':'#a1bda6','宮城県':'#b6c6a7',
-    '秋田県':'#c1cda2','山形県':'#cdd3a1','福島県':'#d9d8a3','茨城県':'#e3d8a6',
-    '栃木県':'#ead2a8','群馬県':'#ebc8a5','埼玉県':'#e8bba1','千葉県':'#e3afa2',
-    '東京都':'#dda2a5','神奈川県':'#d698a9','新潟県':'#c59eb1','富山県':'#b2a1b7',
-    '石川県':'#a2a5bb','福井県':'#96a7bc','山梨県':'#8eb0c2','長野県':'#85b9c4',
-    '岐阜県':'#8bc1c0','静岡県':'#91c6b8','愛知県':'#9bcbb0','三重県':'#a9ceaa',
-    '滋賀県':'#b7cfa6','京都府':'#c7d1a3','大阪府':'#d7d1a2','兵庫県':'#e4d0a2',
-    '奈良県':'#eed0a4','和歌山県':'#f3cda8','鳥取県':'#f4c7ad','島根県':'#f1bfb2',
-    '岡山県':'#ecb8b7','広島県':'#e4b1bd','山口県':'#d9abc2','徳島県':'#cda6c5',
-    '香川県':'#bea1c6','愛媛県':'#afa0c5','高知県':'#a19fc1','福岡県':'#93a0bb',
-    '佐賀県':'#88a2b5','長崎県':'#81a6ae','熊本県':'#7eaba5','大分県':'#7eb09a',
-    '宮崎県':'#83b48e','鹿児島県':'#8ab784','沖縄県':'#96b87b'
-};
+// PREF_COLORSはgetCurrentColors()で取得
 
 function initApp() {
     applyTheme(currentTheme);
@@ -731,19 +805,22 @@ function renderThemeSettings() {
     let headerHtml = `
     <div class="panel-header">
         <div class="panel-header-title-row">
-            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:var(--accent); cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
             <h2 style="margin:0; font-size:1.6rem; color:#333; position:absolute; left:50%; transform:translateX(-50%);">テーマの変更</h2>
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
         </div>
     </div>`;
 
-    let themeBtns = Object.entries(THEMES).map(([key, t]) => {
+    let themeBtns = Object.entries(MAP_THEMES).map(([key, t]) => {
         const isActive = key === currentTheme;
+        const swatches = t.preview.map(c =>
+            `<span style="width:18px; height:18px; border-radius:3px; background:${c}; display:inline-block;"></span>`
+        ).join('');
         return `<button onclick="applyTheme('${key}'); renderThemeSettings();"
-            style="display:flex; align-items:center; gap:14px; padding:16px 20px; background:${isActive ? t.bg : '#f9f9f9'}; border:2px solid ${isActive ? t.accent : '#eee'}; border-radius:12px; cursor:pointer; font-family:inherit; transition:all 0.2s; width:100%;">
-            <span style="width:28px; height:28px; border-radius:50%; background:${t.accent}; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></span>
-            <span style="font-size:1.1rem; font-weight:bold; color:#444;">${t.name}</span>
-            ${isActive ? `<span style="margin-left:auto; color:${t.accent}; font-size:1.2rem;">✓</span>` : ''}
+            style="display:flex; align-items:center; gap:14px; padding:14px 18px; background:${isActive ? '#eef2f5' : '#f9f9f9'}; border:2px solid ${isActive ? '#6c8ca3' : '#eee'}; border-radius:12px; cursor:pointer; font-family:inherit; transition:all 0.2s; width:100%; box-sizing:border-box;">
+            <div style="display:flex; gap:3px; flex-shrink:0;">${swatches}</div>
+            <span style="font-size:1.05rem; font-weight:bold; color:#444;">${t.name}</span>
+            ${isActive ? `<span style="margin-left:auto; color:#6c8ca3; font-size:1.2rem;">✓</span>` : ''}
         </button>`;
     }).join('');
 
@@ -792,7 +869,7 @@ function renderContactSettings() {
 
 function renderHomeSettings() {
     const panel = document.getElementById('settings-panel');
-    const prefOrder = Object.keys(PREF_COLORS);
+    const prefOrder = Object.keys(MAP_THEMES.default.colors);
     let options = prefOrder.map(p => `<option value="${p}">${p}</option>`).join('');
 
     let headerHtml = `
@@ -856,7 +933,7 @@ function renderHomeList() {
         return;
     }
     
-    const prefOrder = Object.keys(PREF_COLORS);
+    const prefOrder = Object.keys(MAP_THEMES.default.colors);
     const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
 
     list.innerHTML = sortedHomes.map(pref => `
@@ -928,7 +1005,7 @@ function formatDate(dateStr) {
 
 function renderRightPanel() {
     const panel = document.getElementById('right-panel');
-    const prefOrder = Object.keys(PREF_COLORS);
+    const prefOrder = Object.keys(MAP_THEMES.default.colors);
     panel.style.backgroundColor = '#ffffff';
 
     if (!selectedPref) {
@@ -946,7 +1023,7 @@ function renderRightPanel() {
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
             contentHtml += `<button class="pref-btn" onclick="selectedPref='${pref}'; openPanel(); renderRightPanel();"
-                style="border-left: 6px solid ${PREF_COLORS[pref]}; background: #fffdf5;">
+                style="border-left: 6px solid ${getCurrentColors()[pref]}; background: #fffdf5;">
                 <span style="font-weight:bold; color:#444;">${pref}</span>
             </button>`;
         });
@@ -964,7 +1041,7 @@ function renderRightPanel() {
             
             sortedMemories.forEach(m => {
                 const photos = JSON.parse(m.photo_urls || "[]");
-                const color = PREF_COLORS[m.prefecture] || '#aaa';
+                const color = getCurrentColors()[m.prefecture] || '#aaa';
                 const needsData = !m.date || photos.length === 0;
                 contentHtml += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
@@ -979,7 +1056,7 @@ function renderRightPanel() {
         panel.innerHTML = headerHtml + contentHtml;
         
     } else {
-        const color = PREF_COLORS[selectedPref] || '#6c8ca3';
+        const color = getCurrentColors()[selectedPref] || '#6c8ca3';
         
         let headerHtml = `
         <div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom: 15px;">
@@ -1237,7 +1314,7 @@ function updateMapColors() {
             if (memory.date || photos.length > 0) isVisited = true;
         }
         layer.setStyle({
-            fillColor: isVisited ? (PREF_COLORS[pref] || '#8ab4f8') : '#f4f7f6',
+            fillColor: isVisited ? (getCurrentColors()[pref] || '#8ab4f8') : '#f4f7f6',
             weight: 0.3,
             color: '#000000',
             fillOpacity: 1
