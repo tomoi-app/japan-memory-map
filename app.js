@@ -554,10 +554,9 @@ function renderRightPanel() {
         const photoInput = document.getElementById('input-photos');
 
         const handleDateChange = () => {
+            // 両方入力済みの場合のみ前後チェック（同じ日付でも終了日は消さない）
             if (fromInput.value && toInput.value) {
-                if (fromInput.value === toInput.value) {
-                    toInput.value = '';
-                } else if (new Date(fromInput.value) > new Date(toInput.value)) {
+                if (new Date(fromInput.value) > new Date(toInput.value)) {
                     const temp = fromInput.value;
                     fromInput.value = toInput.value;
                     toInput.value = temp;
