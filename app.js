@@ -864,7 +864,7 @@ function renderContactSettings() {
             <div>
                 <label style="font-size:0.85rem; color:#888; display:block; margin-bottom:6px;">お問い合わせ内容</label>
                 <textarea id="contact-body" placeholder="お気軽にご記入ください" rows="5"
-                    oninput="document.getElementById('contact-send-btn').disabled = this.value.trim() === ''"
+                    oninput="const btn = document.getElementById('contact-send-btn'); const empty = this.value.trim() === ''; btn.disabled = empty; btn.style.background = empty ? '#eef2f5' : '#6c8ca3'; btn.style.color = empty ? '#aaa' : 'white'; btn.style.cursor = empty ? 'not-allowed' : 'pointer';"
                     style="${inputStyle} resize:none;"></textarea>
             </div>
 
