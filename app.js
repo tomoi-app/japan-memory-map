@@ -615,6 +615,12 @@ function renderSettingsMenu() {
             <button onclick="renderHomeSettings()" style="${btnS}">
                 家を登録
             </button>
+            <button onclick="renderShareSettings()" style="${btnS}">
+                あしあとを共有
+            </button>
+            <button onclick="renderGroupSettings()" style="${btnS}">
+                お互いの記録が1つの地図に
+            </button>
             <button onclick="renderFeatureSettings()" style="${btnS}">
                 機能の変更
             </button>
@@ -835,6 +841,38 @@ async function doChangePassword() {
     } finally {
         hideLoading();
     }
+}
+
+function renderShareSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+    panel.innerHTML = `
+    <div class="panel-header">
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin:0; font-size:1.6rem; color:#333; position:absolute; left:50%; transform:translateX(-50%);">あしあとを共有</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
+    </div>
+    <div class="panel-content">
+        <p style="color:#aaa; text-align:center; margin-top:40px; font-size:0.95rem;">準備中</p>
+    </div>`;
+}
+
+function renderGroupSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+    panel.innerHTML = `
+    <div class="panel-header">
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin:0; font-size:1.4rem; color:#333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">お互いの記録が1つの地図に</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
+    </div>
+    <div class="panel-content">
+        <p style="color:#aaa; text-align:center; margin-top:40px; font-size:0.95rem;">準備中</p>
+    </div>`;
 }
 
 function renderFeatureSettings() {
