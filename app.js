@@ -428,6 +428,53 @@ async function initShareMode() {
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) settingsBtn.style.display = 'none';
 
+    // 一覧ボタン
+    const menuBtn = document.getElementById('menu-btn');
+    if (menuBtn) {
+        menuBtn.title = '一覧';
+        menuBtn.addEventListener('click', () => {
+            if (panelOpen) {
+                closePanel();
+            } else {
+                selectedPref = null;
+                openPanel();
+                renderRightPanel();
+            }
+        });
+    }
+
+    // ダブルタップ・ダブルクリックで地図リセット
+    map.on('dblclick', function() {
+        if (initialBounds) map.flyToBounds(initialBounds, { duration: 0.6 });
+        if (panelOpen) closePanel();
+    });
+
+    let lastTouchTime2 = 0;
+    let isPinching2 = false;
+    document.getElementById('map-container').addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) isPinching2 = true;
+    });
+    document.getElementById('map-container').addEventListener('touchend', function(e) {
+        if (isPinching2) { if (e.touches.length === 0) isPinching2 = false; return; }
+        const now = new Date().getTime();
+        if (now - lastTouchTime2 < 400 && now - lastTouchTime2 > 0) {
+            if (initialBounds) map.flyToBounds(initialBounds, { duration: 0.6 });
+            if (panelOpen) closePanel();
+        }
+        lastTouchTime2 = now;
+    });
+
+    // スライダーボタン
+    document.getElementById('btn-close-slider').addEventListener('click', () => {
+        document.getElementById('slider-modal').classList.add('hidden');
+    });
+    document.getElementById('btn-prev').addEventListener('click', () => {
+        if (slideIndex > 0) { slideIndex--; updateSlider(); }
+    });
+    document.getElementById('btn-next').addEventListener('click', () => {
+        if (slideIndex < currentPhotos.length - 1) { slideIndex++; updateSlider(); }
+    });
+
     // 閲覧中バナーを表示
     const banner = document.createElement('div');
     banner.style.cssText = 'position:fixed; bottom:0; left:0; right:0; background:#6c8ca3; color:white; text-align:center; padding:8px; font-size:0.88rem; font-weight:bold; z-index:1000;';
@@ -935,7 +982,7 @@ function renderShareSettings() {
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
             <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0;">
-                URLを共有して あしあと を共有しよう。<br>閲覧モードでは編集はできません。
+                URLを共有して あしあと を共有しよう。<br>（閲覧モードでは編集はできません。）
             </p>
             <div style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#555; line-height:1.6;">
                 ${shareUrl}
