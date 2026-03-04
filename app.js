@@ -2005,24 +2005,17 @@ function showTutorialStep() {
         const margin  = 20;
         let bx, by, arrowDir;
 
-        // 上下左右で空きスペースが多い方に配置
+        // バブル位置：基本は画面中央、アイコンの時は中央より少し上
+        bx = window.innerWidth / 2 - bubbleW / 2;
         if (step.position === 'center') {
-            // map-containerは中央に表示
-            bx = window.innerWidth / 2 - bubbleW / 2;
-            by = window.innerHeight / 2 - bubbleH / 2 + 60;
+            // 地図ステップ：画面中央
+            by = window.innerHeight / 2 - bubbleH / 2;
             arrowDir = null;
-        } else if (cy > window.innerHeight * 0.5) {
-            // ターゲットが下寄り → バブルを上に
-            by = cy - r - bubbleH - 120;
-            by = Math.max(by, margin);
-            bx = Math.min(Math.max(cx - bubbleW / 2, margin), window.innerWidth - bubbleW - margin);
-            arrowDir = 'down';
         } else {
-            // ターゲットが上寄り → バブルを下に
-            by = cy + r + 120;
-            by = Math.min(by, window.innerHeight - bubbleH - margin);
-            bx = Math.min(Math.max(cx - bubbleW / 2, margin), window.innerWidth - bubbleW - margin);
-            arrowDir = 'up';
+            // アイコンステップ：画面中央より少し上
+            by = window.innerHeight / 2 - bubbleH / 2 - 80;
+            by = Math.max(by, margin);
+            arrowDir = null;
         }
 
         bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:${bubbleW}px; background:white; border-radius:16px; padding:22px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
