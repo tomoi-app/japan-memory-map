@@ -25,8 +25,53 @@ function switchToLogin() {
     document.getElementById('auth-submit-btn').textContent = 'ログイン';
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-success').classList.add('hidden');
+    document.getElementById('auth-password').style.display = '';
     const link = document.querySelector('.auth-signup-link');
     if (link) link.innerHTML = 'アカウントの新規作成は<a href="#" onclick="switchToSignup(); return false;">こちら</a>';
+    const forgotLink = document.getElementById('forgot-pw-link');
+    if (forgotLink) forgotLink.style.display = '';
+}
+
+// パスワードリセット画面に切り替え
+function switchToReset() {
+    currentAuthTab = 'reset';
+    document.getElementById('auth-submit-btn').textContent = 'リセットメールを送信';
+    document.getElementById('auth-error').classList.add('hidden');
+    document.getElementById('auth-success').classList.add('hidden');
+    document.getElementById('auth-password').style.display = 'none';
+    const link = document.querySelector('.auth-signup-link');
+    if (link) link.innerHTML = '<a href="#" onclick="switchToLogin(); return false;">ログインに戻る</a>';
+    const forgotLink = document.getElementById('forgot-pw-link');
+    if (forgotLink) forgotLink.style.display = 'none';
+}
+
+// パスワードリセットメール送信
+async function sendResetEmail(email) {
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+    const submitBtn = document.getElementById('auth-submit-btn');
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '送信中...';
+
+    try {
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin
+        });
+        if (error) {
+            errorEl.textContent = '送信に失敗しました: ' + error.message;
+            errorEl.classList.remove('hidden');
+        } else {
+            successEl.textContent = 'リセット用のメールを送信しました。メールを確認してください。';
+            successEl.classList.remove('hidden');
+        }
+    } catch(e) {
+        errorEl.textContent = '通信エラーが発生しました';
+        errorEl.classList.remove('hidden');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'リセットメールを送信';
+    }
 }
 
 // ログイン / サインアップ 実行
@@ -40,8 +85,20 @@ async function handleAuth() {
     errorEl.classList.add('hidden');
     successEl.classList.add('hidden');
 
-    if (!email || !password) {
-        errorEl.textContent = 'メールアドレスとパスワードを入力してください';
+    if (!email) {
+        errorEl.textContent = 'メールアドレスを入力してください';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    // パスワードリセットモード
+    if (currentAuthTab === 'reset') {
+        await sendResetEmail(email);
+        return;
+    }
+
+    if (!password) {
+        errorEl.textContent = 'パスワードを入力してください';
         errorEl.classList.remove('hidden');
         return;
     }
@@ -144,6 +201,16 @@ window.addEventListener('load', async () => {
         if (event === 'SIGNED_OUT') {
             currentUser = null;
             currentToken = null;
+        }
+        // パスワードリセットリンクからの遷移
+        if (event === 'PASSWORD_RECOVERY') {
+            currentUser = session.user;
+            currentToken = session.access_token;
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            // 設定→アカウント→パスワード変更画面を自動で開く
+            if (typeof openSettings === 'function') openSettings();
+            if (typeof renderChangePassword === 'function') renderChangePassword();
         }
     });
 });
