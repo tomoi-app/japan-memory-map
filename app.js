@@ -602,7 +602,7 @@ function renderSettingsMenu() {
         </div>
     </div>`;
     
-    const btnS = `text-align:center; padding:20px; background:var(--bg); border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
+    const btnS = `text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
