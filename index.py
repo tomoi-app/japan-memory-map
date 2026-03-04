@@ -5,6 +5,9 @@ import urllib.parse
 import base64
 import uuid
 import traceback
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -311,14 +314,16 @@ class handler(BaseHTTPRequestHandler):
             return
 
         elif action == "send_contact":
-            if not resend_key:
-                raise Exception("RESEND_API_KEY is not set in Vercel environment variables.")
+            gmail_user = os.environ.get("GMAIL_USER", "").strip()
+            gmail_pass = os.environ.get("GMAIL_PASS", "").strip()
+            if not gmail_user or not gmail_pass:
+                raise Exception("GMAIL_USER or GMAIL_PASS is not set in Vercel environment variables.")
 
-            name       = payload.get("name", "（名前未記入）")
-            body       = payload.get("body", "")
-            want_reply = payload.get("want_reply", False)
+            name        = payload.get("name", "（名前未記入）")
+            body        = payload.get("body", "")
+            want_reply  = payload.get("want_reply", False)
             reply_email = payload.get("reply_email", "")
-            user_email = current_user_id  # user_idではなくemailが欲しいので下で取得
+            user_email  = "不明"
 
             # ユーザーのメールアドレスを取得
             try:
@@ -331,56 +336,38 @@ class handler(BaseHTTPRequestHandler):
             except:
                 pass
 
+            def send_gmail(to_addr, subject, html_body):
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = subject
+                msg["From"]    = gmail_user
+                msg["To"]      = to_addr
+                msg.attach(MIMEText(html_body, "html", "utf-8"))
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                    server.login(gmail_user, gmail_pass)
+                    server.sendmail(gmail_user, to_addr, msg.as_string())
+
             # ① 管理者への通知メール
-            admin_html = f"""
-<h2>あしあと お問い合わせ</h2>
-<p><b>名前：</b>{name}</p>
-<p><b>アカウント：</b>{user_email}</p>
-<p><b>返信希望：</b>{"はい（{reply_email}）".format(reply_email=reply_email) if want_reply else "いいえ"}</p>
-<hr>
-<p><b>内容：</b></p>
-<p style="white-space:pre-wrap;">{body}</p>
-"""
-            admin_payload = {
-                "from": "あしあと <onboarding@resend.dev>",
-                "to": ["tomoi.app21@gmail.com"],
-                "subject": f"【あしあと】お問い合わせ：{name}",
-                "html": admin_html
-            }
-            resend_req = urllib.request.Request(
-                "https://api.resend.com/emails",
-                data=json.dumps(admin_payload).encode('utf-8'),
-                method="POST"
+            reply_label = ("はい（" + reply_email + "）") if want_reply else "いいえ"
+            admin_html = (
+                "<h2>あしあと お問い合わせ</h2>"
+                f"<p><b>名前：</b>{name}</p>"
+                f"<p><b>アカウント：</b>{user_email}</p>"
+                f"<p><b>返信希望：</b>{reply_label}</p>"
+                "<hr>"
+                "<p><b>内容：</b></p>"
+                f"<p style='white-space:pre-wrap;'>{body}</p>"
             )
-            resend_req.add_header("Authorization", f"Bearer {resend_key}")
-            resend_req.add_header("Content-Type", "application/json")
-            with urllib.request.urlopen(resend_req, timeout=15) as r:
-                pass
+            send_gmail(gmail_user, f"【あしあと】お問い合わせ：{name}", admin_html)
 
             # ② 返信希望の場合、ユーザーへ自動返信
             if want_reply and reply_email:
-                auto_html = """
-<p>この度は【あしあと】をご利用いただき、誠にありがとうございます。</p>
-<p>お問い合わせを受け付けました。<br>返信まで少々お待ちください。</p>
-<br>
-<p style="color:#888; font-size:0.9em;">※このメールは自動送信されています。</p>
-"""
-                auto_payload = {
-                    "from": "あしあと <onboarding@resend.dev>",
-                    "to": [reply_email],
-                    "subject": "【あしあと】お問い合わせありがとうございます",
-                    "html": auto_html
-                }
-                auto_req = urllib.request.Request(
-                    "https://api.resend.com/emails",
-                    data=json.dumps(auto_payload).encode('utf-8'),
-                    method="POST"
+                auto_html = (
+                    "<p>この度は【あしあと】をご利用いただき、誠にありがとうございます。</p>"
+                    "<p>お問い合わせを受け付けました。<br>返信まで少々お待ちください。</p>"
+                    "<br><p style='color:#888; font-size:0.9em;'>※このメールは自動送信されています。</p>"
                 )
-                auto_req.add_header("Authorization", f"Bearer {resend_key}")
-                auto_req.add_header("Content-Type", "application/json")
                 try:
-                    with urllib.request.urlopen(auto_req, timeout=15):
-                        pass
+                    send_gmail(reply_email, "【あしあと】お問い合わせありがとうございます", auto_html)
                 except:
                     pass
 
