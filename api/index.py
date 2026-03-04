@@ -5,6 +5,7 @@ import urllib.parse
 import base64
 import uuid
 import traceback
+import concurrent.futures
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -67,7 +68,8 @@ class handler(BaseHTTPRequestHandler):
         if action == "save_memory":
             pref = payload.get("prefecture", "")
             date_str = payload.get("date", "")
-            incoming_photos = payload.get("photos", [])
+            existing_urls = payload.get("existing_urls", [])
+            new_photos = payload.get("new_photos", [])
 
             safe_pref = urllib.parse.quote(pref)
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*"
@@ -93,25 +95,31 @@ class handler(BaseHTTPRequestHandler):
                         except:
                             pass
 
-            final_photo_urls = []
-            for item in incoming_photos:
-                if item.startswith("http"):
-                    final_photo_urls.append(item)
+            def upload_one_photo(b64):
+                if "," in b64:
+                    _, encoded = b64.split(",", 1)
                 else:
-                    if "," in item:
-                        _, encoded = item.split(",", 1)
-                    else:
-                        encoded = item
-                    
-                    file_data = base64.b64decode(encoded)
-                    filename = f"{uuid.uuid4().hex}.jpg"
-                    upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
-                    up_req = urllib.request.Request(upload_url, data=file_data, method="POST")
-                    up_req.add_header("apikey", supabase_key)
-                    up_req.add_header("Authorization", f"Bearer {supabase_key}")
-                    up_req.add_header("Content-Type", "image/jpeg")
-                    with urllib.request.urlopen(up_req, timeout=10):
-                        final_photo_urls.append(f"{supabase_url}/storage/v1/object/public/photos/{filename}")
+                    encoded = b64
+                file_data = base64.b64decode(encoded)
+                filename = f"{uuid.uuid4().hex}.jpg"
+                upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                up_req = urllib.request.Request(upload_url, data=file_data, method="POST")
+                up_req.add_header("apikey", supabase_key)
+                up_req.add_header("Authorization", f"Bearer {supabase_key}")
+                up_req.add_header("Content-Type", "image/jpeg")
+                with urllib.request.urlopen(up_req, timeout=20):
+                    pass
+                return f"{supabase_url}/storage/v1/object/public/photos/{filename}"
+
+            # 新規写真を並列アップロード
+            new_urls = []
+            if new_photos:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                    futures = {executor.submit(upload_one_photo, b64): b64 for b64 in new_photos}
+                    for future in concurrent.futures.as_completed(futures):
+                        new_urls.append(future.result())
+
+            final_photo_urls = existing_urls + new_urls
 
             db_payload = {
                 "prefecture": pref,

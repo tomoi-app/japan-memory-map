@@ -616,19 +616,22 @@ async function saveMemoryData() {
     }
 
     try {
-        let photoUrls = [];
+        // 既存のURLはそのまま保持（再送しない）
+        let existingUrls = [];
         const existingData = memoriesData.find(m => m.prefecture === selectedPref);
         if (existingData && existingData.photo_urls) {
-            try { photoUrls = JSON.parse(existingData.photo_urls); } catch(e){}
+            try { existingUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
+        // 新規ファイルのみBase64変換（並列処理）
+        let newBase64Photos = [];
         if (files.length > 0) {
             const base64Promises = Array.from(files).map(file => compressImage(file));
-            const newPhotos = await Promise.all(base64Promises);
-            photoUrls = [...photoUrls, ...newPhotos];
+            newBase64Photos = await Promise.all(base64Promises);
         }
 
-        const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: photoUrls };
+        // 既存URLと新規Base64を分けて送信
+        const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, existing_urls: existingUrls, new_photos: newBase64Photos };
         
         const res = await fetch('/api', { 
             method: 'POST', 
