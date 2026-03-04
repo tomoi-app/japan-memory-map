@@ -331,6 +331,16 @@ async function logout() {
 
 // ページ読み込み時にセッション確認
 window.addEventListener('load', async () => {
+    // 共有URLチェック（?share=userId）
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareId = urlParams.get('share');
+    if (shareId) {
+        isShareMode = true;
+        shareUserId = shareId;
+        initShareMode();
+        return;
+    }
+
     // PASSWORD_RECOVERYを先に監視してからセッション確認
     let recoveryHandled = false;
 
@@ -362,6 +372,69 @@ window.addEventListener('load', async () => {
     }
 });
 
+
+// =============================================
+// 共有モード（閲覧のみ）
+// =============================================
+async function initShareMode() {
+    // auth-screenを隠してapp-screenを表示
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+
+    applyTheme(currentTheme);
+
+    map = L.map('map-container', {
+        zoomControl: false,
+        attributionControl: false,
+        doubleClickZoom: false,
+        zoomSnap: 0
+    }).setView([38.0, 137.0], 5);
+
+    fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
+        .then(res => res.json())
+        .then(data => {
+            geoJsonLayer = L.geoJson(data, {
+                style: { fillColor: '#f4f7f6', weight: 0.3, color: '#000000', fillOpacity: 1 },
+                onEachFeature: function(feature, layer) {
+                    const prefName = feature.properties.nam_ja;
+                    layer.on('click', () => {
+                        selectedPref = prefName;
+                        openPanel();
+                        renderRightPanel();
+                    });
+                }
+            }).addTo(map);
+            initialBounds = geoJsonLayer.getBounds();
+            map.fitBounds(initialBounds);
+        });
+
+    // 共有ユーザーのデータを取得
+    showLoading();
+    try {
+        const res = await fetch(`/api?share=${shareUserId}`);
+        if (res.ok) {
+            memoriesData = await res.json();
+        }
+    } catch(e) {
+        console.error('Share load error', e);
+    } finally {
+        hideLoading();
+    }
+
+    updateMapColors();
+    updateCounter();
+
+    // 設定ボタン・一覧ボタンを非表示
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) settingsBtn.style.display = 'none';
+
+    // 閲覧中バナーを表示
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed; top:0; left:0; right:0; background:#6c8ca3; color:white; text-align:center; padding:8px; font-size:0.88rem; font-weight:bold; z-index:1000;';
+    banner.textContent = '閲覧モード（編集できません）';
+    document.body.appendChild(banner);
+}
+
 // APIリクエスト共通関数（トークンを自動付与）
 async function apiFetch(options = {}) {
     const headers = { 'Content-Type': 'application/json' };
@@ -383,6 +456,8 @@ let settingsOpen = false;
 let initialBounds;
 
 let homePrefectures = [];
+let isShareMode = false;
+let shareUserId = null;
 
 // PREF_COLORSはgetCurrentColors()で取得
 
@@ -846,6 +921,9 @@ async function doChangePassword() {
 function renderShareSettings() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
+
+    const shareUrl = `${location.origin}${location.pathname}?share=${currentUser.id}`;
+
     panel.innerHTML = `
     <div class="panel-header">
         <div class="panel-header-title-row">
@@ -855,8 +933,37 @@ function renderShareSettings() {
         </div>
     </div>
     <div class="panel-content">
-        <p style="color:#aaa; text-align:center; margin-top:40px; font-size:0.95rem;">準備中</p>
+        <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
+            <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0;">
+                このURLを共有すると、相手はログインなしであなたの地図を閲覧できます。<br>編集はできません。
+            </p>
+            <div style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#555; line-height:1.6;">
+                ${shareUrl}
+            </div>
+            <button onclick="copyShareUrl('${shareUrl}')"
+                style="padding:16px; background:#f4f7f6; color:#444; border:none; border-radius:12px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                URLをコピー
+            </button>
+            <div id="share-copy-msg" style="text-align:center; color:#5a8a6a; font-size:0.9rem; min-height:20px;"></div>
+        </div>
     </div>`;
+}
+
+function copyShareUrl(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        const msg = document.getElementById('share-copy-msg');
+        if (msg) { msg.textContent = 'コピーしました！'; setTimeout(() => { if(msg) msg.textContent = ''; }, 2000); }
+    }).catch(() => {
+        // フォールバック
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const msg = document.getElementById('share-copy-msg');
+        if (msg) { msg.textContent = 'コピーしました！'; setTimeout(() => { if(msg) msg.textContent = ''; }, 2000); }
+    });
 }
 
 function renderGroupSettings() {

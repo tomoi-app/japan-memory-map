@@ -46,6 +46,25 @@ class handler(BaseHTTPRequestHandler):
         if not supabase_url or not supabase_key:
             raise Exception("SUPABASE_URL or SUPABASE_KEY is missing in Vercel.")
 
+        # ── 共有モードGET（認証不要）──────────────────
+        if method == "GET":
+            parsed = urllib.parse.urlparse(self.path)
+            query = urllib.parse.parse_qs(parsed.query)
+            share_id = query.get("share", [None])[0]
+            if share_id:
+                share_url = f"{supabase_url}/rest/v1/memories?user_id=eq.{share_id}&select=*"
+                s_req = urllib.request.Request(share_url)
+                s_req.add_header("apikey", supabase_key)
+                s_req.add_header("Authorization", f"Bearer {supabase_key}")
+                with urllib.request.urlopen(s_req, timeout=10) as r:
+                    data = r.read()
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
         # ── トークン検証 ──────────────────────────────
         auth_header = self.headers.get("Authorization", "")
         user_token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
