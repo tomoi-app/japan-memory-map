@@ -206,11 +206,13 @@ window.addEventListener('load', async () => {
         if (event === 'PASSWORD_RECOVERY') {
             currentUser = session.user;
             currentToken = session.access_token;
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('app-screen').classList.remove('hidden');
-            // 設定→アカウント→パスワード変更画面を自動で開く
-            if (typeof openSettings === 'function') openSettings();
-            if (typeof renderChangePassword === 'function') renderChangePassword();
+            // アプリを初期化してからパスワード変更画面を開く
+            startApp(session);
+            // initAppの非同期処理（地図・データ読み込み）完了を待って画面遷移
+            setTimeout(() => {
+                openSettings();
+                renderChangePassword();
+            }, 800);
         }
     });
 });
