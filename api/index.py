@@ -381,5 +381,30 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
 
+        elif action == "delete_account":
+            # 全データ削除
+            del_data_req = urllib.request.Request(
+                f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}",
+                method="DELETE"
+            )
+            del_data_req.add_header("apikey", supabase_key)
+            del_data_req.add_header("Authorization", f"Bearer {supabase_key}")
+            urllib.request.urlopen(del_data_req, timeout=10)
+
+            # Supabase Admin APIでユーザー削除
+            del_user_req = urllib.request.Request(
+                f"{supabase_url}/auth/v1/admin/users/{current_user_id}",
+                method="DELETE"
+            )
+            del_user_req.add_header("apikey", supabase_svc_key)
+            del_user_req.add_header("Authorization", f"Bearer {supabase_svc_key}")
+            urllib.request.urlopen(del_user_req, timeout=10)
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+
         else:
             raise Exception(f"不明なアクションです: {action}")

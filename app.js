@@ -639,6 +639,32 @@ function renderSettingsMenu() {
 // ------------------------------------------
 // 強制・一撃で全データ削除の処理（API呼び出しを1回に変更）
 // ------------------------------------------
+
+async function deleteAccount() {
+    const first = confirm("アカウントを削除しますか？\nすべてのデータも完全に削除されます。\nこの操作は取り消せません。");
+    if (!first) return;
+    const second = confirm("本当に削除しますか？\nこの操作は元に戻せません。");
+    if (!second) return;
+
+    showLoading();
+    try {
+        const res = await apiFetch({
+            method: 'POST',
+            body: JSON.stringify({ action: 'delete_account' })
+        });
+        if (res.ok) {
+            alert("アカウントを削除しました。");
+            window.location.reload();
+        } else {
+            const d = await res.json().catch(() => ({}));
+            alert("削除に失敗しました: " + (d.error || '不明なエラー'));
+        }
+    } catch(e) {
+        alert("エラーが発生しました");
+    } finally {
+        hideLoading();
+    }
+}
 async function deleteAllData() {
     if (confirm("すべてのデータを削除してもよろしいでしょうか。\nこの操作は取り消せません。")) {
         showLoading();
@@ -701,6 +727,10 @@ function renderAccountSettings() {
 
             <button onclick="deleteAllData()" style="${dangerBtnStyle}">
                 すべてのデータを削除
+            </button>
+
+            <button onclick="deleteAccount()" style="${dangerBtnStyle}">
+                アカウントを削除
             </button>
 
             <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
@@ -1613,21 +1643,21 @@ function showTutorialStep() {
             bx = window.innerWidth / 2 - bubbleW / 2;
             by = window.innerHeight / 2 - bubbleH / 2 + 60;
             arrowDir = null;
-        } else if (cy > window.innerHeight * 0.6) {
-            // ターゲットが下寄り → バブルを上に（十分な余白を確保）
-            by = cy - r - bubbleH - 24;
+        } else if (cy > window.innerHeight * 0.5) {
+            // ターゲットが下寄り → バブルを上に
+            by = cy - r - bubbleH - 120;
             by = Math.max(by, margin);
             bx = Math.min(Math.max(cx - bubbleW / 2, margin), window.innerWidth - bubbleW - margin);
             arrowDir = 'down';
         } else {
-            // ターゲットが上寄り → バブルを下に（十分な余白を確保）
-            by = cy + r + 24;
+            // ターゲットが上寄り → バブルを下に
+            by = cy + r + 120;
             by = Math.min(by, window.innerHeight - bubbleH - margin);
             bx = Math.min(Math.max(cx - bubbleW / 2, margin), window.innerWidth - bubbleW - margin);
             arrowDir = 'up';
         }
 
-        bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:${bubbleW}px; background:white; border-radius:16px; padding:18px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
+        bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:${bubbleW}px; background:white; border-radius:16px; padding:22px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
 
         if (arrowDir === 'up') {
             arrowStyle = `position:absolute; left:${cx - bx - 10}px; top:-10px; width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:10px solid white;`;
@@ -1638,7 +1668,7 @@ function showTutorialStep() {
         // ターゲットが見つからない場合は中央に表示
         const bx = window.innerWidth / 2 - 110;
         const by = window.innerHeight / 2 - 55;
-        bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:220px; background:white; border-radius:16px; padding:18px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
+        bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:220px; background:white; border-radius:16px; padding:22px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
         const svg = document.createElement('div');
         svg.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.6); pointer-events:all;';
         svg.onclick = skipTutorial;
@@ -1650,8 +1680,8 @@ function showTutorialStep() {
     bubble.style.cssText = bubbleStyle;
     bubble.innerHTML = `
         ${arrowStyle ? `<div style="${arrowStyle}"></div>` : ''}
-        <div style="font-size:1rem; font-weight:bold; color:#333; margin-bottom:8px;">${step.title}</div>
-        <div style="font-size:0.88rem; color:#666; line-height:1.6; white-space:pre-line;">${step.text}</div>
+        <div style="font-size:1.1rem; font-weight:bold; color:#333; margin-bottom:10px;">${step.title}</div>
+        <div style="font-size:0.95rem; color:#666; line-height:1.7; white-space:pre-line;">${step.text}</div>
         <div style="display:flex; gap:8px; margin-top:14px; justify-content:center;">
             <button onclick="skipTutorial()" style="flex:1; padding:9px; background:#f4f7f6; border:none; border-radius:8px; font-size:0.85rem; color:#888; cursor:pointer; font-family:inherit; font-weight:bold;">スキップ</button>
             <button onclick="nextTutorialStep()" style="flex:1; padding:9px; background:#6c8ca3; color:white; border:none; border-radius:8px; font-size:0.85rem; cursor:pointer; font-family:inherit; font-weight:bold;">${tutorialStep < TUTORIAL_STEPS.length - 1 ? '次へ' : '完了'}</button>
