@@ -864,7 +864,7 @@ function renderContactSettings() {
             <div>
                 <label style="font-size:0.85rem; color:#888; display:block; margin-bottom:6px;">お問い合わせ内容</label>
                 <textarea id="contact-body" placeholder="お気軽にご記入ください" rows="5"
-                    oninput="const btn = document.getElementById('contact-send-btn'); const empty = this.value.trim() === ''; btn.disabled = empty; btn.style.background = empty ? '#eef2f5' : '#6c8ca3'; btn.style.color = empty ? '#aaa' : 'white'; btn.style.cursor = empty ? 'not-allowed' : 'pointer';"
+                    oninput="updateContactBtn()"
                     style="${inputStyle} resize:none;"></textarea>
             </div>
 
@@ -892,9 +892,25 @@ function renderContactSettings() {
     panel.innerHTML = headerHtml + contentHtml;
 
     // 返信希望チェックでメールフィールドを表示
+    function updateContactBtn() {
+        const body = document.getElementById('contact-body')?.value.trim() || '';
+        const wantReply = document.getElementById('contact-reply')?.checked;
+        const email = document.getElementById('contact-email')?.value.trim() || '';
+        const valid = body !== '' && (!wantReply || email !== '');
+        const btn = document.getElementById('contact-send-btn');
+        if (!btn) return;
+        btn.disabled = !valid;
+        btn.style.background = valid ? '#6c8ca3' : '#eef2f5';
+        btn.style.color = valid ? 'white' : '#aaa';
+        btn.style.cursor = valid ? 'pointer' : 'not-allowed';
+    }
+
     document.getElementById('contact-reply').addEventListener('change', function() {
         document.getElementById('contact-email-wrap').style.display = this.checked ? 'block' : 'none';
+        updateContactBtn();
     });
+
+    document.getElementById('contact-email') && document.getElementById('contact-email').addEventListener('input', updateContactBtn);
 }
 
 async function submitContact() {
