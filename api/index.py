@@ -67,7 +67,7 @@ class handler(BaseHTTPRequestHandler):
         if action == "save_memory":
             pref = payload.get("prefecture", "")
             date_str = payload.get("date", "")
-            photos_b64 = payload.get("photos", [])
+            incoming_photos = payload.get("photos", []) # アプリから送られてきた写真のリスト
 
             safe_pref = urllib.parse.quote(pref)
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*"
@@ -78,35 +78,38 @@ class handler(BaseHTTPRequestHandler):
             with urllib.request.urlopen(req, timeout=10) as res:
                 existing = json.loads(res.read())
 
-            photo_urls = []
-            row_id = None
-            if len(existing) > 0:
-                row_id = existing[0]["id"]
-                try:
-                    if existing[0].get("photo_urls"):
-                        photo_urls = json.loads(existing[0]["photo_urls"])
-                except:
-                    pass
+            row_id = existing[0]["id"] if len(existing) > 0 else None
 
-            for b64 in photos_b64:
-                if "," in b64:
-                    _, encoded = b64.split(",", 1)
+            # アプリの指示通りに上書きするための最終的な写真リスト
+            final_photo_urls = []
+
+            # アプリから送られてきたデータを1つずつ確認する
+            for item in incoming_photos:
+                if item.startswith("http"):
+                    # すでにアップロード済みのURLなら、そのままリストに残す
+                    final_photo_urls.append(item)
                 else:
-                    encoded = b64
-                file_data = base64.b64decode(encoded)
-                filename = f"{uuid.uuid4().hex}.jpg"
-                upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
-                up_req = urllib.request.Request(upload_url, data=file_data, method="POST")
-                up_req.add_header("apikey", supabase_key)
-                up_req.add_header("Authorization", f"Bearer {supabase_key}")
-                up_req.add_header("Content-Type", "image/jpeg")
-                with urllib.request.urlopen(up_req, timeout=10):
-                    photo_urls.append(f"{supabase_url}/storage/v1/object/public/photos/{filename}")
+                    # 新しい写真（Base64形式）なら、変換してStorageにアップロードする
+                    if "," in item:
+                        _, encoded = item.split(",", 1)
+                    else:
+                        encoded = item
+                    
+                    file_data = base64.b64decode(encoded)
+                    filename = f"{uuid.uuid4().hex}.jpg"
+                    upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                    up_req = urllib.request.Request(upload_url, data=file_data, method="POST")
+                    up_req.add_header("apikey", supabase_key)
+                    up_req.add_header("Authorization", f"Bearer {supabase_key}")
+                    up_req.add_header("Content-Type", "image/jpeg")
+                    with urllib.request.urlopen(up_req, timeout=10):
+                        final_photo_urls.append(f"{supabase_url}/storage/v1/object/public/photos/{filename}")
 
+            # データベースを確実に上書きする
             db_payload = {
                 "prefecture": pref,
                 "date": date_str,
-                "photo_urls": json.dumps(photo_urls),
+                "photo_urls": json.dumps(final_photo_urls), # 空ならちゃんと "[]" になる
                 "title": "Memory",
                 "lat": 0.0,
                 "lng": 0.0
