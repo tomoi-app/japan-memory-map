@@ -211,11 +211,9 @@ async function logout() {
 
 // ページ読み込み時にセッション確認
 window.addEventListener('load', async () => {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session) {
-        startApp(session);
-    }
-    // トークンの自動更新を監視
+    // PASSWORD_RECOVERYを先に監視してからセッション確認
+    let recoveryHandled = false;
+
     supabaseClient.auth.onAuthStateChange((event, session) => {
         if (event === 'TOKEN_REFRESHED' && session) {
             currentToken = session.access_token;
@@ -226,14 +224,22 @@ window.addEventListener('load', async () => {
         }
         // パスワードリセットリンクからの遷移
         if (event === 'PASSWORD_RECOVERY') {
+            recoveryHandled = true;
             currentUser = session.user;
             currentToken = session.access_token;
-            // ログイン画面を隠してパスワード変更専用画面を表示
+            // 地図を初期化せず、パスワード変更専用画面だけ表示
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('app-screen').classList.remove('hidden');
             showPasswordRecoveryScreen();
         }
     });
+
+    // 少し待ってPASSWORD_RECOVERYが来なかった場合のみ通常起動
+    await new Promise(r => setTimeout(r, 300));
+    if (!recoveryHandled) {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) startApp(session);
+    }
 });
 
 // APIリクエスト共通関数（トークンを自動付与）
@@ -667,11 +673,10 @@ async function doChangePassword() {
         document.getElementById('pw-confirm').value = '';
         if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
         if (isPasswordRecoveryMode) {
-            // リカバリーモード: 変更完了後アプリを初期化して通常画面へ
+            // リカバリーモード: 変更完了後ページをリロードして通常起動
             isPasswordRecoveryMode = false;
             setTimeout(() => {
-                closeSettings();
-                initApp();
+                window.location.href = window.location.origin;
             }, 1200);
         } else {
             setTimeout(() => renderAccountSettings(), 1500);

@@ -69,5 +69,11 @@
         <div class="loading-text">処理中...</div>
     </div>
     <script src="app.js"></script>
+    <script>
+        // ④ Service Worker登録（GeoJSON・静的ファイルのキャッシュ）
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
 </body>
 </html>
