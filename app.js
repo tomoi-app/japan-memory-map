@@ -858,12 +858,13 @@ function renderContactSettings() {
 
             <div>
                 <label style="font-size:0.85rem; color:#888; display:block; margin-bottom:6px;">お名前</label>
-                <input type="text" id="contact-name" placeholder="例：山田 太郎" style="${inputStyle}">
+                <input type="text" id="contact-name" placeholder="無記入でも送信できます。" style="${inputStyle}">
             </div>
 
             <div>
                 <label style="font-size:0.85rem; color:#888; display:block; margin-bottom:6px;">お問い合わせ内容</label>
                 <textarea id="contact-body" placeholder="お気軽にご記入ください" rows="5"
+                    oninput="document.getElementById('contact-send-btn').disabled = this.value.trim() === ''"
                     style="${inputStyle} resize:none;"></textarea>
             </div>
 
@@ -881,8 +882,8 @@ function renderContactSettings() {
             <div id="contact-error" style="color:#d32f2f; font-size:0.88rem; text-align:center; min-height:16px;"></div>
             <div id="contact-success" style="color:#2e7d32; font-size:0.88rem; text-align:center; min-height:16px;"></div>
 
-            <button onclick="submitContact()"
-                style="padding:16px; background:#eef2f5; color:#444; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <button id="contact-send-btn" onclick="submitContact()" disabled
+                style="padding:16px; background:#eef2f5; color:#aaa; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:not-allowed; box-shadow:0 2px 8px rgba(0,0,0,0.05); transition:color 0.2s;">
                 送信する
             </button>
         </div>
@@ -937,7 +938,7 @@ async function submitContact() {
         });
 
         if (res.ok) {
-            successEl.textContent = '送信しました！ありがとうございました。';
+            successEl.textContent = 'お問い合わせありがとうございます。';
             document.getElementById('contact-name').value = '';
             document.getElementById('contact-body').value = '';
             document.getElementById('contact-reply').checked = false;
