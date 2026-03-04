@@ -66,12 +66,14 @@ class handler(BaseHTTPRequestHandler):
             with urllib.request.urlopen(verify_req, timeout=10) as vres:
                 user_data = json.loads(vres.read())
             current_user_id = user_data.get("id", "")
-        except Exception:
+            if not current_user_id:
+                raise Exception("user id empty")
+        except Exception as token_err:
             self.send_response(401)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(json.dumps({"error": "Invalid token"}).encode('utf-8'))
+            self.wfile.write(json.dumps({"error": f"Invalid token: {str(token_err)}"}).encode('utf-8'))
             return
         # ─────────────────────────────────────────────
 
