@@ -129,10 +129,12 @@ class handler(BaseHTTPRequestHandler):
                         except:
                             pass
 
+            memo_str = payload.get("memo", "")
             db_payload = {
                 "prefecture": pref,
                 "date": date_str,
                 "photo_urls": json.dumps(final_photo_urls),
+                "memo": memo_str,
                 "title": "Memory",
                 "lat": 0.0,
                 "lng": 0.0,

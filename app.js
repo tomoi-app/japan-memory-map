@@ -236,6 +236,7 @@ async function handleAuth() {
             if (msg.includes('Invalid login credentials')) msg = 'メールアドレスまたはパスワードが違います';
             if (msg.includes('User already registered')) msg = 'このメールアドレスはすでに登録されています';
             if (msg.includes('Password should be')) msg = 'パスワードは6文字以上にしてください';
+            if (msg.includes('rate limit') || msg.includes('Rate limit')) msg = '時間あたりの登録件数の上限に達しました。しばらく時間をおいてから再試行してください。';
             errorEl.textContent = msg;
             errorEl.classList.remove('hidden');
         } else {
@@ -1206,6 +1207,8 @@ function renderRightPanel() {
                 <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
             </div>
             <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>
+            <textarea id="input-memo" placeholder="旅の思い出をメモ..." rows="4"
+                style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px; font-family:inherit; background:#fafafa; color:#444; resize:none; box-sizing:border-box; margin-top:4px;">${data.memo || ''}</textarea>
         `;
 
         if (photos.length > 0) {
@@ -1248,6 +1251,8 @@ function renderRightPanel() {
         if (fromInput) fromInput.addEventListener('change', handleDateChange);
         if (toInput) toInput.addEventListener('change', handleDateChange);
         if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
+        const memoInput = document.getElementById('input-memo');
+        if (memoInput) memoInput.addEventListener('input', triggerAutoSave);
     }
 }
 
@@ -1335,12 +1340,14 @@ async function saveMemoryData() {
         }
 
         const allUrls = [...existingUrls, ...newUrls];
+        const memoValue = document.getElementById('input-memo')?.value || '';
         const payload = {
             action: "save_memory",
             prefecture: selectedPref,
             date: dateValue,
             existing_urls: allUrls,
-            new_photos: []
+            new_photos: [],
+            memo: memoValue
         };
         
         const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
