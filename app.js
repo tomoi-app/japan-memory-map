@@ -142,7 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsBtn.id = 'settings-btn';
         settingsBtn.className = 'settings-btn';
         settingsBtn.title = "設定";
-        // 確実な図形データの歯車アイコンに変更
         settingsBtn.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#555"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>`;
         
         settingsBtn.onclick = () => {
@@ -163,6 +162,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('.main-layout').appendChild(sp);
     }
 });
+
+// --- ローディング表示制御 ---
+function showLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.add('hidden');
+}
 
 function openPanel() {
     panelOpen = true;
@@ -254,19 +264,20 @@ function renderSettingsMenu() {
 }
 
 // ------------------------------------------
-// 全データ削除の処理
+// 強制・全データ削除の処理
 // ------------------------------------------
 async function deleteAllData() {
     if (confirm("本当にすべての思い出と家の登録を削除しますか？\nこの操作は取り消せません。")) {
-        // 家の設定をリセット
+        showLoading(); // ローディング表示
+        
         homePrefectures = [];
         localStorage.removeItem('homePrefectures');
 
         try {
-            // サーバー上にある既存の思い出データを一つずつ空にする
-            for (let i = 0; i < memoriesData.length; i++) {
-                let pref = memoriesData[i].prefecture;
-                let payload = { action: "save_memory", prefecture: pref, date: "", photos: [] };
+            // 47都道府県すべてのデータを強制的に空で上書き送信する
+            const allPrefs = Object.keys(PREF_COLORS);
+            for (let i = 0; i < allPrefs.length; i++) {
+                let payload = { action: "save_memory", prefecture: allPrefs[i], date: "", photos: [] };
                 await fetch('/api', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json' }, 
@@ -274,7 +285,7 @@ async function deleteAllData() {
                 });
             }
             
-            // 強制的にフロントエンドのデータを空にする（古いキャッシュを防ぐため）
+            // フロントエンドのデータも強制的にリセット
             memoriesData = [];
             
             await fetchMemories(false);
@@ -285,9 +296,11 @@ async function deleteAllData() {
             updateMapColors();
             updateCounter();
             
-            alert("すべてのデータを削除しました。");
+            hideLoading(); // ローディング非表示
+            alert("すべてのデータを完全に削除しました。");
         } catch(e) {
             console.error("全削除エラー", e);
+            hideLoading();
             alert("データの削除中にエラーが発生しました。");
         }
     }
@@ -602,7 +615,12 @@ async function saveMemoryData() {
     const dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
     
     const statusEl = document.getElementById('autosave-status');
-    if (statusEl && files.length > 0) statusEl.innerText = 'アップロード中...';
+    
+    // 写真がある場合は時間がかかるので全画面のローディングを表示
+    if (files.length > 0) {
+        if (statusEl) statusEl.innerText = 'アップロード中...';
+        showLoading();
+    }
 
     try {
         let photoUrls = [];
@@ -639,10 +657,11 @@ async function saveMemoryData() {
     } catch(e) { 
         console.error("Save Error", e); 
         if (statusEl) statusEl.innerText = 'エラー発生';
+    } finally {
+        hideLoading(); // 成功しても失敗しても必ず非表示にする
     }
 }
 
-// データの取得時にブラウザのキャッシュを防ぐ処理（?t=...）を追加
 async function fetchMemories(redraw = true) {
     try {
         const res = await fetch('/api?t=' + new Date().getTime());
@@ -654,6 +673,7 @@ async function fetchMemories(redraw = true) {
 }
 
 async function deletePhoto(url) {
+    showLoading(); // 削除中もローディングを表示
     const payload = { action: "delete_photo", prefecture: selectedPref, photo_url: url };
     try {
         await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -661,7 +681,11 @@ async function deletePhoto(url) {
         renderRightPanel();
         updateMapColors();
         updateCounter();
-    } catch(e) { console.error("削除エラー", e); }
+    } catch(e) { 
+        console.error("削除エラー", e); 
+    } finally {
+        hideLoading();
+    }
 }
 
 function updateMapColors() {
