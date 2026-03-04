@@ -9,6 +9,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentToken = null;
 let currentAuthTab = 'login';
+let isPasswordRecoveryMode = false;
 
 // ログイン ↔ サインアップ 切り替え
 function switchToSignup() {
@@ -155,6 +156,27 @@ document.addEventListener('keydown', (e) => {
 });
 
 // アプリ起動
+// パスワード再設定専用画面
+function showPasswordRecoveryScreen() {
+    isPasswordRecoveryMode = true;
+    panelOpen = false;
+    settingsOpen = false;
+    selectedPref = null;
+
+    // 設定パネルを強制表示してパスワード変更画面へ
+    const settingsPanel = document.getElementById('settings-panel');
+    if (!settingsPanel) {
+        // settings-panelがまだなければ作成
+        const sp = document.createElement('div');
+        sp.id = 'settings-panel';
+        sp.className = 'list-section';
+        document.querySelector('.main-layout') && document.querySelector('.main-layout').appendChild(sp);
+    }
+    settingsOpen = true;
+    document.getElementById('settings-panel') && document.getElementById('settings-panel').classList.add('open');
+    renderChangePassword();
+}
+
 function startApp(session) {
     currentUser = session.user;
     currentToken = session.access_token;
@@ -206,13 +228,10 @@ window.addEventListener('load', async () => {
         if (event === 'PASSWORD_RECOVERY') {
             currentUser = session.user;
             currentToken = session.access_token;
-            // アプリを初期化してからパスワード変更画面を開く
-            startApp(session);
-            // initAppの非同期処理（地図・データ読み込み）完了を待って画面遷移
-            setTimeout(() => {
-                openSettings();
-                renderChangePassword();
-            }, 800);
+            // ログイン画面を隠してパスワード変更専用画面を表示
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            showPasswordRecoveryScreen();
         }
     });
 });
@@ -570,18 +589,32 @@ function renderChangePassword() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
 
+    // リカバリーモード時は戻るボタン・閉じるボタンを非表示
+    const backBtn = isPasswordRecoveryMode
+        ? ''
+        : `<button onclick="renderAccountSettings()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>`;
+    const closeBtn = isPasswordRecoveryMode
+        ? '<div style="width:44px;"></div>'
+        : `<button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>`;
+    const notice = isPasswordRecoveryMode
+        ? `<div style="background:#eef2f5; border-radius:10px; padding:14px 16px; font-size:0.9rem; color:#555; text-align:center; line-height:1.6;">
+               パスワードをリセットしてください。<br>設定後にアプリをご利用いただけます。
+           </div>`
+        : '';
+
     let headerHtml = `
     <div class="panel-header">
         <div class="panel-header-title-row">
-            <button onclick="renderAccountSettings()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            ${backBtn}
             <h2 style="margin: 0; font-size: 1.1rem; color: #333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">パスワード変更</h2>
-            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+            ${closeBtn}
         </div>
     </div>`;
 
     let contentHtml = `
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:14px; margin-top:20px;">
+            ${notice}
             <input type="password" id="pw-new" placeholder="新しいパスワード（6文字以上）"
                 style="padding:13px 15px; border:1px solid #ddd; border-radius:10px; font-size:1rem; font-family:inherit; background:#fafafa; color:#333; box-sizing:border-box; width:100%;">
             <input type="password" id="pw-confirm" placeholder="新しいパスワード（確認）"
@@ -633,7 +666,16 @@ async function doChangePassword() {
         document.getElementById('pw-new').value = '';
         document.getElementById('pw-confirm').value = '';
         if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
-        setTimeout(() => renderAccountSettings(), 1500);
+        if (isPasswordRecoveryMode) {
+            // リカバリーモード: 変更完了後アプリを初期化して通常画面へ
+            isPasswordRecoveryMode = false;
+            setTimeout(() => {
+                closeSettings();
+                initApp();
+            }, 1200);
+        } else {
+            setTimeout(() => renderAccountSettings(), 1500);
+        }
     }
 }
 
