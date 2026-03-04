@@ -403,37 +403,21 @@ body, html {
     letter-spacing: 4px;
 }
 
-.auth-subtitle {
-    margin: 0;
-    color: #aaa;
+.auth-signup-link {
     text-align: center;
-    font-size: 0.95rem;
-}
-
-.auth-tabs {
-    display: flex;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid #e0e0e0;
-    margin-top: 4px;
-}
-
-.auth-tab {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    background: white;
+    font-size: 0.88rem;
     color: #aaa;
-    font-size: 0.95rem;
-    font-family: inherit;
-    cursor: pointer;
-    font-weight: bold;
-    transition: background 0.2s, color 0.2s;
+    margin: 0;
 }
 
-.auth-tab.active {
-    background: #6c8ca3;
-    color: white;
+.auth-signup-link a {
+    color: #6c8ca3;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.auth-signup-link a:hover {
+    text-decoration: underline;
 }
 
 .auth-input {

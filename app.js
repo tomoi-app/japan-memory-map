@@ -10,15 +10,23 @@ let currentUser = null;
 let currentToken = null;
 let currentAuthTab = 'login';
 
-// ログイン / サインアップ タブ切り替え
-function switchTab(tab) {
-    currentAuthTab = tab;
-    document.querySelectorAll('.auth-tab').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    const submitBtn = document.getElementById('auth-submit-btn');
-    submitBtn.textContent = tab === 'login' ? 'ログイン' : 'アカウントを作成';
+// ログイン ↔ サインアップ 切り替え
+function switchToSignup() {
+    currentAuthTab = 'signup';
+    document.getElementById('auth-submit-btn').textContent = 'アカウントを作成';
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-success').classList.add('hidden');
+    const link = document.querySelector('.auth-signup-link');
+    if (link) link.innerHTML = '<a href="#" onclick="switchToLogin(); return false;">ログインはこちら</a>';
+}
+
+function switchToLogin() {
+    currentAuthTab = 'login';
+    document.getElementById('auth-submit-btn').textContent = 'ログイン';
+    document.getElementById('auth-error').classList.add('hidden');
+    document.getElementById('auth-success').classList.add('hidden');
+    const link = document.querySelector('.auth-signup-link');
+    if (link) link.innerHTML = 'アカウントの新規作成は<a href="#" onclick="switchToSignup(); return false;">こちら</a>';
 }
 
 // ログイン / サインアップ 実行
@@ -63,12 +71,15 @@ async function handleAuth() {
             errorEl.classList.remove('hidden');
         } else {
             if (currentAuthTab === 'signup') {
-                successEl.textContent = 'アカウントを作成しました！';
+                successEl.textContent = 'アカウントを作成しました！ログインしてください。';
                 successEl.classList.remove('hidden');
+                switchToLogin();
+                document.getElementById('auth-password').value = '';
+            } else {
+                // セッション取得してアプリ起動
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) startApp(session);
             }
-            // セッション取得してアプリ起動
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session) startApp(session);
         }
     } catch(e) {
         errorEl.textContent = '通信エラーが発生しました';
@@ -97,6 +108,7 @@ function startApp(session) {
 
 // ログアウト
 async function logout() {
+    if (!confirm('ログアウトしますか？')) return;
     await supabaseClient.auth.signOut();
     currentUser = null;
     currentToken = null;
@@ -106,6 +118,7 @@ async function logout() {
     document.getElementById('auth-screen').classList.remove('hidden');
     document.getElementById('auth-email').value = '';
     document.getElementById('auth-password').value = '';
+    switchToLogin();
 }
 
 // ページ読み込み時にセッション確認
@@ -389,13 +402,9 @@ function renderSettingsMenu() {
             <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 家を登録
             </button>
-            
-            <button onclick="deleteAllData()" style="text-align:center; padding:20px; background:#fff0f0; border:2px solid #ffcdd2; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-top: 30px;">
-                すべてのデータを削除
-            </button>
-            
-            <button onclick="logout()" style="text-align:center; padding:20px; background:#f5f5f5; border:none; border-radius:12px; font-size:1.2rem; color:#777; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-top: 10px;">
-                ログアウト
+
+            <button onclick="renderAccountSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                アカウント
             </button>
         </div>
     </div>`;
@@ -436,6 +445,42 @@ async function deleteAllData() {
             alert("通信エラーが発生しました。");
         }
     }
+}
+
+function renderAccountSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+
+    let headerHtml = `
+    <div class="panel-header">
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">アカウント</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
+    </div>`;
+
+    const email = currentUser ? currentUser.email : '';
+
+    let contentHtml = `
+    <div class="panel-content">
+        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+            <div style="background:#f4f7f6; border-radius:12px; padding:16px 20px; font-size:0.95rem; color:#666;">
+                <span style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:4px;">ログイン中のアカウント</span>
+                <span style="font-weight:bold; color:#444;">${email}</span>
+            </div>
+
+            <button onclick="logout()" style="text-align:center; padding:20px; background:#f5f5f5; border:none; border-radius:12px; font-size:1.2rem; color:#777; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                ログアウト
+            </button>
+
+            <button onclick="deleteAllData()" style="text-align:center; padding:20px; background:#fff0f0; border:2px solid #ffcdd2; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-top: 15px;">
+                すべてのデータを削除
+            </button>
+        </div>
+    </div>`;
+
+    panel.innerHTML = headerHtml + contentHtml;
 }
 
 function renderHomeSettings() {
