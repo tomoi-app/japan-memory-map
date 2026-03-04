@@ -461,6 +461,8 @@ function renderAccountSettings() {
     </div>`;
 
     const email = currentUser ? currentUser.email : '';
+    const btnStyle = 'text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width:100%;';
+    const dangerBtnStyle = 'text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width:100%;';
 
     let contentHtml = `
     <div class="panel-content">
@@ -470,17 +472,92 @@ function renderAccountSettings() {
                 <span style="font-weight:bold; color:#444;">${email}</span>
             </div>
 
-            <button onclick="logout()" style="text-align:center; padding:20px; background:#f5f5f5; border:none; border-radius:12px; font-size:1.2rem; color:#777; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <button onclick="renderChangePassword()" style="${btnStyle}">
+                パスワードを変更
+            </button>
+
+            <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
                 ログアウト
             </button>
 
-            <button onclick="deleteAllData()" style="text-align:center; padding:20px; background:#fff0f0; border:2px solid #ffcdd2; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-top: 15px;">
+            <button onclick="deleteAllData()" style="${dangerBtnStyle}">
                 すべてのデータを削除
             </button>
         </div>
     </div>`;
 
     panel.innerHTML = headerHtml + contentHtml;
+}
+
+function renderChangePassword() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+
+    let headerHtml = `
+    <div class="panel-header">
+        <div class="panel-header-title-row">
+            <button onclick="renderAccountSettings()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin: 0; font-size: 1.6rem; color: #333; position:absolute; left:50%; transform:translateX(-50%);">パスワード変更</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
+    </div>`;
+
+    let contentHtml = `
+    <div class="panel-content">
+        <div style="display:flex; flex-direction:column; gap:14px; margin-top:20px;">
+            <input type="password" id="pw-new" placeholder="新しいパスワード（6文字以上）"
+                style="padding:13px 15px; border:1px solid #ddd; border-radius:10px; font-size:1rem; font-family:inherit; background:#fafafa; color:#333; box-sizing:border-box; width:100%;">
+            <input type="password" id="pw-confirm" placeholder="新しいパスワード（確認）"
+                style="padding:13px 15px; border:1px solid #ddd; border-radius:10px; font-size:1rem; font-family:inherit; background:#fafafa; color:#333; box-sizing:border-box; width:100%;">
+            <div id="pw-error" style="color:#d32f2f; font-size:0.9rem; text-align:center; min-height:18px;"></div>
+            <div id="pw-success" style="color:#2e7d32; font-size:0.9rem; text-align:center; min-height:18px;"></div>
+            <button onclick="doChangePassword()"
+                style="padding:16px; background:#6c8ca3; color:white; border:none; border-radius:10px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:pointer; transition:background 0.2s;">
+                変更する
+            </button>
+        </div>
+    </div>`;
+
+    panel.innerHTML = headerHtml + contentHtml;
+}
+
+async function doChangePassword() {
+    const newPw = document.getElementById('pw-new').value;
+    const confirmPw = document.getElementById('pw-confirm').value;
+    const errorEl = document.getElementById('pw-error');
+    const successEl = document.getElementById('pw-success');
+
+    errorEl.textContent = '';
+    successEl.textContent = '';
+
+    if (!newPw || !confirmPw) {
+        errorEl.textContent = 'パスワードを入力してください';
+        return;
+    }
+    if (newPw.length < 6) {
+        errorEl.textContent = 'パスワードは6文字以上にしてください';
+        return;
+    }
+    if (newPw !== confirmPw) {
+        errorEl.textContent = 'パスワードが一致しません';
+        return;
+    }
+
+    const btn = document.querySelector('#settings-panel button[onclick="doChangePassword()"]');
+    if (btn) { btn.disabled = true; btn.textContent = '変更中...'; }
+
+    const { error } = await supabaseClient.auth.updateUser({ password: newPw });
+
+    if (error) {
+        errorEl.textContent = 'エラーが発生しました: ' + error.message;
+        if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
+    } else {
+        successEl.textContent = 'パスワードを変更しました！';
+        document.getElementById('pw-new').value = '';
+        document.getElementById('pw-confirm').value = '';
+        if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
+        setTimeout(() => renderAccountSettings(), 1500);
+    }
 }
 
 function renderHomeSettings() {
