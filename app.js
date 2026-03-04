@@ -281,7 +281,7 @@ function initApp() {
         zoomSnap: 0
     }).setView([38.0, 137.0], 5);
 
-    fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
+    fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
@@ -915,7 +915,7 @@ function renderRightPanel() {
             contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
             photos.forEach(url => {
                 const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
-                contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
+                contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}" loading="lazy"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
             });
             contentHtml += `</div>`;
         } else {
@@ -980,6 +980,32 @@ function triggerAutoSave() {
     autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
 }
 
+// ③ Supabaseに画像を直接アップロード（Python経由なし）
+async function uploadImageDirect(file) {
+    const compressed = await compressImage(file);
+    // base64 → Blob変換
+    const base64 = compressed.split(',')[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'image/jpeg' });
+
+    const filename = `${crypto.randomUUID()}.jpg`;
+    const uploadUrl = `${SUPABASE_URL}/storage/v1/object/photos/${filename}`;
+
+    const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'image/jpeg'
+        },
+        body: blob
+    });
+    if (!res.ok) throw new Error('画像アップロード失敗');
+    return `${SUPABASE_URL}/storage/v1/object/public/photos/${filename}`;
+}
+
 async function saveMemoryData() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
@@ -998,22 +1024,29 @@ async function saveMemoryData() {
     }
 
     try {
-        let photoUrls = [];
+        // 既存URLはそのまま保持
+        let existingUrls = [];
         const existingData = memoriesData.find(m => m.prefecture === selectedPref);
         if (existingData && existingData.photo_urls) {
-            try { photoUrls = JSON.parse(existingData.photo_urls); } catch(e){}
+            try { existingUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
+        // ③ 新規画像をSupabaseに直接並列アップロード
+        let newUrls = [];
         if (files.length > 0) {
-            const base64Promises = Array.from(files).map(file => compressImage(file));
-            const newPhotos = await Promise.all(base64Promises);
-            photoUrls = [...photoUrls, ...newPhotos];
+            newUrls = await Promise.all(Array.from(files).map(f => uploadImageDirect(f)));
         }
 
-        const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: photoUrls };
+        const allUrls = [...existingUrls, ...newUrls];
+        const payload = {
+            action: "save_memory",
+            prefecture: selectedPref,
+            date: dateValue,
+            existing_urls: allUrls,
+            new_photos: []
+        };
         
-        const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) 
-        });
+        const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
         
         if (res.ok) {
             await fetchMemories(false);
