@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsBtn.title = "設定";
         settingsBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>`;
         
         settingsBtn.onclick = () => {
@@ -245,10 +245,46 @@ function renderSettingsMenu() {
             <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 家を登録
             </button>
+            
+            <button onclick="deleteAllData()" style="text-align:center; padding:20px; background:#fff0f0; border:2px solid #ffcdd2; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-top: 30px;">
+                すべてのデータを削除
+            </button>
         </div>
     </div>`;
     
     panel.innerHTML = headerHtml + contentHtml;
+}
+
+// ------------------------------------------
+// 全データ削除の処理
+// ------------------------------------------
+async function deleteAllData() {
+    if (confirm("本当にすべての思い出と家の登録を削除しますか？\nこの操作は取り消せません。")) {
+        // 家の設定をリセット
+        homePrefectures = [];
+        localStorage.removeItem('homePrefectures');
+
+        try {
+            // サーバー上にある既存の思い出データを一つずつ空にする
+            for (let i = 0; i < memoriesData.length; i++) {
+                let pref = memoriesData[i].prefecture;
+                let payload = { action: "save_memory", prefecture: pref, date: "", photos: [] };
+                await fetch('/api', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(payload) 
+                });
+            }
+            
+            await fetchMemories(false);
+            closeSettings();
+            if (panelOpen) closePanel();
+            alert("すべてのデータを削除しました。");
+        } catch(e) {
+            console.error("全削除エラー", e);
+            alert("データの削除中にエラーが発生しました。");
+        }
+    }
 }
 
 function renderHomeSettings() {
@@ -523,7 +559,6 @@ function renderRightPanel() {
     }
 }
 
-// 以前のローカル向け画像圧縮（Base64変換）
 function compressImage(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -550,7 +585,6 @@ function triggerAutoSave() {
     autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
 }
 
-// 以前のローカルサーバー(/api)向け保存処理
 async function saveMemoryData() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
