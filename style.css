@@ -13,15 +13,9 @@ body, html {
 *:focus {
     outline: none !important;
 }
-
 .leaflet-interactive {
     outline: none !important;
     -webkit-tap-highlight-color: transparent;
-}
-
-/* 海の背景色を白にする */
-.leaflet-container {
-    background: #ffffff !important;
 }
 
 .main-layout {
@@ -158,7 +152,6 @@ body, html {
     position: relative;
     z-index: 2;
 }
-
 .panel-close-btn:hover { color: #888; }
 
 .status-dot {
@@ -332,6 +325,20 @@ input[type="date"] {
 
 .photo-grid-item:hover .photo-delete-btn { display: flex; }
 
+.btn-full {
+    width: 100%;
+    background: #6c8ca3; 
+    color: white;
+    border: none;
+    padding: 14px;
+    font-size: 1.05rem;
+    border-radius: 8px;
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.leaflet-container { background: #ffffff !important; }
+
 .settings-btn {
     position: fixed;
     bottom: 25px;
@@ -352,10 +359,21 @@ input[type="date"] {
     padding: 0;
 }
 
-.settings-btn svg { width: 24px; height: 24px; }
-.settings-btn:hover { background: #f8f9fa; transform: rotate(45deg); }
+.settings-btn svg {
+    width: 24px;
+    height: 24px;
+}
 
-/* --- パネル右下に固定する写真追加用FABボタン --- */
+.settings-btn:hover {
+    background: #f8f9fa;
+    transform: rotate(45deg);
+}
+
+@media (max-width: 768px) {
+    .list-section { width: 100%; }
+}
+
+/* --- 追加: パネル右下に固定する写真追加用FABボタン --- */
 .add-photo-fab {
     position: absolute;
     bottom: 25px;
@@ -372,12 +390,7 @@ input[type="date"] {
     z-index: 1000;
     transition: transform 0.2s ease, opacity 0.2s;
 }
-
 .add-photo-fab:hover {
     transform: scale(1.05);
     opacity: 0.9;
-}
-
-@media (max-width: 768px) {
-    .list-section { width: 100%; }
 }
