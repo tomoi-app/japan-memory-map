@@ -2018,10 +2018,9 @@ function showTutorialStep() {
             arrowStyle = `position:absolute; left:${cx - bx - 10}px; bottom:-10px; width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid white;`;
         }
     } else {
-        // ターゲットが見つからない場合は中央に表示
-        const bx = window.innerWidth / 2 - 150;
+        // ターゲットが見つからない場合も同じ固定スタイル
         const by = window.innerHeight / 2 - 75;
-        bubbleStyle = `position:fixed; left:${bx}px; top:${by}px; width:300px; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
+        bubbleStyle = `position:fixed; left:28px; right:28px; top:${by}px; width:auto; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
         const svg = document.createElement('div');
         svg.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.6); pointer-events:all;';
         svg.onclick = skipTutorial;
