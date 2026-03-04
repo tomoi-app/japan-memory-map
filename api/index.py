@@ -5,7 +5,6 @@ import urllib.parse
 import base64
 import uuid
 import traceback
-import concurrent.futures
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -43,8 +42,37 @@ class handler(BaseHTTPRequestHandler):
         if not supabase_url or not supabase_key:
             raise Exception("SUPABASE_URL or SUPABASE_KEY is missing in Vercel.")
 
+        # ── トークン検証 ──────────────────────────────
+        auth_header = self.headers.get("Authorization", "")
+        user_token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
+
+        if not user_token:
+            self.send_response(401)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Unauthorized"}).encode('utf-8'))
+            return
+
+        # Supabaseでトークンを検証してuser_idを取得
+        verify_req = urllib.request.Request(f"{supabase_url}/auth/v1/user")
+        verify_req.add_header("apikey", supabase_key)
+        verify_req.add_header("Authorization", f"Bearer {user_token}")
+        try:
+            with urllib.request.urlopen(verify_req, timeout=10) as vres:
+                user_data = json.loads(vres.read())
+            current_user_id = user_data.get("id", "")
+        except Exception:
+            self.send_response(401)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Invalid token"}).encode('utf-8'))
+            return
+        # ─────────────────────────────────────────────
+
         if method == "GET":
-            req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?select=*")
+            req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&select=*")
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
             with urllib.request.urlopen(req, timeout=10) as response:
@@ -68,11 +96,10 @@ class handler(BaseHTTPRequestHandler):
         if action == "save_memory":
             pref = payload.get("prefecture", "")
             date_str = payload.get("date", "")
-            existing_urls = payload.get("existing_urls", [])
-            new_photos = payload.get("new_photos", [])
+            incoming_photos = payload.get("photos", [])
 
             safe_pref = urllib.parse.quote(pref)
-            url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*"
+            url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
             req = urllib.request.Request(url)
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")
@@ -95,31 +122,25 @@ class handler(BaseHTTPRequestHandler):
                         except:
                             pass
 
-            def upload_one_photo(b64):
-                if "," in b64:
-                    _, encoded = b64.split(",", 1)
+            final_photo_urls = []
+            for item in incoming_photos:
+                if item.startswith("http"):
+                    final_photo_urls.append(item)
                 else:
-                    encoded = b64
-                file_data = base64.b64decode(encoded)
-                filename = f"{uuid.uuid4().hex}.jpg"
-                upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
-                up_req = urllib.request.Request(upload_url, data=file_data, method="POST")
-                up_req.add_header("apikey", supabase_key)
-                up_req.add_header("Authorization", f"Bearer {supabase_key}")
-                up_req.add_header("Content-Type", "image/jpeg")
-                with urllib.request.urlopen(up_req, timeout=20):
-                    pass
-                return f"{supabase_url}/storage/v1/object/public/photos/{filename}"
-
-            # 新規写真を並列アップロード
-            new_urls = []
-            if new_photos:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                    futures = {executor.submit(upload_one_photo, b64): b64 for b64 in new_photos}
-                    for future in concurrent.futures.as_completed(futures):
-                        new_urls.append(future.result())
-
-            final_photo_urls = existing_urls + new_urls
+                    if "," in item:
+                        _, encoded = item.split(",", 1)
+                    else:
+                        encoded = item
+                    
+                    file_data = base64.b64decode(encoded)
+                    filename = f"{uuid.uuid4().hex}.jpg"
+                    upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                    up_req = urllib.request.Request(upload_url, data=file_data, method="POST")
+                    up_req.add_header("apikey", supabase_key)
+                    up_req.add_header("Authorization", f"Bearer {supabase_key}")
+                    up_req.add_header("Content-Type", "image/jpeg")
+                    with urllib.request.urlopen(up_req, timeout=10):
+                        final_photo_urls.append(f"{supabase_url}/storage/v1/object/public/photos/{filename}")
 
             db_payload = {
                 "prefecture": pref,
@@ -127,7 +148,8 @@ class handler(BaseHTTPRequestHandler):
                 "photo_urls": json.dumps(final_photo_urls),
                 "title": "Memory",
                 "lat": 0.0,
-                "lng": 0.0
+                "lng": 0.0,
+                "user_id": current_user_id
             }
 
             if row_id:
@@ -163,7 +185,7 @@ class handler(BaseHTTPRequestHandler):
             filename = url_to_delete.split('/')[-1]
 
             safe_pref = urllib.parse.quote(pref)
-            url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&select=*"
+            url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
             req = urllib.request.Request(url)
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {supabase_key}")

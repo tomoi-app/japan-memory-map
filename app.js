@@ -1,3 +1,140 @@
+// =============================================
+// Supabase Auth 設定
+// ※ご自身のSupabase URL と anon key に書き換えてください
+// =============================================
+const SUPABASE_URL = 'https://uclkhpnpyeirxcvdtjwp.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjbGtocG5weWVpcnhjdmR0andwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTYzNzYsImV4cCI6MjA4NzkzMjM3Nn0.fwb79w4zemD6u41X2fIH2IvwAFJzlW__I4w4o7BufI0';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let currentToken = null;
+let currentAuthTab = 'login';
+
+// ログイン / サインアップ タブ切り替え
+function switchTab(tab) {
+    currentAuthTab = tab;
+    document.querySelectorAll('.auth-tab').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    const submitBtn = document.getElementById('auth-submit-btn');
+    submitBtn.textContent = tab === 'login' ? 'ログイン' : 'アカウントを作成';
+    document.getElementById('auth-error').classList.add('hidden');
+    document.getElementById('auth-success').classList.add('hidden');
+}
+
+// ログイン / サインアップ 実行
+async function handleAuth() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+    const submitBtn = document.getElementById('auth-submit-btn');
+
+    errorEl.classList.add('hidden');
+    successEl.classList.add('hidden');
+
+    if (!email || !password) {
+        errorEl.textContent = 'メールアドレスとパスワードを入力してください';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    if (password.length < 6) {
+        errorEl.textContent = 'パスワードは6文字以上にしてください';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '処理中...';
+
+    try {
+        let result;
+        if (currentAuthTab === 'login') {
+            result = await supabaseClient.auth.signInWithPassword({ email, password });
+        } else {
+            result = await supabaseClient.auth.signUp({ email, password });
+        }
+
+        if (result.error) {
+            let msg = result.error.message;
+            if (msg.includes('Invalid login credentials')) msg = 'メールアドレスまたはパスワードが違います';
+            if (msg.includes('User already registered')) msg = 'このメールアドレスはすでに登録されています';
+            if (msg.includes('Password should be')) msg = 'パスワードは6文字以上にしてください';
+            errorEl.textContent = msg;
+            errorEl.classList.remove('hidden');
+        } else {
+            if (currentAuthTab === 'signup') {
+                successEl.textContent = 'アカウントを作成しました！';
+                successEl.classList.remove('hidden');
+            }
+            // セッション取得してアプリ起動
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) startApp(session);
+        }
+    } catch(e) {
+        errorEl.textContent = '通信エラーが発生しました';
+        errorEl.classList.remove('hidden');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = currentAuthTab === 'login' ? 'ログイン' : 'アカウントを作成';
+    }
+}
+
+// Enterキーで送信
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !document.getElementById('auth-screen').classList.contains('hidden')) {
+        handleAuth();
+    }
+});
+
+// アプリ起動
+function startApp(session) {
+    currentUser = session.user;
+    currentToken = session.access_token;
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+    initApp();
+}
+
+// ログアウト
+async function logout() {
+    await supabaseClient.auth.signOut();
+    currentUser = null;
+    currentToken = null;
+    memoriesData = [];
+    homePrefectures = [];
+    document.getElementById('app-screen').classList.add('hidden');
+    document.getElementById('auth-screen').classList.remove('hidden');
+    document.getElementById('auth-email').value = '';
+    document.getElementById('auth-password').value = '';
+}
+
+// ページ読み込み時にセッション確認
+window.addEventListener('load', async () => {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+        startApp(session);
+    }
+    // トークンの自動更新を監視
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event === 'TOKEN_REFRESHED' && session) {
+            currentToken = session.access_token;
+        }
+        if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            currentToken = null;
+        }
+    });
+});
+
+// APIリクエスト共通関数（トークンを自動付与）
+async function apiFetch(options = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
+    const url = options.url || '/api';
+    const { url: _, ...rest } = options;
+    return fetch(url, { headers, ...rest });
+}
+
 let map;
 let geoJsonLayer;
 let selectedPref = null;
@@ -26,7 +163,7 @@ const PREF_COLORS = {
     '宮崎県':'#83b48e','鹿児島県':'#8ab784','沖縄県':'#96b87b'
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
     map = L.map('map-container', {
         zoomControl: false,
         attributionControl: false,
@@ -161,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sp.className = 'list-section';
         document.querySelector('.main-layout').appendChild(sp);
     }
-});
+}
 
 function showLoading() {
     const overlay = document.getElementById('loading-overlay');
@@ -194,7 +331,7 @@ function cleanupEmptyDate() {
         if (hasDateInput && photoCount === 0) {
             if (data) data.date = "";
             const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [] };
-            fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            apiFetch({ method: 'POST', body: JSON.stringify(payload) })
                 .then(() => fetchMemories(false));
         }
     }
@@ -256,6 +393,10 @@ function renderSettingsMenu() {
             <button onclick="deleteAllData()" style="text-align:center; padding:20px; background:#fff0f0; border:2px solid #ffcdd2; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-top: 30px;">
                 すべてのデータを削除
             </button>
+            
+            <button onclick="logout()" style="text-align:center; padding:20px; background:#f5f5f5; border:none; border-radius:12px; font-size:1.2rem; color:#777; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-top: 10px;">
+                ログアウト
+            </button>
         </div>
     </div>`;
     
@@ -284,10 +425,7 @@ async function deleteAllData() {
 
         try {
             // サーバーに「全部消せ」という命令を1回だけ送る
-            await fetch('/api', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ action: "delete_all" }) 
+            await apiFetch({ method: 'POST', body: JSON.stringify({ action: "delete_all" }) 
             });
             
             hideLoading();
@@ -554,9 +692,10 @@ function renderRightPanel() {
         const photoInput = document.getElementById('input-photos');
 
         const handleDateChange = () => {
-            // 両方入力済みの場合のみ前後チェック（同じ日付でも終了日は消さない）
             if (fromInput.value && toInput.value) {
-                if (new Date(fromInput.value) > new Date(toInput.value)) {
+                if (fromInput.value === toInput.value) {
+                    toInput.value = '';
+                } else if (new Date(fromInput.value) > new Date(toInput.value)) {
                     const temp = fromInput.value;
                     fromInput.value = toInput.value;
                     toInput.value = temp;
@@ -615,27 +754,21 @@ async function saveMemoryData() {
     }
 
     try {
-        // 既存のURLはそのまま保持（再送しない）
-        let existingUrls = [];
+        let photoUrls = [];
         const existingData = memoriesData.find(m => m.prefecture === selectedPref);
         if (existingData && existingData.photo_urls) {
-            try { existingUrls = JSON.parse(existingData.photo_urls); } catch(e){}
+            try { photoUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
-        // 新規ファイルのみBase64変換（並列処理）
-        let newBase64Photos = [];
         if (files.length > 0) {
             const base64Promises = Array.from(files).map(file => compressImage(file));
-            newBase64Photos = await Promise.all(base64Promises);
+            const newPhotos = await Promise.all(base64Promises);
+            photoUrls = [...photoUrls, ...newPhotos];
         }
 
-        // 既存URLと新規Base64を分けて送信
-        const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, existing_urls: existingUrls, new_photos: newBase64Photos };
+        const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: photoUrls };
         
-        const res = await fetch('/api', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(payload) 
+        const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) 
         });
         
         if (res.ok) {
@@ -659,7 +792,7 @@ async function saveMemoryData() {
 // --- ゴーストデータを画面に表示させない処理を追加 ---
 async function fetchMemories(redraw = true) {
     try {
-        const res = await fetch('/api?t=' + new Date().getTime());
+        const res = await apiFetch({ method: 'GET', url: '/api?t=' + new Date().getTime() });
         const rawData = await res.json();
         
         // 同じ都道府県があったら1つにまとめる（ダミーを排除）
@@ -687,7 +820,7 @@ async function deletePhoto(url) {
     showLoading(); 
     const payload = { action: "delete_photo", prefecture: selectedPref, photo_url: url };
     try {
-        await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
         await fetchMemories(false);
         renderRightPanel();
         updateMapColors();

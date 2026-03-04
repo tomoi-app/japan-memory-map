@@ -10,9 +10,33 @@
     <link rel="stylesheet" href="style.css">
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
+    <!-- ログイン画面 -->
+    <div id="auth-screen" class="auth-screen">
+        <div class="auth-card">
+            <h1 class="auth-title">あしあと</h1>
+            <p class="auth-subtitle">旅の記録をはじめよう</p>
+
+            <div id="auth-tabs" class="auth-tabs">
+                <button class="auth-tab active" onclick="switchTab('login')">ログイン</button>
+                <button class="auth-tab" onclick="switchTab('signup')">アカウント作成</button>
+            </div>
+
+            <div id="auth-error" class="auth-error hidden"></div>
+            <div id="auth-success" class="auth-success hidden"></div>
+
+            <input type="email" id="auth-email" class="auth-input" placeholder="メールアドレス" autocomplete="email">
+            <input type="password" id="auth-password" class="auth-input" placeholder="パスワード（6文字以上）" autocomplete="current-password">
+
+            <button id="auth-submit-btn" class="auth-btn" onclick="handleAuth()">ログイン</button>
+        </div>
+    </div>
+
+    <!-- メインアプリ（ログイン後に表示） -->
+    <div id="app-screen" class="hidden">
     <div class="main-layout">
         <div class="map-section">
             <div id="map-container"></div>
@@ -30,6 +54,7 @@
         <div id="right-panel" class="list-section">
             </div>
     </div>
+    </div><!-- /app-screen -->
 
     <div id="slider-modal" class="modal hidden">
         <button id="btn-close-slider" class="modal-close-btn">✕</button>
