@@ -1,14 +1,19 @@
 {
-  "name": "思い出マップ",
-  "short_name": "思い出",
+  "name": "あしあと",
+  "short_name": "あしあと",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#f5f5f7",
   "theme_color": "#0056b3",
   "icons": [
     {
-      "src": "https://placehold.jp/192x192.png?text=Map",
+      "src": "icon-192.png",
       "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ]
