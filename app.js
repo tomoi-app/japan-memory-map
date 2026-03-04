@@ -1846,7 +1846,7 @@ function showInstallSlides() {
     function slide2() {
         renderSlide({ index: 1, html:
             '<h2 style="font-size:1.4rem; color:#333; margin:0;">アプリとして使おう</h2>' +
-            '<p style="color:#888; font-size:0.9rem; line-height:1.8; margin:0;">ホーム画面に追加するとアプリのように使えます。</p>' +
+            '<p style="color:#888; font-size:0.9rem; line-height:1.8; margin:0;">ホーム画面に追加するとアプリのように使えます</p>' +
             '<div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">' +
             '<button onclick="installSlide3ios()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">iPhone / iPad</button>' +
             '<button onclick="installSlide3android()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">Android</button>' +
@@ -1864,8 +1864,9 @@ function showInstallSlides() {
             '<h2 style="font-size:1.3rem; color:#333; margin:0;">iPhoneの場合</h2>' +
             '<div style="width:100%; background:#f4f7f6; border-radius:14px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:14px;">' +
             '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">1</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">Safariでこのページを開く</span></div>' +
-            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">2</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">下部の 共有ボタン（四角と↑）をタップ</span></div>' +
-            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">3</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「ホーム画面に追加」を選択</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">2</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">下部の（・・・）ボタンをタップ</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">3</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「共有」をタップ</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">4</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「ホーム画面に追加」をタップ</span></div>' +
             '</div>' +
             '<button onclick="installSlide4()" style="margin-top:8px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
         });
