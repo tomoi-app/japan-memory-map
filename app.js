@@ -672,13 +672,13 @@ function renderAccountSettings() {
     </div>`;
 
     const email = currentUser ? currentUser.email : '';
-    const btnStyle = 'text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width:100%;';
-    const dangerBtnStyle = 'text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width:100%;';
+    const btnStyle = 'text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width:100%;';
+    const dangerBtnStyle = 'text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width:100%;';
 
     let contentHtml = `
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
-            <div style="background:#eef2f5; border-radius:12px; padding:16px 20px; font-size:0.95rem; color:#666;">
+            <div style="background:#f4f7f6; border-radius:12px; padding:16px 20px; font-size:0.95rem; color:#666;">
                 <span style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:4px;">ログイン中のアカウント</span>
                 <span style="font-weight:bold; color:#444;">${email}</span>
             </div>
