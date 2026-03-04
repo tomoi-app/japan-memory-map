@@ -1554,6 +1554,10 @@ function startTutorial() {
 }
 
 function showTutorialStep() {
+    // app-screenが非表示なら中断
+    const appScreen = document.getElementById('app-screen');
+    if (!appScreen || appScreen.classList.contains('hidden')) return;
+
     // 既存オーバーレイ削除
     const old = document.getElementById('tutorial-overlay');
     if (old) old.remove();
@@ -1678,7 +1682,12 @@ function skipTutorial() {
 
 function checkAndStartTutorial() {
     if (!localStorage.getItem('tutorialDone')) {
-        // 地図の初期化を待ってから開始
-        setTimeout(startTutorial, 800);
+        // app-screenが表示されている時のみ開始
+        setTimeout(() => {
+            const appScreen = document.getElementById('app-screen');
+            if (appScreen && !appScreen.classList.contains('hidden')) {
+                startTutorial();
+            }
+        }, 800);
     }
 }
