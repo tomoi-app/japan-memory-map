@@ -309,5 +309,86 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
             return
 
+        elif action == "send_contact":
+            resend_key = os.environ.get("RESEND_API_KEY", "").strip()
+            if not resend_key:
+                raise Exception("RESEND_API_KEY is missing.")
+
+            name       = payload.get("name", "（名前未記入）")
+            body       = payload.get("body", "")
+            want_reply = payload.get("want_reply", False)
+            reply_email = payload.get("reply_email", "")
+            user_email = current_user_id  # user_idではなくemailが欲しいので下で取得
+
+            # ユーザーのメールアドレスを取得
+            try:
+                u_req = urllib.request.Request(f"{supabase_url}/auth/v1/user")
+                u_req.add_header("apikey", supabase_key)
+                u_req.add_header("Authorization", f"Bearer {user_token}")
+                with urllib.request.urlopen(u_req, timeout=10) as r:
+                    u_data = json.loads(r.read())
+                user_email = u_data.get("email", "不明")
+            except:
+                pass
+
+            # ① 管理者への通知メール
+            admin_html = f"""
+<h2>あしあと お問い合わせ</h2>
+<p><b>名前：</b>{name}</p>
+<p><b>アカウント：</b>{user_email}</p>
+<p><b>返信希望：</b>{"はい（{reply_email}）".format(reply_email=reply_email) if want_reply else "いいえ"}</p>
+<hr>
+<p><b>内容：</b></p>
+<p style="white-space:pre-wrap;">{body}</p>
+"""
+            admin_payload = {
+                "from": "あしあと <onboarding@resend.dev>",
+                "to": ["tomoi.app21@gmail.com"],
+                "subject": f"【あしあと】お問い合わせ：{name}",
+                "html": admin_html
+            }
+            resend_req = urllib.request.Request(
+                "https://api.resend.com/emails",
+                data=json.dumps(admin_payload).encode('utf-8'),
+                method="POST"
+            )
+            resend_req.add_header("Authorization", f"Bearer {resend_key}")
+            resend_req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(resend_req, timeout=15) as r:
+                pass
+
+            # ② 返信希望の場合、ユーザーへ自動返信
+            if want_reply and reply_email:
+                auto_html = """
+<p>この度は【あしあと】をご利用いただき、誠にありがとうございます。</p>
+<p>お問い合わせを受け付けました。<br>返信まで少々お待ちください。</p>
+<br>
+<p style="color:#888; font-size:0.9em;">※このメールは自動送信されています。</p>
+"""
+                auto_payload = {
+                    "from": "あしあと <onboarding@resend.dev>",
+                    "to": [reply_email],
+                    "subject": "【あしあと】お問い合わせありがとうございます",
+                    "html": auto_html
+                }
+                auto_req = urllib.request.Request(
+                    "https://api.resend.com/emails",
+                    data=json.dumps(auto_payload).encode('utf-8'),
+                    method="POST"
+                )
+                auto_req.add_header("Authorization", f"Bearer {resend_key}")
+                auto_req.add_header("Content-Type", "application/json")
+                try:
+                    with urllib.request.urlopen(auto_req, timeout=15):
+                        pass
+                except:
+                    pass
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+
         else:
             raise Exception(f"不明なアクションです: {action}")

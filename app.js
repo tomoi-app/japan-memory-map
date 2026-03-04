@@ -838,10 +838,12 @@ function renderContactSettings() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
 
+    const inputStyle = 'width:100%; padding:12px 14px; border:1px solid #ddd; border-radius:10px; font-size:0.95rem; font-family:inherit; background:#fafafa; color:#333; box-sizing:border-box;';
+
     let headerHtml = `
     <div class="panel-header">
         <div class="panel-header-title-row">
-            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:var(--accent); cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
             <h2 style="margin:0; font-size:1.6rem; color:#333; position:absolute; left:50%; transform:translateX(-50%);">お問い合わせ</h2>
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
         </div>
@@ -849,22 +851,108 @@ function renderContactSettings() {
 
     let contentHtml = `
     <div class="panel-content">
-        <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
-            <p style="color:#666; font-size:0.95rem; line-height:1.8; margin:0;">
-                ご意見・ご要望・不具合のご報告は、以下のメールアドレスまでお気軽にお問い合わせください。
+        <div style="display:flex; flex-direction:column; gap:14px; margin-top:20px;">
+            <p style="color:#888; font-size:0.9rem; line-height:1.7; margin:0;">
+                ご意見・ご要望・不具合のご報告をお気軽にどうぞ。
             </p>
-            <div style="background:var(--bg); border-radius:12px; padding:18px 20px; text-align:center;">
-                <span style="font-size:0.85rem; color:#aaa; display:block; margin-bottom:6px;">メールアドレス</span>
-                <a href="mailto:tomoi.app21@gmail.com" style="color:var(--accent); font-weight:bold; font-size:1rem; text-decoration:none;">tomoi.app21@gmail.com</a>
+
+            <div>
+                <label style="font-size:0.85rem; color:#888; display:block; margin-bottom:6px;">お名前</label>
+                <input type="text" id="contact-name" placeholder="例：山田 太郎" style="${inputStyle}">
             </div>
-            <a href="mailto:tomoi.app21@gmail.com"
-                style="display:block; text-align:center; padding:18px; background:var(--accent); color:white; border-radius:12px; font-size:1.1rem; font-weight:bold; text-decoration:none; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
-                メールを送る
-            </a>
+
+            <div>
+                <label style="font-size:0.85rem; color:#888; display:block; margin-bottom:6px;">お問い合わせ内容</label>
+                <textarea id="contact-body" placeholder="お気軽にご記入ください" rows="5"
+                    style="${inputStyle} resize:none;"></textarea>
+            </div>
+
+            <div style="background:#f4f7f6; border-radius:10px; padding:14px 16px;">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.95rem; color:#444;">
+                    <input type="checkbox" id="contact-reply" style="width:18px; height:18px; cursor:pointer; accent-color:#6c8ca3;">
+                    返信を希望する
+                </label>
+                <div id="contact-email-wrap" style="display:none; margin-top:10px;">
+                    <input type="email" id="contact-email" placeholder="返信先メールアドレス"
+                        style="${inputStyle}">
+                </div>
+            </div>
+
+            <div id="contact-error" style="color:#d32f2f; font-size:0.88rem; text-align:center; min-height:16px;"></div>
+            <div id="contact-success" style="color:#2e7d32; font-size:0.88rem; text-align:center; min-height:16px;"></div>
+
+            <button onclick="submitContact()"
+                style="padding:16px; background:#6c8ca3; color:white; border:none; border-radius:10px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:pointer;">
+                送信する
+            </button>
         </div>
     </div>`;
 
     panel.innerHTML = headerHtml + contentHtml;
+
+    // 返信希望チェックでメールフィールドを表示
+    document.getElementById('contact-reply').addEventListener('change', function() {
+        document.getElementById('contact-email-wrap').style.display = this.checked ? 'block' : 'none';
+    });
+}
+
+async function submitContact() {
+    const name    = (document.getElementById('contact-name')?.value || '').trim();
+    const body    = (document.getElementById('contact-body')?.value || '').trim();
+    const wantReply = document.getElementById('contact-reply')?.checked;
+    const email   = (document.getElementById('contact-email')?.value || '').trim();
+    const errorEl   = document.getElementById('contact-error');
+    const successEl = document.getElementById('contact-success');
+    const btn = document.querySelector('#settings-panel button[onclick="submitContact()"]');
+
+    errorEl.textContent = '';
+    successEl.textContent = '';
+
+    if (!body) {
+        errorEl.textContent = 'お問い合わせ内容を入力してください';
+        return;
+    }
+    if (wantReply && !email) {
+        errorEl.textContent = '返信を希望する場合はメールアドレスを入力してください';
+        return;
+    }
+    if (wantReply && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errorEl.textContent = '正しいメールアドレスを入力してください';
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = '送信中...'; }
+    showLoading();
+
+    try {
+        const res = await apiFetch({
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'send_contact',
+                name,
+                body,
+                want_reply: wantReply,
+                reply_email: email
+            })
+        });
+
+        if (res.ok) {
+            successEl.textContent = '送信しました！ありがとうございました。';
+            document.getElementById('contact-name').value = '';
+            document.getElementById('contact-body').value = '';
+            document.getElementById('contact-reply').checked = false;
+            document.getElementById('contact-email-wrap').style.display = 'none';
+            if (document.getElementById('contact-email')) document.getElementById('contact-email').value = '';
+        } else {
+            const d = await res.json().catch(() => ({}));
+            errorEl.textContent = d.error || '送信に失敗しました。もう一度お試しください。';
+        }
+    } catch(e) {
+        errorEl.textContent = '通信エラーが発生しました';
+    } finally {
+        hideLoading();
+        if (btn) { btn.disabled = false; btn.textContent = '送信する'; }
+    }
 }
 
 function renderHomeSettings() {
