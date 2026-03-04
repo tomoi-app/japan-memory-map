@@ -2000,8 +2000,8 @@ function showTutorialStep() {
         overlay.appendChild(svg);
 
         // バブルの位置を決める
-        const bubbleW = 220;
-        const bubbleH = 110;
+        const bubbleW = 300;
+        const bubbleH = 150;
         const margin  = 20;
         let bx, by, arrowDir;
 
@@ -2013,12 +2013,12 @@ function showTutorialStep() {
             arrowDir = null;
         } else {
             // アイコンステップ：画面中央より少し上
-            by = window.innerHeight / 2 - bubbleH / 2 - 80;
+            by = window.innerHeight / 2 - bubbleH / 2 - 100;
             by = Math.max(by, margin);
             arrowDir = null;
         }
 
-        bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:${bubbleW}px; background:white; border-radius:16px; padding:22px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
+        bubbleStyle = `position:fixed; left:${bx}px; top:${by}px; width:${bubbleW}px; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
 
         if (arrowDir === 'up') {
             arrowStyle = `position:absolute; left:${cx - bx - 10}px; top:-10px; width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:10px solid white;`;
@@ -2027,9 +2027,9 @@ function showTutorialStep() {
         }
     } else {
         // ターゲットが見つからない場合は中央に表示
-        const bx = window.innerWidth / 2 - 110;
-        const by = window.innerHeight / 2 - 55;
-        bubbleStyle = `position:absolute; left:${bx}px; top:${by}px; width:220px; background:white; border-radius:16px; padding:22px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
+        const bx = window.innerWidth / 2 - 150;
+        const by = window.innerHeight / 2 - 75;
+        bubbleStyle = `position:fixed; left:${bx}px; top:${by}px; width:300px; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
         const svg = document.createElement('div');
         svg.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.6); pointer-events:all;';
         svg.onclick = skipTutorial;
