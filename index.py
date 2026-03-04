@@ -40,8 +40,8 @@ class handler(BaseHTTPRequestHandler):
 
     def process_api(self, method):
         supabase_url = os.environ.get("SUPABASE_URL", "").strip().rstrip('/')
-        supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
-        resend_key   = os.environ.get("RESEND_API_KEY", "").strip()
+        supabase_key     = os.environ.get("SUPABASE_KEY", "").strip()
+        supabase_svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip() or supabase_key
 
         if not supabase_url or not supabase_key:
             raise Exception("SUPABASE_URL or SUPABASE_KEY is missing in Vercel.")
@@ -60,7 +60,7 @@ class handler(BaseHTTPRequestHandler):
 
         # Supabaseでトークンを検証してuser_idを取得
         verify_req = urllib.request.Request(f"{supabase_url}/auth/v1/user")
-        verify_req.add_header("apikey", supabase_key)
+        verify_req.add_header("apikey", supabase_svc_key)
         verify_req.add_header("Authorization", f"Bearer {user_token}")
         try:
             with urllib.request.urlopen(verify_req, timeout=10) as vres:
@@ -330,7 +330,7 @@ class handler(BaseHTTPRequestHandler):
             # ユーザーのメールアドレスを取得
             try:
                 u_req = urllib.request.Request(f"{supabase_url}/auth/v1/user")
-                u_req.add_header("apikey", supabase_key)
+                u_req.add_header("apikey", supabase_svc_key)
                 u_req.add_header("Authorization", f"Bearer {user_token}")
                 with urllib.request.urlopen(u_req, timeout=10) as r:
                     u_data = json.loads(r.read())
