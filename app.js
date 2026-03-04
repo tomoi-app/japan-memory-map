@@ -2005,18 +2005,10 @@ function showTutorialStep() {
         const margin  = 20;
         let bx, by, arrowDir;
 
-        // バブル位置：基本は画面中央、アイコンの時は中央より少し上
-        bx = window.innerWidth / 2 - bubbleW / 2;
-        if (step.position === 'center') {
-            // 地図ステップ：画面中央
-            by = window.innerHeight / 2 - bubbleH / 2;
-            arrowDir = null;
-        } else {
-            // アイコンステップ：画面中央より少し上
-            by = window.innerHeight / 2 - bubbleH / 2 - 100;
-            by = Math.max(by, margin);
-            arrowDir = null;
-        }
+        // バブル位置：常に画面中央固定・少し左寄り
+        bx = window.innerWidth / 2 - bubbleW / 2 - 20;
+        by = window.innerHeight / 2 - bubbleH / 2;
+        arrowDir = null;
 
         bubbleStyle = `position:fixed; left:${bx}px; top:${by}px; width:${bubbleW}px; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
 
