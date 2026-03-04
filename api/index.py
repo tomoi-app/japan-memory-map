@@ -96,7 +96,8 @@ class handler(BaseHTTPRequestHandler):
         if action == "save_memory":
             pref = payload.get("prefecture", "")
             date_str = payload.get("date", "")
-            incoming_photos = payload.get("photos", [])
+            # フロントエンドから直接Supabaseにアップロード済みのURL一覧を受け取るだけ
+            final_photo_urls = payload.get("existing_urls", [])
 
             safe_pref = urllib.parse.quote(pref)
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
@@ -121,26 +122,6 @@ class handler(BaseHTTPRequestHandler):
                             urllib.request.urlopen(del_req, timeout=10)
                         except:
                             pass
-
-            final_photo_urls = []
-            for item in incoming_photos:
-                if item.startswith("http"):
-                    final_photo_urls.append(item)
-                else:
-                    if "," in item:
-                        _, encoded = item.split(",", 1)
-                    else:
-                        encoded = item
-                    
-                    file_data = base64.b64decode(encoded)
-                    filename = f"{uuid.uuid4().hex}.jpg"
-                    upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
-                    up_req = urllib.request.Request(upload_url, data=file_data, method="POST")
-                    up_req.add_header("apikey", supabase_key)
-                    up_req.add_header("Authorization", f"Bearer {supabase_key}")
-                    up_req.add_header("Content-Type", "image/jpeg")
-                    with urllib.request.urlopen(up_req, timeout=10):
-                        final_photo_urls.append(f"{supabase_url}/storage/v1/object/public/photos/{filename}")
 
             db_payload = {
                 "prefecture": pref,
