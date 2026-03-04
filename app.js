@@ -9,6 +9,27 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentToken = null;
 let currentAuthTab = 'login';
+
+// =============================================
+// テーマ設定
+// =============================================
+const THEMES = {
+    blue:   { name: 'ブルーグレー', accent: '#6c8ca3', bg: '#eef2f5', light: '#dce6ee' },
+    green:  { name: 'フォレスト',   accent: '#5a8a6a', bg: '#eef5f0', light: '#d4e8da' },
+    rose:   { name: 'ローズ',       accent: '#a06080', bg: '#f5eef2', light: '#e8d4de' },
+    sand:   { name: 'サンド',       accent: '#8a7055', bg: '#f5f0ea', light: '#e8ddd0' },
+    navy:   { name: 'ネイビー',     accent: '#3a5278', bg: '#eaeef5', light: '#ccd5e8' },
+};
+let currentTheme = localStorage.getItem('theme') || 'blue';
+
+function applyTheme(themeKey) {
+    const t = THEMES[themeKey] || THEMES.blue;
+    currentTheme = themeKey;
+    localStorage.setItem('theme', themeKey);
+    document.documentElement.style.setProperty('--accent', t.accent);
+    document.documentElement.style.setProperty('--bg', t.bg);
+    document.documentElement.style.setProperty('--light', t.light);
+}
 let isPasswordRecoveryMode = false;
 
 // ログイン ↔ サインアップ 切り替え
@@ -182,6 +203,7 @@ function showPasswordRecoveryScreen() {
 }
 
 function startApp(session) {
+    applyTheme(currentTheme);
     currentUser = session.user;
     currentToken = session.access_token;
     // 状態を初期化してから表示
@@ -286,6 +308,7 @@ const PREF_COLORS = {
 };
 
 function initApp() {
+    applyTheme(currentTheme);
     map = L.map('map-container', {
         zoomControl: false,
         attributionControl: false,
@@ -505,14 +528,20 @@ function renderSettingsMenu() {
         </div>
     </div>`;
     
+    const btnS = `text-align:center; padding:20px; background:var(--bg); border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
-            <button onclick="renderHomeSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <button onclick="renderHomeSettings()" style="${btnS}">
                 家を登録
             </button>
-
-            <button onclick="renderAccountSettings()" style="text-align:center; padding:20px; background:#eef2f5; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <button onclick="renderThemeSettings()" style="${btnS}">
+                テーマの変更
+            </button>
+            <button onclick="renderContactSettings()" style="${btnS}">
+                お問い合わせ
+            </button>
+            <button onclick="renderAccountSettings()" style="${btnS}">
                 アカウント
             </button>
         </div>
@@ -693,6 +722,72 @@ async function doChangePassword() {
     } finally {
         hideLoading();
     }
+}
+
+function renderThemeSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+
+    let headerHtml = `
+    <div class="panel-header">
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:var(--accent); cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin:0; font-size:1.6rem; color:#333; position:absolute; left:50%; transform:translateX(-50%);">テーマの変更</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
+    </div>`;
+
+    let themeBtns = Object.entries(THEMES).map(([key, t]) => {
+        const isActive = key === currentTheme;
+        return `<button onclick="applyTheme('${key}'); renderThemeSettings();"
+            style="display:flex; align-items:center; gap:14px; padding:16px 20px; background:${isActive ? t.bg : '#f9f9f9'}; border:2px solid ${isActive ? t.accent : '#eee'}; border-radius:12px; cursor:pointer; font-family:inherit; transition:all 0.2s; width:100%;">
+            <span style="width:28px; height:28px; border-radius:50%; background:${t.accent}; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></span>
+            <span style="font-size:1.1rem; font-weight:bold; color:#444;">${t.name}</span>
+            ${isActive ? `<span style="margin-left:auto; color:${t.accent}; font-size:1.2rem;">✓</span>` : ''}
+        </button>`;
+    }).join('');
+
+    let contentHtml = `
+    <div class="panel-content">
+        <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">
+            ${themeBtns}
+        </div>
+    </div>`;
+
+    panel.innerHTML = headerHtml + contentHtml;
+}
+
+function renderContactSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+
+    let headerHtml = `
+    <div class="panel-header">
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:var(--accent); cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin:0; font-size:1.6rem; color:#333; position:absolute; left:50%; transform:translateX(-50%);">お問い合わせ</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
+    </div>`;
+
+    let contentHtml = `
+    <div class="panel-content">
+        <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
+            <p style="color:#666; font-size:0.95rem; line-height:1.8; margin:0;">
+                ご意見・ご要望・不具合のご報告は、以下のメールアドレスまでお気軽にお問い合わせください。
+            </p>
+            <div style="background:var(--bg); border-radius:12px; padding:18px 20px; text-align:center;">
+                <span style="font-size:0.85rem; color:#aaa; display:block; margin-bottom:6px;">メールアドレス</span>
+                <a href="mailto:tomoi.app21@gmail.com" style="color:var(--accent); font-weight:bold; font-size:1rem; text-decoration:none;">tomoi.app21@gmail.com</a>
+            </div>
+            <a href="mailto:tomoi.app21@gmail.com"
+                style="display:block; text-align:center; padding:18px; background:var(--accent); color:white; border-radius:12px; font-size:1.1rem; font-weight:bold; text-decoration:none; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                メールを送る
+            </a>
+        </div>
+    </div>`;
+
+    panel.innerHTML = headerHtml + contentHtml;
 }
 
 function renderHomeSettings() {
