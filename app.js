@@ -172,7 +172,6 @@ function openPanel() {
     updateUIVisibility();
 }
 
-// --- 追加：日付だけ入力して閉じた/戻った場合の削除処理 ---
 function cleanupEmptyDate() {
     if (selectedPref && !homePrefectures.includes(selectedPref)) {
         const fromEl = document.getElementById('input-date-from');
@@ -205,7 +204,6 @@ function closePanel() {
     updateCounter();
 }
 
-// --- 追加：戻るボタン用の関数 ---
 function backToList() {
     clearTimeout(autoSaveTimer);
     cleanupEmptyDate();
@@ -493,7 +491,6 @@ function renderRightPanel() {
             contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>`;
         }
         
-        // --- 追加: 右下のFABボタン（パネル内配置） ---
         contentHtml += `
             <label for="input-photos" class="add-photo-fab" style="background:${color};" title="写真を追加">
                 <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -526,6 +523,26 @@ function renderRightPanel() {
     }
 }
 
+// 以前のローカル向け画像圧縮（Base64変換）
+function compressImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let w = img.width, h = img.height;
+                if (w > 600) { h = h * (600 / w); w = 600; }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', 0.6));
+            };
+        };
+    });
+}
+
 function triggerAutoSave() {
     const statusEl = document.getElementById('autosave-status');
     if (statusEl) statusEl.innerText = '保存中...';
@@ -533,29 +550,56 @@ function triggerAutoSave() {
     autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
 }
 
+// 以前のローカルサーバー(/api)向け保存処理
 async function saveMemoryData() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
     const files = document.getElementById('input-photos').files;
     if (!fromEl) return;
+    
     const fromVal = toSlashDate(fromEl.value);
     const toVal = toSlashDate(toEl.value);
     const dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
-    let base64Photos = [];
-    for (let file of files) { base64Photos.push(await compressImage(file)); }
-    const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: base64Photos };
+    
+    const statusEl = document.getElementById('autosave-status');
+    if (statusEl && files.length > 0) statusEl.innerText = 'アップロード中...';
+
     try {
-        const res = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        let photoUrls = [];
+        
+        const existingData = memoriesData.find(m => m.prefecture === selectedPref);
+        if (existingData && existingData.photo_urls) {
+            try { photoUrls = JSON.parse(existingData.photo_urls); } catch(e){}
+        }
+
+        if (files.length > 0) {
+            const base64Promises = Array.from(files).map(file => compressImage(file));
+            const newPhotos = await Promise.all(base64Promises);
+            photoUrls = [...photoUrls, ...newPhotos];
+        }
+
+        const payload = { action: "save_memory", prefecture: selectedPref, date: dateValue, photos: photoUrls };
+        
+        const res = await fetch('/api', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(payload) 
+        });
+        
         if (res.ok) {
             await fetchMemories(false);
             renderRightPanel();
             updateMapColors();
             updateCounter();
-            const statusEl = document.getElementById('autosave-status');
-            if (statusEl) statusEl.innerText = '保存完了';
-            setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
+            if (statusEl) {
+                statusEl.innerText = '保存完了';
+                setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
+            }
         }
-    } catch(e) { console.error("Save Error", e); }
+    } catch(e) { 
+        console.error("Save Error", e); 
+        if (statusEl) statusEl.innerText = 'エラー発生';
+    }
 }
 
 async function fetchMemories(redraw = true) {
@@ -596,25 +640,6 @@ function updateMapColors() {
             color: '#000000',
             fillOpacity: 1
         });
-    });
-}
-
-function compressImage(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (e) => {
-            const img = new Image();
-            img.src = e.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let w = img.width, h = img.height;
-                if (w > 600) { h = h * (600 / w); w = 600; }
-                canvas.width = w; canvas.height = h;
-                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                resolve(canvas.toDataURL('image/jpeg', 0.6));
-            };
-        };
     });
 }
 

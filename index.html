@@ -3,33 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>あしあと</title>
+    <title>Japan Memory Map</title>
+    
     <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
+
     <div class="main-layout">
         <div class="map-section">
             <div id="map-container"></div>
-            <button id="menu-btn">☰</button>
             <div id="pref-counter">0 / 47</div>
+            
+            <button id="menu-btn" title="一覧">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
 
-            <div id="slider-modal" class="modal hidden">
-                <div class="modal-content">
-                    <img id="slide-image" src="">
-                    <div class="slide-controls">
-                        <button id="btn-prev">前へ</button>
-                        <span id="slide-counter">1 / 1</span>
-                        <button id="btn-next">次へ</button>
-                    </div>
-                    <button id="btn-close-slider" class="btn-full">閉じる</button>
-                </div>
+        <div id="right-panel" class="list-section">
+            </div>
+    </div>
+
+    <div id="slider-modal" class="modal hidden">
+        <button id="btn-close-slider" class="modal-close-btn">✕</button>
+        <div class="modal-content">
+            <img id="slide-image" src="">
+            <div class="slide-controls">
+                <button id="btn-prev">←</button>
+                <span id="slide-counter"></span>
+                <button id="btn-next">→</button>
             </div>
         </div>
-        <div id="right-panel" class="list-section"></div>
     </div>
+
     <script src="app.js"></script>
 </body>
 </html>
