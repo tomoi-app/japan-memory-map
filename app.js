@@ -424,13 +424,13 @@ async function initShareMode() {
     updateMapColors();
     updateCounter();
 
-    // 設定ボタン・一覧ボタンを非表示
+    // 設定ボタンのみ非表示
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) settingsBtn.style.display = 'none';
 
     // 閲覧中バナーを表示
     const banner = document.createElement('div');
-    banner.style.cssText = 'position:fixed; top:0; left:0; right:0; background:#6c8ca3; color:white; text-align:center; padding:8px; font-size:0.88rem; font-weight:bold; z-index:1000;';
+    banner.style.cssText = 'position:fixed; bottom:0; left:0; right:0; background:#6c8ca3; color:white; text-align:center; padding:8px; font-size:0.88rem; font-weight:bold; z-index:1000;';
     banner.textContent = '閲覧モード（編集できません）';
     document.body.appendChild(banner);
 }
@@ -935,7 +935,7 @@ function renderShareSettings() {
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
             <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0;">
-                このURLを共有すると、相手はログインなしであなたの地図を閲覧できます。<br>編集はできません。
+                URLを共有して あしあと を共有しよう。<br>閲覧モードでは編集はできません。
             </p>
             <div style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#555; line-height:1.6;">
                 ${shareUrl}
@@ -1415,45 +1415,57 @@ function renderRightPanel() {
 
         let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
             
-        if (hasWarning) {
-            contentHtml += `<div class="warning-banner" style="margin-bottom: 15px;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
+        if (!isShareMode) {
+            if (hasWarning) {
+                contentHtml += `<div class="warning-banner" style="margin-bottom: 15px;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
+            }
+            if (featureShowDate) {
+                contentHtml += `
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
+                    <span style="color:#aaa;">-</span>
+                    <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
+                </div>`;
+            }
+            contentHtml += `<p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>`;
+            if (featureShowMemo) {
+                contentHtml += `<textarea id="input-memo" placeholder="旅の思い出をメモ..." rows="4"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px; font-family:inherit; background:#fafafa; color:#444; resize:none; box-sizing:border-box; margin-top:4px;">${data.memo || ''}</textarea>`;
+            }
+        } else {
+            // 共有モード：日付・メモを読み取り専用で表示
+            if (data.date) {
+                contentHtml += `<p style="text-align:center; color:#888; font-size:0.9rem; margin:8px 0;">${formatDate(data.date)}</p>`;
+            }
+            if (data.memo) {
+                contentHtml += `<p style="padding:10px 14px; background:#fafafa; border-radius:8px; font-size:0.9rem; color:#555; line-height:1.7; white-space:pre-wrap; margin-top:8px;">${data.memo}</p>`;
+            }
         }
-        
-        if (featureShowDate) {
-            contentHtml += `
-            <div style="display:flex; align-items:center; gap:8px;">
-                <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
-                <span style="color:#aaa;">-</span>
-                <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
-            </div>`;
-        }
-        contentHtml += `<p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>`;
-        if (featureShowMemo) {
-            contentHtml += `<textarea id="input-memo" placeholder="旅の思い出をメモ..." rows="4"
-                style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px; font-family:inherit; background:#fafafa; color:#444; resize:none; box-sizing:border-box; margin-top:4px;">${data.memo || ''}</textarea>`;
-        }
-        contentHtml += ``;
 
         if (photos.length > 0) {
             contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
             photos.forEach(url => {
                 const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
-                contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}" loading="lazy"><button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button></div>`;
+                const deleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button>`;
+                contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}" loading="lazy">${deleteBtn}</div>`;
             });
             contentHtml += `</div>`;
-        } else {
+        } else if (!isShareMode) {
             contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>`;
         }
         
-        contentHtml += `
+        if (!isShareMode) {
+            contentHtml += `
             <label for="input-photos" class="add-photo-fab" style="background:${color};" title="写真を追加">
                 <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </label>
-            <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">
-        </div>`;
+            <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">`;
+        }
+        contentHtml += `</div>`;
 
         panel.innerHTML = headerHtml + contentHtml;
 
+        if (!isShareMode) {
         const photoInput = document.getElementById('input-photos');
         if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
 
@@ -1479,6 +1491,7 @@ function renderRightPanel() {
             const memoInput = document.getElementById('input-memo');
             if (memoInput) memoInput.addEventListener('input', triggerAutoSave);
         }
+        } // end !isShareMode
     }
 }
 
