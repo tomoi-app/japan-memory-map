@@ -264,20 +264,34 @@ function renderSettingsMenu() {
 }
 
 // ------------------------------------------
-// 強制・全データ削除の処理
+// 強制・全データ削除の処理（完全版）
 // ------------------------------------------
 async function deleteAllData() {
-    if (confirm("本当にすべての思い出と家の登録を削除しますか？\nこの操作は取り消せません。")) {
-        showLoading(); // ローディング表示
+    if (confirm("すべてのデータを削除してもよろしいでしょうか。\nこの操作は取り消せません。")) {
+        showLoading();
         
+        // サーバーに送るための「現在保存されている県」のリストを確保
+        const activeMemories = memoriesData.filter(m => m.date !== "" || (m.photo_urls && m.photo_urls !== "[]"));
+
+        // 1. 画面上のデータを完全に空にする（ここで白地図・一覧空っぽが確定）
         homePrefectures = [];
         localStorage.removeItem('homePrefectures');
+        memoriesData = [];
+        selectedPref = null;
+        currentPhotos = [];
+        slideIndex = 0;
+
+        // 2. 画面の表示を強制的にリセット
+        closeSettings();
+        if (panelOpen) closePanel();
+        renderRightPanel();
+        updateMapColors();
+        updateCounter();
 
         try {
-            // 47都道府県すべてのデータを強制的に空で上書き送信する
-            const allPrefs = Object.keys(PREF_COLORS);
-            for (let i = 0; i < allPrefs.length; i++) {
-                let payload = { action: "save_memory", prefecture: allPrefs[i], date: "", photos: [] };
+            // 3. サーバー側にあるデータだけを狙って空送信（無駄な通信を省く）
+            for (let i = 0; i < activeMemories.length; i++) {
+                let payload = { action: "save_memory", prefecture: activeMemories[i].prefecture, date: "", photos: [] };
                 await fetch('/api', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json' }, 
@@ -285,23 +299,14 @@ async function deleteAllData() {
                 });
             }
             
-            // フロントエンドのデータも強制的にリセット
-            memoriesData = [];
+            // ※ここで fetchMemories() は呼び出しません。画面はすでに空だからです。
             
-            await fetchMemories(false);
-            closeSettings();
-            if (panelOpen) closePanel();
-            
-            renderRightPanel();
-            updateMapColors();
-            updateCounter();
-            
-            hideLoading(); // ローディング非表示
-            alert("すべてのデータを完全に削除しました。");
+            hideLoading();
+            setTimeout(() => alert("すべてのデータを削除しました。"), 100);
         } catch(e) {
             console.error("全削除エラー", e);
             hideLoading();
-            alert("データの削除中にエラーが発生しました。");
+            alert("画面上のデータはリセットされましたが、サーバーとの通信に一部失敗しました。");
         }
     }
 }
@@ -658,7 +663,7 @@ async function saveMemoryData() {
         console.error("Save Error", e); 
         if (statusEl) statusEl.innerText = 'エラー発生';
     } finally {
-        hideLoading(); // 成功しても失敗しても必ず非表示にする
+        hideLoading(); 
     }
 }
 
@@ -673,7 +678,7 @@ async function fetchMemories(redraw = true) {
 }
 
 async function deletePhoto(url) {
-    showLoading(); // 削除中もローディングを表示
+    showLoading(); 
     const payload = { action: "delete_photo", prefecture: selectedPref, photo_url: url };
     try {
         await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
