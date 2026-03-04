@@ -1835,9 +1835,8 @@ function showInstallSlides() {
     // スライド1: ようこそ
     function slide1() {
         renderSlide({ index: 0, html:
-            '<div style="font-size:3.5rem; margin-bottom:8px;">🗾</div>' +
             '<h1 style="font-size:1.8rem; color:#333; margin:0; letter-spacing:2px;">あしあとへようこそ</h1>' +
-            '<p style="color:#888; font-size:0.95rem; line-height:1.8; margin:0;">日本地図に旅の思い出を記録して<br>あなただけの足跡を残しましょう。</p>' +
+            '<p style="color:#888; font-size:0.95rem; line-height:1.8; margin:0;">日本地図に旅の思い出を記録して<br>あなただけの あしあと を残しましょう。</p>' +
             '<button onclick="installSlide2()" style="margin-top:16px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
         });
         window.installSlide2 = slide2;
@@ -1846,7 +1845,6 @@ function showInstallSlides() {
     // スライド2: OS選択
     function slide2() {
         renderSlide({ index: 1, html:
-            '<div style="font-size:2.5rem; margin-bottom:4px;">📲</div>' +
             '<h2 style="font-size:1.4rem; color:#333; margin:0;">アプリとして使おう</h2>' +
             '<p style="color:#888; font-size:0.9rem; line-height:1.8; margin:0;">ホーム画面に追加するとアプリのように使えます。</p>' +
             '<div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">' +
@@ -1896,7 +1894,6 @@ function showInstallSlides() {
         const box = document.createElement('div');
         box.style.cssText = 'width:100%; max-width:360px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:20px;';
         box.innerHTML =
-            '<div style="font-size:3.5rem;">✅</div>' +
             '<h2 style="font-size:1.6rem; color:#333; margin:0;">準備完了！</h2>' +
             '<p style="color:#888; font-size:0.95rem; line-height:1.8; margin:0;">次に、アプリの使い方を<br>かんたんにご説明します。</p>' +
             '<button id="install-start-btn" style="margin-top:16px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">はじめる</button>';
