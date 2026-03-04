@@ -746,7 +746,7 @@ function renderSettingsMenu() {
             <button onclick="renderFeatureThemeSettings()" style="${btnS}">
                 テーマ・機能の変更
             </button>
-            <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); startTutorial();" style="${btnS}">
+            <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); showInstallSlides();" style="${btnS}">
                 チュートリアル
             </button>
             <button onclick="renderContactSettings()" style="${btnS}">
