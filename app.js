@@ -864,7 +864,7 @@ function renderContactSettings() {
             <div>
                 <label style="font-size:0.85rem; color:#888; display:block; margin-bottom:6px;">お問い合わせ内容</label>
                 <textarea id="contact-body" placeholder="お気軽にご記入ください" rows="5"
-                    oninput="updateContactBtn()"
+                    oninput="updateContactBtn()" onchange="updateContactBtn()"
                     style="${inputStyle} resize:none;"></textarea>
             </div>
 
@@ -905,12 +905,16 @@ function renderContactSettings() {
         btn.style.cursor = valid ? 'pointer' : 'not-allowed';
     }
 
-    document.getElementById('contact-reply').addEventListener('change', function() {
+    document.getElementById('contact-reply').addEventListener('click', function() {
         document.getElementById('contact-email-wrap').style.display = this.checked ? 'block' : 'none';
         updateContactBtn();
     });
 
-    document.getElementById('contact-email') && document.getElementById('contact-email').addEventListener('input', updateContactBtn);
+    const emailEl = document.getElementById('contact-email');
+    if (emailEl) {
+        emailEl.addEventListener('input', updateContactBtn);
+        emailEl.addEventListener('change', updateContactBtn);
+    }
 }
 
 async function submitContact() {
