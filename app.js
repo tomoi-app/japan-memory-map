@@ -853,7 +853,7 @@ function renderContactSettings() {
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:14px; margin-top:20px;">
             <p style="color:#888; font-size:0.9rem; line-height:1.7; margin:0;">
-                ご意見・ご要望・不具合のご報告をお気軽にどうぞ。
+                ご意見・ご要望・不具合はお気軽にどうぞ。
             </p>
 
             <div>
@@ -892,19 +892,6 @@ function renderContactSettings() {
     panel.innerHTML = headerHtml + contentHtml;
 
     // 返信希望チェックでメールフィールドを表示
-    function updateContactBtn() {
-        const body = document.getElementById('contact-body')?.value.trim() || '';
-        const wantReply = document.getElementById('contact-reply')?.checked;
-        const email = document.getElementById('contact-email')?.value.trim() || '';
-        const valid = body !== '' && (!wantReply || email !== '');
-        const btn = document.getElementById('contact-send-btn');
-        if (!btn) return;
-        btn.disabled = !valid;
-        btn.style.background = valid ? '#6c8ca3' : '#eef2f5';
-        btn.style.color = valid ? 'white' : '#aaa';
-        btn.style.cursor = valid ? 'pointer' : 'not-allowed';
-    }
-
     document.getElementById('contact-reply').addEventListener('click', function() {
         document.getElementById('contact-email-wrap').style.display = this.checked ? 'block' : 'none';
         updateContactBtn();
@@ -915,6 +902,19 @@ function renderContactSettings() {
         emailEl.addEventListener('input', updateContactBtn);
         emailEl.addEventListener('change', updateContactBtn);
     }
+}
+
+function updateContactBtn() {
+    const body = document.getElementById('contact-body')?.value.trim() || '';
+    const wantReply = document.getElementById('contact-reply')?.checked;
+    const email = document.getElementById('contact-email')?.value.trim() || '';
+    const valid = body !== '' && (!wantReply || email !== '');
+    const btn = document.getElementById('contact-send-btn');
+    if (!btn) return;
+    btn.disabled = !valid;
+    btn.style.background = valid ? '#6c8ca3' : '#eef2f5';
+    btn.style.color = valid ? 'white' : '#aaa';
+    btn.style.cursor = valid ? 'pointer' : 'not-allowed';
 }
 
 async function submitContact() {
