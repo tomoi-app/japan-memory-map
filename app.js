@@ -1848,8 +1848,8 @@ function showInstallSlides() {
             '<h2 style="font-size:1.4rem; color:#333; margin:0;">アプリとして使おう</h2>' +
             '<p style="color:#888; font-size:0.9rem; line-height:1.8; margin:0;">ホーム画面に追加するとアプリのように使えます。</p>' +
             '<div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">' +
-            '<button onclick="installSlide3ios()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">🍎 iPhone / iPad</button>' +
-            '<button onclick="installSlide3android()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">🤖 Android</button>' +
+            '<button onclick="installSlide3ios()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">iPhone / iPad</button>' +
+            '<button onclick="installSlide3android()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">Android</button>' +
             '</div>' +
             '<button onclick="installSlide4()" style="margin-top:4px; background:none; border:none; color:#aaa; font-size:0.88rem; cursor:pointer; font-family:inherit;">スキップ</button>'
         });
