@@ -1520,29 +1520,25 @@ const TUTORIAL_STEPS = [
         targetId: 'map-container',
         position: 'center',
         title: '地図',
-        text: '都道府県をタップすると
-記録を追加できます'
+        text: '都道府県をタップすると\n記録を追加できます'
     },
     {
         targetId: 'menu-btn',
         position: 'auto',
         title: '一覧',
-        text: '訪問した都道府県を
-一覧で確認できます'
+        text: '訪問した都道府県を\n一覧で確認できます'
     },
     {
         targetId: '__photo-fab__',
         position: 'auto',
         title: '写真・日付・メモ',
-        text: '都道府県を選択後、＋ボタンから
-写真・日付・メモを追加できます'
+        text: '都道府県を選択後、＋ボタンから\n写真・日付・メモを追加できます'
     },
     {
         targetId: 'settings-btn',
         position: 'auto',
         title: '設定',
-        text: 'テーマ変更・家の登録・
-アカウント管理ができます'
+        text: 'テーマ変更・家の登録・\nアカウント管理ができます'
     },
 ];
 
