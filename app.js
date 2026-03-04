@@ -1022,7 +1022,7 @@ function renderGroupSettings() {
         </div>
     </div>
     <div class="panel-content">
-        <p style="color:#aaa; text-align:center; margin-top:40px; font-size:0.95rem;">準備中</p>
+        <p style="color:#aaa; text-align:center; margin-top:40px; font-size:0.95rem; line-height:1.8;">準備中です。<br>もう少しお待ちください。</p>
     </div>`;
 }
 
