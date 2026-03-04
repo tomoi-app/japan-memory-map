@@ -54,6 +54,7 @@ async function sendResetEmail(email) {
 
     submitBtn.disabled = true;
     submitBtn.textContent = '送信中...';
+    showLoading();
 
     try {
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
@@ -70,6 +71,7 @@ async function sendResetEmail(email) {
         errorEl.textContent = '通信エラーが発生しました';
         errorEl.classList.remove('hidden');
     } finally {
+        hideLoading();
         submitBtn.disabled = false;
         submitBtn.textContent = 'リセットメールを送信';
     }
@@ -111,6 +113,7 @@ async function handleAuth() {
 
     submitBtn.disabled = true;
     submitBtn.textContent = '処理中...';
+    showLoading();
 
     try {
         let result;
@@ -143,6 +146,7 @@ async function handleAuth() {
         errorEl.textContent = '通信エラーが発生しました';
         errorEl.classList.remove('hidden');
     } finally {
+        hideLoading();
         submitBtn.disabled = false;
         submitBtn.textContent = currentAuthTab === 'login' ? 'ログイン' : 'アカウントを作成';
     }
@@ -197,6 +201,7 @@ function startApp(session) {
 // ログアウト
 async function logout() {
     if (!confirm('ログアウトしますか？')) return;
+    showLoading();
     await supabaseClient.auth.signOut();
     currentUser = null;
     currentToken = null;
@@ -207,6 +212,7 @@ async function logout() {
     document.getElementById('auth-email').value = '';
     document.getElementById('auth-password').value = '';
     switchToLogin();
+    hideLoading();
 }
 
 // ページ読み込み時にセッション確認
@@ -661,26 +667,31 @@ async function doChangePassword() {
 
     const btn = document.querySelector('#settings-panel button[onclick="doChangePassword()"]');
     if (btn) { btn.disabled = true; btn.textContent = '変更中...'; }
+    showLoading();
 
-    const { error } = await supabaseClient.auth.updateUser({ password: newPw });
+    try {
+        const { error } = await supabaseClient.auth.updateUser({ password: newPw });
 
-    if (error) {
-        errorEl.textContent = 'エラーが発生しました: ' + error.message;
-        if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
-    } else {
-        successEl.textContent = 'パスワードを変更しました！';
-        document.getElementById('pw-new').value = '';
-        document.getElementById('pw-confirm').value = '';
-        if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
-        if (isPasswordRecoveryMode) {
-            // リカバリーモード: 変更完了後ページをリロードして通常起動
-            isPasswordRecoveryMode = false;
-            setTimeout(() => {
-                window.location.href = window.location.origin;
-            }, 1200);
+        if (error) {
+            errorEl.textContent = 'エラーが発生しました: ' + error.message;
+            if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
         } else {
-            setTimeout(() => renderAccountSettings(), 1500);
+            successEl.textContent = 'パスワードを変更しました！';
+            document.getElementById('pw-new').value = '';
+            document.getElementById('pw-confirm').value = '';
+            if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
+            if (isPasswordRecoveryMode) {
+                isPasswordRecoveryMode = false;
+                setTimeout(() => { window.location.href = window.location.origin; }, 1200);
+            } else {
+                setTimeout(() => renderAccountSettings(), 1500);
+            }
         }
+    } catch(e) {
+        errorEl.textContent = 'エラーが発生しました';
+        if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
+    } finally {
+        hideLoading();
     }
 }
 
