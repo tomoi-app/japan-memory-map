@@ -119,6 +119,10 @@ function getCurrentColors() {
 }
 let isPasswordRecoveryMode = false;
 
+// 機能ON/OFF設定
+let featureShowDate = localStorage.getItem('featureShowDate') !== 'false';
+let featureShowMemo = localStorage.getItem('featureShowMemo') !== 'false';
+
 // ログイン ↔ サインアップ 切り替え
 function switchToSignup() {
     currentAuthTab = 'signup';
@@ -610,6 +614,9 @@ function renderSettingsMenu() {
             <button onclick="renderHomeSettings()" style="${btnS}">
                 家を登録
             </button>
+            <button onclick="renderFeatureSettings()" style="${btnS}">
+                機能の変更
+            </button>
             <button onclick="renderThemeSettings()" style="${btnS}">
                 テーマの変更
             </button>
@@ -797,6 +804,42 @@ async function doChangePassword() {
     } finally {
         hideLoading();
     }
+}
+
+function renderFeatureSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+
+    let headerHtml = `
+    <div class="panel-header">
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin:0; font-size:1.6rem; color:#333; position:absolute; left:50%; transform:translateX(-50%);">機能の変更</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
+    </div>`;
+
+    const toggleStyle = (on) => `display:flex; align-items:center; justify-content:space-between; padding:18px 20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit; width:100%; box-sizing:border-box;`;
+    const knobOn  = `position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; background:white; transition:all 0.2s;`;
+    const knobOff = `position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:white; transition:all 0.2s;`;
+
+    const makeToggle = (id, label, isOn, onToggle) => `
+        <button onclick="${onToggle}" style="${toggleStyle(isOn)}">
+            <span>${label}</span>
+            <span style="position:relative; width:52px; height:28px; border-radius:14px; background:${isOn ? '#6c8ca3' : '#ccc'}; display:inline-block; transition:background 0.2s; flex-shrink:0;">
+                <span style="${isOn ? knobOn : knobOff}"></span>
+            </span>
+        </button>`;
+
+    let contentHtml = `
+    <div class="panel-content">
+        <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">
+            ${makeToggle('date', '期間', featureShowDate, "featureShowDate=!featureShowDate; localStorage.setItem('featureShowDate', featureShowDate); renderRightPanel(); renderFeatureSettings();")}
+            ${makeToggle('memo', 'メモ', featureShowMemo, "featureShowMemo=!featureShowMemo; localStorage.setItem('featureShowMemo', featureShowMemo); renderRightPanel(); renderFeatureSettings();")}
+        </div>
+    </div>`;
+
+    panel.innerHTML = headerHtml + contentHtml;
 }
 
 function renderThemeSettings() {
@@ -1200,16 +1243,20 @@ function renderRightPanel() {
             contentHtml += `<div class="warning-banner" style="margin-bottom: 15px;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
         }
         
-        contentHtml += `
+        if (featureShowDate) {
+            contentHtml += `
             <div style="display:flex; align-items:center; gap:8px;">
                 <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                 <span style="color:#aaa;">-</span>
                 <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
-            </div>
-            <p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>
-            <textarea id="input-memo" placeholder="旅の思い出をメモ..." rows="4"
-                style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px; font-family:inherit; background:#fafafa; color:#444; resize:none; box-sizing:border-box; margin-top:4px;">${data.memo || ''}</textarea>
-        `;
+            </div>`;
+        }
+        contentHtml += `<p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>`;
+        if (featureShowMemo) {
+            contentHtml += `<textarea id="input-memo" placeholder="旅の思い出をメモ..." rows="4"
+                style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px; font-family:inherit; background:#fafafa; color:#444; resize:none; box-sizing:border-box; margin-top:4px;">${data.memo || ''}</textarea>`;
+        }
+        contentHtml += ``;
 
         if (photos.length > 0) {
             contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
@@ -1231,28 +1278,31 @@ function renderRightPanel() {
 
         panel.innerHTML = headerHtml + contentHtml;
 
-        const fromInput = document.getElementById('input-date-from');
-        const toInput = document.getElementById('input-date-to');
         const photoInput = document.getElementById('input-photos');
-
-        const handleDateChange = () => {
-            if (fromInput.value && toInput.value) {
-                if (fromInput.value === toInput.value) {
-                    toInput.value = '';
-                } else if (new Date(fromInput.value) > new Date(toInput.value)) {
-                    const temp = fromInput.value;
-                    fromInput.value = toInput.value;
-                    toInput.value = temp;
-                }
-            }
-            triggerAutoSave();
-        };
-
-        if (fromInput) fromInput.addEventListener('change', handleDateChange);
-        if (toInput) toInput.addEventListener('change', handleDateChange);
         if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
-        const memoInput = document.getElementById('input-memo');
-        if (memoInput) memoInput.addEventListener('input', triggerAutoSave);
+
+        if (featureShowDate) {
+            const fromInput = document.getElementById('input-date-from');
+            const toInput = document.getElementById('input-date-to');
+            const handleDateChange = () => {
+                if (fromInput.value && toInput.value) {
+                    if (fromInput.value === toInput.value) {
+                        toInput.value = '';
+                    } else if (new Date(fromInput.value) > new Date(toInput.value)) {
+                        const temp = fromInput.value;
+                        fromInput.value = toInput.value;
+                        toInput.value = temp;
+                    }
+                }
+                triggerAutoSave();
+            };
+            if (fromInput) fromInput.addEventListener('change', handleDateChange);
+            if (toInput) toInput.addEventListener('change', handleDateChange);
+        }
+        if (featureShowMemo) {
+            const memoInput = document.getElementById('input-memo');
+            if (memoInput) memoInput.addEventListener('input', triggerAutoSave);
+        }
     }
 }
 
@@ -1361,10 +1411,18 @@ async function saveMemoryData() {
                 statusEl.innerText = '保存完了';
                 setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
             }
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            const errMsg = errData.error || '保存に失敗しました';
+            if (statusEl) statusEl.innerText = `⚠ ${errMsg}`;
+            console.error("Save failed:", errMsg);
         }
     } catch(e) { 
         console.error("Save Error", e); 
-        if (statusEl) statusEl.innerText = 'エラー発生';
+        if (statusEl) {
+            statusEl.style.color = '#d32f2f';
+            statusEl.innerText = '⚠ 保存に失敗しました。再度お試しください。';
+        }
     } finally {
         hideLoading(); 
     }
