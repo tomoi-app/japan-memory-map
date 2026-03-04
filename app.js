@@ -654,7 +654,8 @@ async function deleteAccount() {
         });
         if (res.ok) {
             alert("アカウントを削除しました。");
-            window.location.reload();
+            await supabaseClient.auth.signOut();
+            window.location.href = window.location.origin;
         } else {
             const d = await res.json().catch(() => ({}));
             alert("削除に失敗しました: " + (d.error || '不明なエラー'));
@@ -723,10 +724,6 @@ function renderAccountSettings() {
 
             <button onclick="renderChangePassword()" style="${btnStyle}">
                 パスワードを変更
-            </button>
-
-            <button onclick="deleteAllData()" style="${dangerBtnStyle}">
-                すべてのデータを削除
             </button>
 
             <button onclick="deleteAccount()" style="${dangerBtnStyle}">
