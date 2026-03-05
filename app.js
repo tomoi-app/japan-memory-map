@@ -780,17 +780,17 @@ function renderSettingsMenu() {
     let contentHtml = `
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+            <button onclick="renderFeatureThemeSettings()" style="${btnS}">
+                テーマ・機能の変更
+            </button>
+            <button onclick="renderHomeSettings()" style="${btnS}">
+                家を登録
+            </button>
             <button onclick="renderShareSettings()" style="${btnS}">
                 あしあとを共有
             </button>
             <button onclick="renderGroupSettings()" style="${btnS}">
                 お互いの記録が1つの地図に
-            </button>
-            <button onclick="renderHomeSettings()" style="${btnS}">
-                家を登録
-            </button>
-            <button onclick="renderFeatureThemeSettings()" style="${btnS}">
-                テーマ・機能の変更
             </button>
             <button onclick="renderContactSettings()" style="${btnS}">
                 お問い合わせ
