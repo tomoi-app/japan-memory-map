@@ -779,9 +779,6 @@ function renderSettingsMenu() {
             <button onclick="renderFeatureThemeSettings()" style="${btnS}">
                 テーマ・機能の変更
             </button>
-            <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); showInstallSlides();" style="${btnS}">
-                チュートリアル
-            </button>
             <button onclick="renderContactSettings()" style="${btnS}">
                 お問い合わせ
             </button>
@@ -886,6 +883,10 @@ function renderAccountSettings() {
 
             <button onclick="deleteAccount()" style="${dangerBtnStyle}">
                 アカウントを削除
+            </button>
+
+            <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); showInstallSlides();" style="${btnStyle}">
+                チュートリアル
             </button>
 
             <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
@@ -1604,8 +1605,7 @@ function renderRightPanel() {
                 contentHtml += `
                 <div style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
                     onclick="openSliderAt('${thumbUrl}', ${escapedPhotos})">
-                    <img src="${thumbUrl}" style="width:100%; height:220px; object-fit:cover; display:block;" loading="lazy">
-                    ${photos.length > 1 ? `<div style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.45); color:white; font-size:12px; font-weight:600; padding:4px 10px; border-radius:20px; backdrop-filter:blur(4px);">+${photos.length - 1}</div>` : ''}
+                    <img src="${thumbUrl}" style="width:100%; height:280px; object-fit:cover; display:block;" loading="lazy">
                     ${thumbDeleteBtn}
                 </div>`;
             }
