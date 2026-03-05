@@ -1768,16 +1768,16 @@ async function saveMemoryData() {
         // ③ 新規画像をSupabaseに直接並列アップロード
         let newUrls = [];
         if (files.length > 0) {
-            const remaining = 2 - existingUrls.length;
+            const remaining = 100 - existingUrls.length;
             const filesToUpload = files.slice(0, Math.max(0, remaining));
             if (filesToUpload.length > 0) {
                 newUrls = await Promise.all(filesToUpload.map(f => uploadImageDirect(f)));
             }
         }
 
-        const allUrls = [...existingUrls, ...newUrls].slice(0, 2);
+        const allUrls = [...existingUrls, ...newUrls].slice(0, 100);
 
-        if (allUrls.length >= 2) {
+        if (allUrls.length >= 100) {
             showLimitPopup();
         }
         const memoValue = document.getElementById('input-memo')?.value || '';
@@ -1896,7 +1896,7 @@ function showLimitPopup() {
     popup.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;text-align:center;">
             <button onclick="document.getElementById('limit-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0;font-size:1rem;color:#444;line-height:1.8;font-family:'Zen Kaku Gothic New',sans-serif;">2枚保存されました。<br>これ以上保存できません。<br>ご要望はお問い合わせフォームから<br>お気軽にご連絡ください。</p>
+            <p style="margin:0;font-size:1rem;color:#444;line-height:1.8;font-family:'Zen Kaku Gothic New',sans-serif;">100枚保存されました。<br>これ以上保存できません。<br>ご要望はお問い合わせフォームから<br>お気軽にご連絡ください。</p>
         </div>
     `;
     document.body.appendChild(popup);
