@@ -53,27 +53,24 @@ class handler(BaseHTTPRequestHandler):
             share_token = query.get("share", [None])[0]
             if share_token:
                 try:
-                    # トークンのBase64デコード（パディング不足エラー対策を追加）
                     padding = '=' * (-len(share_token) % 4)
                     decoded_bytes = base64.urlsafe_b64decode((share_token + padding).encode('utf-8'))
                     decoded_str = decoded_bytes.decode('utf-8')
                     share_user_id, expires_at_str, signature = decoded_str.split(":")
 
-                    # 有効期限（1時間）のチェック
                     if int(time.time()) > int(expires_at_str):
                         raise Exception("Link expired")
 
-                    # 署名（改ざんされていないか）のチェック
                     expected_msg = f"{share_user_id}:{expires_at_str}"
                     expected_sig = hmac.new(supabase_svc_key.encode('utf-8'), expected_msg.encode('utf-8'), hashlib.sha256).hexdigest()
                     if not hmac.compare_digest(signature, expected_sig):
                         raise Exception("Invalid signature")
 
-                    # 検証成功：対象ユーザーのデータを取得
+                    # 共有リンク閲覧者はログインしていないため、特別にサービスキー(svc_key)でRLSを突破する
                     share_url = f"{supabase_url}/rest/v1/memories?user_id=eq.{share_user_id}&select=*"
                     s_req = urllib.request.Request(share_url)
-                    s_req.add_header("apikey", supabase_key)
-                    s_req.add_header("Authorization", f"Bearer {supabase_key}")
+                    s_req.add_header("apikey", supabase_svc_key)
+                    s_req.add_header("Authorization", f"Bearer {supabase_svc_key}")
                     with urllib.request.urlopen(s_req, timeout=10) as r:
                         data = r.read()
                     
@@ -83,7 +80,6 @@ class handler(BaseHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(data)
                 except Exception as e:
-                    # 不正・期限切れの場合は403エラーを返す
                     self.send_response(403)
                     self.send_header('Content-type', 'application/json; charset=utf-8')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -103,9 +99,8 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Unauthorized"}).encode('utf-8'))
             return
 
-        # Supabaseでトークンを検証してuser_idを取得
         verify_req = urllib.request.Request(f"{supabase_url}/auth/v1/user")
-        verify_req.add_header("apikey", supabase_key) # ここを修正しました
+        verify_req.add_header("apikey", supabase_key)
         verify_req.add_header("Authorization", f"Bearer {user_token}")
         try:
             with urllib.request.urlopen(verify_req, timeout=10) as vres:
@@ -125,7 +120,7 @@ class handler(BaseHTTPRequestHandler):
         if method == "GET":
             req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&select=*")
             req.add_header("apikey", supabase_key)
-            req.add_header("Authorization", f"Bearer {supabase_key}")
+            req.add_header("Authorization", f"Bearer {user_token}") # ユーザー本人のトークンを使用
             with urllib.request.urlopen(req, timeout=10) as response:
                 data = response.read()
             self.send_response(200)
@@ -144,17 +139,11 @@ class handler(BaseHTTPRequestHandler):
         payload = json.loads(body)
         action = payload.get("action", "")
 
-        # ── セキュアな共有トークンの生成 ──
         if action == "generate_share_link":
-            # 1時間後（3600秒後）のタイムスタンプを作成
             expires_at = int(time.time()) + 3600
             message = f"{current_user_id}:{expires_at}"
-            
-            # SUPABASE_SERVICE_KEYを秘密鍵としてHMAC署名を生成
             signature = hmac.new(supabase_svc_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
             token_str = f"{message}:{signature}"
-            
-            # URLで安全に使えるようにBase64エンコード
             token_b64 = base64.urlsafe_b64encode(token_str.encode('utf-8')).decode('utf-8')
 
             self.send_response(200)
@@ -173,7 +162,7 @@ class handler(BaseHTTPRequestHandler):
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
             req = urllib.request.Request(url)
             req.add_header("apikey", supabase_key)
-            req.add_header("Authorization", f"Bearer {supabase_key}")
+            req.add_header("Authorization", f"Bearer {user_token}") # ユーザー本人のトークンを使用
 
             with urllib.request.urlopen(req, timeout=10) as res:
                 existing = json.loads(res.read())
@@ -186,7 +175,7 @@ class handler(BaseHTTPRequestHandler):
                         dup_id = duplicate["id"]
                         del_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{dup_id}", method="DELETE")
                         del_req.add_header("apikey", supabase_key)
-                        del_req.add_header("Authorization", f"Bearer {supabase_key}")
+                        del_req.add_header("Authorization", f"Bearer {user_token}")
                         try:
                             urllib.request.urlopen(del_req, timeout=10)
                         except:
@@ -219,7 +208,7 @@ class handler(BaseHTTPRequestHandler):
                 )
 
             db_req.add_header("apikey", supabase_key)
-            db_req.add_header("Authorization", f"Bearer {supabase_key}")
+            db_req.add_header("Authorization", f"Bearer {user_token}") # ユーザー本人のトークンを使用
             db_req.add_header("Content-Type", "application/json")
             db_req.add_header("Prefer", "return=representation")
 
@@ -241,7 +230,7 @@ class handler(BaseHTTPRequestHandler):
                 method="PATCH"
             )
             reset_req.add_header("apikey", supabase_key)
-            reset_req.add_header("Authorization", f"Bearer {supabase_key}")
+            reset_req.add_header("Authorization", f"Bearer {user_token}")
             reset_req.add_header("Content-Type", "application/json")
             reset_req.add_header("Prefer", "return=minimal")
             try:
@@ -254,7 +243,7 @@ class handler(BaseHTTPRequestHandler):
                 chk_url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=id"
                 chk_req = urllib.request.Request(chk_url)
                 chk_req.add_header("apikey", supabase_key)
-                chk_req.add_header("Authorization", f"Bearer {supabase_key}")
+                chk_req.add_header("Authorization", f"Bearer {user_token}")
                 with urllib.request.urlopen(chk_req, timeout=10) as r:
                     rows = json.loads(r.read())
 
@@ -282,7 +271,7 @@ class handler(BaseHTTPRequestHandler):
                     )
 
                 up_req.add_header("apikey", supabase_key)
-                up_req.add_header("Authorization", f"Bearer {supabase_key}")
+                up_req.add_header("Authorization", f"Bearer {user_token}")
                 up_req.add_header("Content-Type", "application/json")
                 up_req.add_header("Prefer", "return=minimal")
                 try:
@@ -305,7 +294,7 @@ class handler(BaseHTTPRequestHandler):
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
             req = urllib.request.Request(url)
             req.add_header("apikey", supabase_key)
-            req.add_header("Authorization", f"Bearer {supabase_key}")
+            req.add_header("Authorization", f"Bearer {user_token}")
 
             with urllib.request.urlopen(req, timeout=10) as res:
                 existing = json.loads(res.read())
@@ -326,7 +315,7 @@ class handler(BaseHTTPRequestHandler):
             del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
             del_req = urllib.request.Request(del_url, method="DELETE")
             del_req.add_header("apikey", supabase_key)
-            del_req.add_header("Authorization", f"Bearer {supabase_key}")
+            del_req.add_header("Authorization", f"Bearer {user_token}")
             try:
                 with urllib.request.urlopen(del_req, timeout=10):
                     pass
@@ -340,7 +329,7 @@ class handler(BaseHTTPRequestHandler):
                 method="PATCH"
             )
             db_req.add_header("apikey", supabase_key)
-            db_req.add_header("Authorization", f"Bearer {supabase_key}")
+            db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
             db_req.add_header("Prefer", "return=representation")
 
@@ -356,7 +345,7 @@ class handler(BaseHTTPRequestHandler):
         elif action == "delete_all":
             req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?select=id")
             req.add_header("apikey", supabase_key)
-            req.add_header("Authorization", f"Bearer {supabase_key}")
+            req.add_header("Authorization", f"Bearer {user_token}")
             with urllib.request.urlopen(req, timeout=10) as res:
                 all_records = json.loads(res.read())
             
@@ -364,7 +353,7 @@ class handler(BaseHTTPRequestHandler):
                 r_id = record["id"]
                 d_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{r_id}", method="DELETE")
                 d_req.add_header("apikey", supabase_key)
-                d_req.add_header("Authorization", f"Bearer {supabase_key}")
+                d_req.add_header("Authorization", f"Bearer {user_token}")
                 try:
                     urllib.request.urlopen(d_req, timeout=10)
                 except:
@@ -451,7 +440,7 @@ class handler(BaseHTTPRequestHandler):
                 method="DELETE"
             )
             del_data_req.add_header("apikey", supabase_key)
-            del_data_req.add_header("Authorization", f"Bearer {supabase_key}")
+            del_data_req.add_header("Authorization", f"Bearer {user_token}")
             urllib.request.urlopen(del_data_req, timeout=10)
 
             del_user_req = urllib.request.Request(
