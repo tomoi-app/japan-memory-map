@@ -122,6 +122,7 @@ let isPasswordRecoveryMode = false;
 // 機能ON/OFF設定
 let featureShowDate = localStorage.getItem('featureShowDate') !== 'false';
 let featureShowMemo = localStorage.getItem('featureShowMemo') === 'true';
+let featureShowThumbnail = localStorage.getItem('featureShowThumbnail') !== 'false'; // デフォルトON
 let dateEditingMode = false; // 日付編集モードフラグ
 
 // ログイン ↔ サインアップ 切り替え
@@ -1100,6 +1101,7 @@ function renderFeatureThemeSettings() {
         '<div style="display:flex; flex-direction:column; gap:12px;">' +
         makeToggle('期間', featureShowDate, "featureShowDate=!featureShowDate; localStorage.setItem('featureShowDate', featureShowDate); renderRightPanel(); renderFeatureThemeSettings();") +
         makeToggle('メモ', featureShowMemo, "featureShowMemo=!featureShowMemo; localStorage.setItem('featureShowMemo', featureShowMemo); renderRightPanel(); renderFeatureThemeSettings();") +
+        makeToggle('サムネイル', featureShowThumbnail, "featureShowThumbnail=!featureShowThumbnail; localStorage.setItem('featureShowThumbnail', featureShowThumbnail); renderRightPanel(); renderFeatureThemeSettings();") +
         '</div>' +
         '<p style="font-size:0.85rem; color:#aaa; margin:20px 0 8px 4px;">地図テーマ</p>' +
         '<div style="display:flex; flex-direction:column; gap:12px;">' + themeBtns + '</div>' +
@@ -1593,13 +1595,31 @@ function renderRightPanel() {
         }
 
         if (photos.length > 0) {
-            contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
-            photos.forEach(url => {
-                const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
-                const deleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button>`;
-                contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}" loading="lazy">${deleteBtn}</div>`;
-            });
-            contentHtml += `</div>`;
+            const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
+
+            // サムネイル：先頭1枚を大きく表示
+            if (featureShowThumbnail) {
+                const thumbUrl = photos[0];
+                const thumbDeleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${thumbUrl}')" style="top:10px; right:10px; width:32px; height:32px; font-size:15px;">✕</button>`;
+                contentHtml += `
+                <div style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
+                    onclick="openSliderAt('${thumbUrl}', ${escapedPhotos})">
+                    <img src="${thumbUrl}" style="width:100%; height:220px; object-fit:cover; display:block;" loading="lazy">
+                    ${photos.length > 1 ? `<div style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.45); color:white; font-size:12px; font-weight:600; padding:4px 10px; border-radius:20px; backdrop-filter:blur(4px);">+${photos.length - 1}</div>` : ''}
+                    ${thumbDeleteBtn}
+                </div>`;
+            }
+
+            // 全写真をサムネイル以外で小さく表示（サムネイルONの場合は2枚目以降）
+            const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
+            if (gridPhotos.length > 0) {
+                contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
+                gridPhotos.forEach(url => {
+                    const deleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button>`;
+                    contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}" loading="lazy">${deleteBtn}</div>`;
+                });
+                contentHtml += `</div>`;
+            }
         } else if (!isShareMode) {
             contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>`;
         }
