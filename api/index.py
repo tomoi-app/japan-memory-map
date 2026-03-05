@@ -368,7 +368,7 @@ class handler(BaseHTTPRequestHandler):
 
         elif action == "send_contact":
             sendgrid_api_key = os.environ.get("SENDGRID_API_KEY", "").strip()
-            from_email = "tomoi.app21@gmail.com"
+            from_email = "info@tomoi-app.com"
             if not sendgrid_api_key:
                 raise Exception("SENDGRID_API_KEY is not set in Vercel environment variables.")
 
