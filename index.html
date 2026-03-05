@@ -34,6 +34,15 @@
 
             <p class="auth-signup-link">アカウントの新規作成は<a href="#" onclick="switchToSignup(); return false;">こちら</a></p>
             <p class="auth-signup-link" id="forgot-pw-link"><a href="#" onclick="switchToReset(); return false;">パスワードをお忘れの方はこちら</a></p>
+
+            <div id="privacy-agree-wrap" style="display:none; align-items:flex-start; gap:10px; padding:4px 0;">
+                <input type="checkbox" id="privacy-agree-check"
+                    onchange="document.getElementById('auth-submit-btn').disabled = !this.checked;"
+                    style="margin-top:3px; width:18px; height:18px; accent-color:#6c8ca3; flex-shrink:0; cursor:pointer;">
+                <label for="privacy-agree-check" style="font-size:0.85rem; color:#888; line-height:1.6; cursor:pointer;">
+                    <a href="#" onclick="showAuthPrivacyPopup(); return false;" style="color:#6c8ca3; font-weight:bold;">プライバシーポリシー</a>に同意する
+                </label>
+            </div>
         </div>
     </div>
 

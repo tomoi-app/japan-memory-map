@@ -126,18 +126,57 @@ let featureShowThumbnail = localStorage.getItem('featureShowThumbnail') !== 'fal
 let dateEditingMode = false; // 日付編集モードフラグ
 
 // ログイン ↔ サインアップ 切り替え
+function showAuthPrivacyPopup() {
+    const existing = document.getElementById('auth-privacy-popup');
+    if (existing) existing.remove();
+    const popup = document.createElement('div');
+    popup.id = 'auth-privacy-popup';
+    popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;box-sizing:border-box;';
+    popup.innerHTML = `
+        <div style="background:white;border-radius:16px;width:100%;max-width:400px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.2);overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #f0f0f0;flex-shrink:0;">
+                <h2 style="margin:0;font-size:1.2rem;color:#333;font-family:'Zen Kaku Gothic New',sans-serif;">プライバシーポリシー</h2>
+                <button onclick="document.getElementById('auth-privacy-popup').remove()" style="background:none;border:none;font-size:24px;color:#aaa;cursor:pointer;line-height:1;padding:0;">✕</button>
+            </div>
+            <div style="overflow-y:auto;padding:20px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:0.88rem;color:#555;line-height:1.85;">
+                <p>あしあと（以下「本サービス」）は、運営者 ともい（以下「運営者」）が提供する旅の記録アプリです。本ポリシーでは、ユーザーの個人情報の取り扱いについて説明します。</p>
+                <p style="font-weight:bold;color:#444;margin-top:18px;">■ 収集する情報</p>
+                <p>・メールアドレス（アカウント登録・認証のため）<br>・写真（旅の記録として保存するためにアップロードされた画像）<br>・都道府県・日付・メモ（旅の記録データ）<br>・テーマ設定（端末内にのみ保存、サーバーには送信されません）</p>
+                <p style="font-weight:bold;color:#444;margin-top:18px;">■ 情報の利用目的</p>
+                <p>・サービスの提供および機能の維持<br>・ユーザー認証とアカウント管理<br>・旅の記録データの保存と表示</p>
+                <p style="font-weight:bold;color:#444;margin-top:18px;">■ 第三者提供</p>
+                <p>収集した個人情報は、法令に基づく場合を除き、第三者に提供することはありません。</p>
+                <p style="font-weight:bold;color:#444;margin-top:18px;">■ 利用するサービス</p>
+                <p>本サービスは、データの保存にSupabase（supabase.com）を利用しています。Supabaseのプライバシーポリシーは同社のウェブサイトをご確認ください。</p>
+                <p style="font-weight:bold;color:#444;margin-top:18px;">■ データの削除</p>
+                <p>アカウントを削除すると、すべての記録データおよびアップロードされた写真は完全に削除されます。</p>
+                <p style="font-weight:bold;color:#444;margin-top:18px;">■ お問い合わせ</p>
+                <p>プライバシーに関するご質問は、アプリ内のお問い合わせフォームよりご連絡ください。</p>
+                <p style="font-weight:bold;color:#444;margin-top:18px;">■ 改定</p>
+                <p>本ポリシーは、必要に応じて予告なく変更する場合があります。</p>
+                <p style="color:#aaa;font-size:0.82rem;margin-top:24px;text-align:right;">運営者：ともい<br>サービス名：あしあと</p>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(popup);
+}
+
 function switchToSignup() {
     currentAuthTab = 'signup';
     document.getElementById('auth-submit-btn').textContent = 'アカウントを作成';
+    document.getElementById('auth-submit-btn').disabled = true;
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-success').classList.add('hidden');
     const link = document.querySelector('.auth-signup-link');
     if (link) link.innerHTML = '<a href="#" onclick="switchToLogin(); return false;">ログインはこちら</a>';
+    const privacyWrap = document.getElementById('privacy-agree-wrap');
+    if (privacyWrap) privacyWrap.style.display = 'flex';
 }
 
 function switchToLogin() {
     currentAuthTab = 'login';
     document.getElementById('auth-submit-btn').textContent = 'ログイン';
+    document.getElementById('auth-submit-btn').disabled = false;
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-success').classList.add('hidden');
     document.getElementById('auth-password').style.display = '';
@@ -145,6 +184,8 @@ function switchToLogin() {
     if (link) link.innerHTML = 'アカウントの新規作成は<a href="#" onclick="switchToSignup(); return false;">こちら</a>';
     const forgotLink = document.getElementById('forgot-pw-link');
     if (forgotLink) forgotLink.style.display = '';
+    const privacyWrap = document.getElementById('privacy-agree-wrap');
+    if (privacyWrap) privacyWrap.style.display = 'none';
 }
 
 // パスワードリセット画面に切り替え
@@ -206,6 +247,15 @@ async function handleAuth() {
         errorEl.textContent = 'メールアドレスを入力してください';
         errorEl.classList.remove('hidden');
         return;
+    }
+
+    if (currentAuthTab === 'signup') {
+        const agreed = document.getElementById('privacy-agree-check');
+        if (!agreed || !agreed.checked) {
+            errorEl.textContent = 'プライバシーポリシーに同意してください';
+            errorEl.classList.remove('hidden');
+            return;
+        }
     }
 
     // パスワードリセットモード
@@ -898,12 +948,12 @@ function renderAccountSettings() {
                 パスワードを変更
             </button>
 
-            <button onclick="deleteAccount()" style="${dangerBtnStyle}">
-                アカウントを削除
-            </button>
-
             <button onclick="renderPrivacyPolicy()" style="${btnStyle}">
                 プライバシーポリシー
+            </button>
+
+            <button onclick="deleteAccount()" style="${dangerBtnStyle}">
+                アカウントを削除
             </button>
 
             <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
