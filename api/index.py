@@ -5,9 +5,6 @@ import urllib.parse
 import base64
 import uuid
 import traceback
-import hmac
-import hashlib
-import time
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -50,45 +47,19 @@ class handler(BaseHTTPRequestHandler):
         if method == "GET":
             parsed = urllib.parse.urlparse(self.path)
             query = urllib.parse.parse_qs(parsed.query)
-            share_token = query.get("share", [None])[0]
-            if share_token:
-                try:
-                    # トークンのBase64デコード（パディング不足エラー対策を追加）
-                    padding = '=' * (-len(share_token) % 4)
-                    decoded_bytes = base64.urlsafe_b64decode((share_token + padding).encode('utf-8'))
-                    decoded_str = decoded_bytes.decode('utf-8')
-                    share_user_id, expires_at_str, signature = decoded_str.split(":")
-
-                    # 有効期限（1時間）のチェック
-                    if int(time.time()) > int(expires_at_str):
-                        raise Exception("Link expired")
-
-                    # 署名（改ざんされていないか）のチェック
-                    expected_msg = f"{share_user_id}:{expires_at_str}"
-                    expected_sig = hmac.new(supabase_svc_key.encode('utf-8'), expected_msg.encode('utf-8'), hashlib.sha256).hexdigest()
-                    if not hmac.compare_digest(signature, expected_sig):
-                        raise Exception("Invalid signature")
-
-                    # 検証成功：対象ユーザーのデータを取得
-                    share_url = f"{supabase_url}/rest/v1/memories?user_id=eq.{share_user_id}&select=*"
-                    s_req = urllib.request.Request(share_url)
-                    s_req.add_header("apikey", supabase_key)
-                    s_req.add_header("Authorization", f"Bearer {supabase_key}")
-                    with urllib.request.urlopen(s_req, timeout=10) as r:
-                        data = r.read()
-                    
-                    self.send_response(200)
-                    self.send_header('Content-type', 'application/json; charset=utf-8')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.end_headers()
-                    self.wfile.write(data)
-                except Exception as e:
-                    # 不正・期限切れの場合は403エラーを返す
-                    self.send_response(403)
-                    self.send_header('Content-type', 'application/json; charset=utf-8')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"error": "Invalid or expired link"}).encode('utf-8'))
+            share_id = query.get("share", [None])[0]
+            if share_id:
+                share_url = f"{supabase_url}/rest/v1/memories?user_id=eq.{share_id}&select=*"
+                s_req = urllib.request.Request(share_url)
+                s_req.add_header("apikey", supabase_key)
+                s_req.add_header("Authorization", f"Bearer {supabase_key}")
+                with urllib.request.urlopen(s_req, timeout=10) as r:
+                    data = r.read()
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(data)
                 return
 
         # ── トークン検証 ──────────────────────────────
@@ -144,29 +115,10 @@ class handler(BaseHTTPRequestHandler):
         payload = json.loads(body)
         action = payload.get("action", "")
 
-        # ── セキュアな共有トークンの生成 ──
-        if action == "generate_share_link":
-            # 1時間後（3600秒後）のタイムスタンプを作成
-            expires_at = int(time.time()) + 3600
-            message = f"{current_user_id}:{expires_at}"
-            
-            # SUPABASE_SERVICE_KEYを秘密鍵としてHMAC署名を生成
-            signature = hmac.new(supabase_svc_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
-            token_str = f"{message}:{signature}"
-            
-            # URLで安全に使えるようにBase64エンコード
-            token_b64 = base64.urlsafe_b64encode(token_str.encode('utf-8')).decode('utf-8')
-
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json; charset=utf-8')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({"token": token_b64}).encode('utf-8'))
-            return
-
-        elif action == "save_memory":
+        if action == "save_memory":
             pref = payload.get("prefecture", "")
             date_str = payload.get("date", "")
+            # フロントエンドから直接Supabaseにアップロード済みのURL一覧を受け取るだけ
             final_photo_urls = payload.get("existing_urls", [])
 
             safe_pref = urllib.parse.quote(pref)
@@ -181,6 +133,7 @@ class handler(BaseHTTPRequestHandler):
             row_id = None
             if len(existing) > 0:
                 row_id = existing[0]["id"]
+                # --- ゴーストデータ（重複）が見つかったら、裏でこっそり削除する ---
                 if len(existing) > 1:
                     for duplicate in existing[1:]:
                         dup_id = duplicate["id"]
@@ -235,6 +188,7 @@ class handler(BaseHTTPRequestHandler):
         elif action == "save_home":
             home_prefs = payload.get("home_prefectures", [])
 
+            # 現在のis_home=trueを全部falseにリセット
             reset_req = urllib.request.Request(
                 f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&is_home=eq.true",
                 data=json.dumps({"is_home": False}).encode('utf-8'),
@@ -249,6 +203,7 @@ class handler(BaseHTTPRequestHandler):
             except:
                 pass
 
+            # 各home都道府県をupsert
             for pref in home_prefs:
                 safe_pref = urllib.parse.quote(pref)
                 chk_url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=id"
@@ -353,6 +308,7 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
 
+        # --- 新規追加：すべてのデータを一撃で完全に削除する命令 ---
         elif action == "delete_all":
             req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?select=id")
             req.add_header("apikey", supabase_key)
@@ -379,7 +335,7 @@ class handler(BaseHTTPRequestHandler):
 
         elif action == "send_contact":
             sendgrid_api_key = os.environ.get("SENDGRID_API_KEY", "").strip()
-            from_email = "tomoi.app21@gmail.com"
+            from_email = "info@tomoi-app.com"
             if not sendgrid_api_key:
                 raise Exception("SENDGRID_API_KEY is not set in Vercel environment variables.")
 
@@ -389,6 +345,7 @@ class handler(BaseHTTPRequestHandler):
             reply_email = payload.get("reply_email", "")
             user_email  = "不明"
 
+            # ユーザーのメールアドレスを取得
             try:
                 u_req = urllib.request.Request(f"{supabase_url}/auth/v1/user")
                 u_req.add_header("apikey", supabase_svc_key)
@@ -416,6 +373,7 @@ class handler(BaseHTTPRequestHandler):
                 with urllib.request.urlopen(sg_req, timeout=10) as r:
                     pass
 
+            # ① 管理者への通知メール
             reply_label = ("はい（" + reply_email + "）") if want_reply else "いいえ"
             admin_html = (
                 "<h2>あしあと お問い合わせ</h2>"
@@ -428,6 +386,7 @@ class handler(BaseHTTPRequestHandler):
             )
             send_sendgrid(from_email, f"【あしあと】お問い合わせ：{name}", admin_html)
 
+            # ② 返信希望の場合、ユーザーへ自動返信
             if want_reply and reply_email:
                 auto_html = (
                     "<p>この度は【あしあと】をご利用いただき、誠にありがとうございます。</p>"
@@ -446,6 +405,7 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
 
         elif action == "delete_account":
+            # 全データ削除
             del_data_req = urllib.request.Request(
                 f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}",
                 method="DELETE"
@@ -454,6 +414,7 @@ class handler(BaseHTTPRequestHandler):
             del_data_req.add_header("Authorization", f"Bearer {supabase_key}")
             urllib.request.urlopen(del_data_req, timeout=10)
 
+            # Supabase Admin APIでユーザー削除
             del_user_req = urllib.request.Request(
                 f"{supabase_url}/auth/v1/admin/users/{current_user_id}",
                 method="DELETE"
