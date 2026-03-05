@@ -1434,8 +1434,18 @@ function updateCounter() {
     const totalVisited = activeMemories.length + homePrefectures.length;
     document.getElementById('pref-counter').innerText = `${totalVisited} / 47`;
 
+    // 写真だけ or 日付だけのデータがあれば黄色いドットを表示
+    const hasWarning = memoriesData.some(m => {
+        if (homePrefectures.includes(m.prefecture)) return false;
+        const photos = JSON.parse(m.photo_urls || "[]");
+        return (photos.length > 0 && !m.date) || (m.date && photos.length === 0);
+    });
     const menuBtn = document.getElementById('menu-btn');
-    menuBtn.classList.remove('warning');
+    if (hasWarning) {
+        menuBtn.classList.add('warning');
+    } else {
+        menuBtn.classList.remove('warning');
+    }
 }
 
 function toSlashDate(val) { return val ? val.replace(/-/g, '/') : ''; }
@@ -1489,7 +1499,7 @@ function renderRightPanel() {
             sortedMemories.forEach(m => {
                 const photos = JSON.parse(m.photo_urls || "[]");
                 const color = getCurrentColors()[m.prefecture] || '#aaa';
-                const needsData = !m.date || photos.length === 0;
+                const needsData = (photos.length > 0 && !m.date) || (m.date && photos.length === 0);
                 contentHtml += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
