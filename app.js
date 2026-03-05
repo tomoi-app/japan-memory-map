@@ -350,6 +350,19 @@ window.addEventListener('load', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const shareId = urlParams.get('share');
     if (shareId) {
+        // タイムスタンプチェック（1時間制限）
+        const ts = parseInt(urlParams.get('ts') || '0', 10);
+        const now = Date.now();
+        const ONE_HOUR = 60 * 60 * 1000;
+        if (ts && now - ts > ONE_HOUR) {
+            document.body.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:'Zen Kaku Gothic New',sans-serif;background:linear-gradient(135deg,#eef2f5,#dce6ee);gap:20px;padding:20px;box-sizing:border-box;">
+                <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="#6c8ca3" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <h2 style="margin:0;color:#444;font-size:1.5rem;text-align:center;">このリンクの有効期限が切れました</h2>
+                <p style="margin:0;color:#888;font-size:0.95rem;text-align:center;line-height:1.7;">共有リンクは発行から1時間有効です。<br>新しいリンクを発行してもらってください。</p>
+            </div>`;
+            return;
+        }
         isShareMode = true;
         shareUserId = shareId;
         initShareMode();
@@ -1000,7 +1013,7 @@ function renderShareSettings() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
 
-    const shareUrl = `${location.origin}${location.pathname}?share=${currentUser.id}`;
+    const shareUrl = `${location.origin}${location.pathname}?share=${currentUser.id}&ts=${Date.now()}`;
 
     panel.innerHTML = `
     <div class="panel-header">
@@ -1871,11 +1884,80 @@ function openSliderAt(url, photos) {
     slideIndex = photos.indexOf(url);
     if (slideIndex < 0) slideIndex = 0;
     updateSlider();
-    document.getElementById('slider-modal').classList.remove('hidden');
+    const modal = document.getElementById('slider-modal');
+    modal.classList.remove('hidden');
+
+    // スワイプ設定（重複登録防止）
+    if (!modal._swipeReady) {
+        modal._swipeReady = true;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isDragging = false;
+
+        modal.addEventListener('touchstart', e => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isDragging = false;
+        }, { passive: true });
+
+        modal.addEventListener('touchmove', e => {
+            const dx = e.touches[0].clientX - touchStartX;
+            const dy = e.touches[0].clientY - touchStartY;
+            if (!isDragging && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+                isDragging = true;
+            }
+            if (isDragging) {
+                const img = document.getElementById('slide-image');
+                img.style.transform = `translateX(${dx}px)`;
+                img.style.opacity = `${1 - Math.abs(dx) / 400}`;
+            }
+        }, { passive: true });
+
+        modal.addEventListener('touchend', e => {
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            const img = document.getElementById('slide-image');
+            img.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
+
+            if (isDragging && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+                const direction = dx < 0 ? 1 : -1;
+                const canMove = direction === 1
+                    ? slideIndex < currentPhotos.length - 1
+                    : slideIndex > 0;
+                if (canMove) {
+                    img.style.transform = `translateX(${direction * -120}%)`;
+                    img.style.opacity = '0';
+                    setTimeout(() => {
+                        slideIndex += direction;
+                        img.style.transition = 'none';
+                        img.style.transform = `translateX(${direction * 80}%)`;
+                        img.style.opacity = '0';
+                        updateSlider();
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                img.style.transition = 'transform 0.22s ease, opacity 0.22s ease';
+                                img.style.transform = 'translateX(0)';
+                                img.style.opacity = '1';
+                            });
+                        });
+                    }, 180);
+                } else {
+                    img.style.transform = 'translateX(0)';
+                    img.style.opacity = '1';
+                }
+            } else {
+                img.style.transform = 'translateX(0)';
+                img.style.opacity = '1';
+            }
+            setTimeout(() => { img.style.transition = ''; }, 300);
+            isDragging = false;
+        }, { passive: true });
+    }
 }
 
 function updateSlider() {
-    document.getElementById('slide-image').src = currentPhotos[slideIndex];
+    const img = document.getElementById('slide-image');
+    img.src = currentPhotos[slideIndex];
     document.getElementById('slide-counter').innerText = `${slideIndex + 1} / ${currentPhotos.length}`;
 }
 
