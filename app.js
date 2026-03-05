@@ -1429,16 +1429,16 @@ function updateCounter() {
     const activeMemories = memoriesData.filter(m => {
         if (homePrefectures.includes(m.prefecture)) return false;
         const photos = JSON.parse(m.photo_urls || "[]");
-        return m.date && photos.length > 0;
+        return photos.length > 0;
     });
     const totalVisited = activeMemories.length + homePrefectures.length;
     document.getElementById('pref-counter').innerText = `${totalVisited} / 47`;
 
-    // 写真だけ or 日付だけのデータがあれば黄色いドットを表示
+    // 写真はあるが日付がない場合に黄色いドットを表示
     const hasWarning = memoriesData.some(m => {
         if (homePrefectures.includes(m.prefecture)) return false;
         const photos = JSON.parse(m.photo_urls || "[]");
-        return (photos.length > 0 && !m.date) || (m.date && photos.length === 0);
+        return photos.length > 0 && !m.date;
     });
     const menuBtn = document.getElementById('menu-btn');
     if (hasWarning) {
@@ -1488,7 +1488,7 @@ function renderRightPanel() {
         const activeMemories = memoriesData.filter(m => {
             if (homePrefectures.includes(m.prefecture)) return false;
             const photos = JSON.parse(m.photo_urls || "[]");
-            return m.date && photos.length > 0;
+            return photos.length > 0;
         });
 
         if (activeMemories.length === 0 && homePrefectures.length === 0) {
@@ -1499,7 +1499,7 @@ function renderRightPanel() {
             sortedMemories.forEach(m => {
                 const photos = JSON.parse(m.photo_urls || "[]");
                 const color = getCurrentColors()[m.prefecture] || '#aaa';
-                const needsData = (photos.length > 0 && !m.date) || (m.date && photos.length === 0);
+                const needsData = photos.length > 0 && !m.date;
                 contentHtml += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
@@ -1539,7 +1539,7 @@ function renderRightPanel() {
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
-        const hasWarning = (data.date && photos.length === 0) || (!data.date && photos.length > 0);
+        const hasWarning = photos.length > 0 && !data.date;
 
         let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
             
@@ -1835,7 +1835,7 @@ function updateMapColors() {
         let isVisited = isHome;
         if (!isVisited && memory) {
             const photos = JSON.parse(memory.photo_urls || "[]");
-            if (memory.date && photos.length > 0) isVisited = true;
+            if (photos.length > 0) isVisited = true;
         }
         layer.setStyle({
             fillColor: isVisited ? (getCurrentColors()[pref] || '#8ab4f8') : '#f4f7f6',
