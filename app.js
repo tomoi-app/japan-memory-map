@@ -664,6 +664,18 @@ function openPanel() {
     updateUIVisibility();
 }
 
+async function clearDateAndSave() {
+    if (!selectedPref) return;
+    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    if (data) data.date = '';
+    const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [] };
+    await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
+    await fetchMemories(false);
+    renderRightPanel();
+    updateMapColors();
+    updateCounter();
+}
+
 function cleanupEmptyDate() {
     if (selectedPref && !homePrefectures.includes(selectedPref)) {
         const fromEl = document.getElementById('input-date-from');
@@ -1515,12 +1527,25 @@ function renderRightPanel() {
                 contentHtml += `<div class="warning-banner" style="margin-bottom: 15px;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
             }
             if (featureShowDate) {
-                contentHtml += `
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
-                    <span style="color:#aaa;">-</span>
-                    <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
-                </div>`;
+                if (data.date) {
+                    // 登録済み：おしゃれな固定表示＋×ボタン
+                    contentHtml += `
+                    <div id="date-locked-display" style="display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg,#eef4f8,#e6eef4); border-radius:12px; padding:12px 16px; border:1px solid #d0dde8;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#6c8ca3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <span style="font-size:15px; font-weight:600; color:#4a6a82; letter-spacing:0.5px;">${formatDate(data.date)}</span>
+                        </div>
+                        <button onclick="clearDateAndSave()" title="日付をリセット" style="background:none; border:none; cursor:pointer; color:#aaa; font-size:18px; line-height:1; padding:2px 4px; border-radius:50%; transition:color 0.2s;" onmouseover="this.style.color='#e57373'" onmouseout="this.style.color='#aaa'">✕</button>
+                    </div>`;
+                } else {
+                    // 未登録：日付入力UI
+                    contentHtml += `
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
+                        <span style="color:#aaa;">-</span>
+                        <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
+                    </div>`;
+                }
             }
             contentHtml += `<p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>`;
             if (featureShowMemo) {
@@ -1567,20 +1592,22 @@ function renderRightPanel() {
         if (featureShowDate) {
             const fromInput = document.getElementById('input-date-from');
             const toInput = document.getElementById('input-date-to');
-            const handleDateChange = () => {
-                if (fromInput.value && toInput.value) {
-                    if (fromInput.value === toInput.value) {
-                        toInput.value = '';
-                    } else if (new Date(fromInput.value) > new Date(toInput.value)) {
-                        const temp = fromInput.value;
-                        fromInput.value = toInput.value;
-                        toInput.value = temp;
+            if (fromInput && toInput) {
+                const handleDateChange = () => {
+                    if (fromInput.value && toInput.value) {
+                        if (fromInput.value === toInput.value) {
+                            toInput.value = '';
+                        } else if (new Date(fromInput.value) > new Date(toInput.value)) {
+                            const temp = fromInput.value;
+                            fromInput.value = toInput.value;
+                            toInput.value = temp;
+                        }
                     }
-                }
-                triggerAutoSave();
-            };
-            if (fromInput) fromInput.addEventListener('change', handleDateChange);
-            if (toInput) toInput.addEventListener('change', handleDateChange);
+                    triggerAutoSave();
+                };
+                fromInput.addEventListener('change', handleDateChange);
+                toInput.addEventListener('change', handleDateChange);
+            }
         }
         if (featureShowMemo) {
             const memoInput = document.getElementById('input-memo');
