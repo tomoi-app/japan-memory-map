@@ -877,16 +877,16 @@ function renderAccountSettings() {
                 <span style="font-weight:bold; color:#444;">${email}</span>
             </div>
 
+            <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); showInstallSlides();" style="${btnStyle}">
+                チュートリアル
+            </button>
+
             <button onclick="renderChangePassword()" style="${btnStyle}">
                 パスワードを変更
             </button>
 
             <button onclick="deleteAccount()" style="${dangerBtnStyle}">
                 アカウントを削除
-            </button>
-
-            <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); showInstallSlides();" style="${btnStyle}">
-                チュートリアル
             </button>
 
             <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
