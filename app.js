@@ -1896,7 +1896,7 @@ function showLimitPopup() {
     popup.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;text-align:center;">
             <button onclick="document.getElementById('limit-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0;font-size:1rem;color:#444;line-height:1.8;font-family:'Zen Kaku Gothic New',sans-serif;">2枚保存されました。<br>これ以上保存できません。<br>ご要望はお問い合わせフォームか<br>お気軽にご連絡ください。</p>
+            <p style="margin:0;font-size:1rem;color:#444;line-height:1.8;font-family:'Zen Kaku Gothic New',sans-serif;">2枚保存されました。<br>これ以上保存できません。<br>ご要望はお問い合わせフォームから<br>お気軽にご連絡ください。</p>
         </div>
     `;
     document.body.appendChild(popup);
@@ -2122,13 +2122,13 @@ const TUTORIAL_STEPS = [
         targetId: '__photo-fab__',
         position: 'auto',
         title: '写真・日付・メモ',
-        text: '都道府県を選択後、＋ボタンから\n写真・日付・メモを追加できます'
+        text: '都道府県を選択後、＋ボタンから\n写真を追加できます'
     },
     {
         targetId: 'settings-btn',
         position: 'auto',
         title: '設定',
-        text: 'テーマ変更・家の登録・\nアカウント管理ができます'
+        text: 'テーマ変更・家の登録・\nアカウント管理などができます'
     },
 ];
 
