@@ -335,7 +335,6 @@ function showPasswordRecoveryScreen() {
     // 設定パネルを強制表示してパスワード変更画面へ
     const settingsPanel = document.getElementById('settings-panel');
     if (!settingsPanel) {
-        // settings-panelがまだなければ作成
         const sp = document.createElement('div');
         sp.id = 'settings-panel';
         sp.className = 'list-section';
@@ -358,7 +357,7 @@ function startApp(session) {
     memoriesData = [];
     homePrefectures = [];
 
-    // 既存のLeaflet mapを破棄（2回目ログイン時の二重初期化を防ぐ）
+    // 既存のLeaflet mapを破棄
     if (map) {
         try { map.remove(); } catch(e) {}
         map = null;
@@ -396,25 +395,12 @@ async function logout() {
 
 // ページ読み込み時にセッション確認
 window.addEventListener('load', async () => {
-    // 共有URLチェック（?share=userId）
+    // 共有URLチェック（?share=token）
     const urlParams = new URLSearchParams(window.location.search);
-    const shareId = urlParams.get('share');
-    if (shareId) {
-        // タイムスタンプチェック（1時間制限）
-        const ts = parseInt(urlParams.get('ts') || '0', 10);
-        const now = Date.now();
-        const ONE_HOUR = 60 * 60 * 1000;
-        if (ts && now - ts > ONE_HOUR) {
-            document.body.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:'Zen Kaku Gothic New',sans-serif;background:linear-gradient(135deg,#eef2f5,#dce6ee);gap:20px;padding:20px;box-sizing:border-box;">
-                <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="#6c8ca3" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <h2 style="margin:0;color:#444;font-size:1.5rem;text-align:center;">このリンクの有効期限が切れました</h2>
-                <p style="margin:0;color:#888;font-size:0.95rem;text-align:center;line-height:1.7;">共有リンクは発行から1時間有効です。<br>新しいリンクを発行してもらってください。</p>
-            </div>`;
-            return;
-        }
+    const shareToken = urlParams.get('share');
+    if (shareToken) {
         isShareMode = true;
-        shareUserId = shareId;
+        shareUserId = shareToken; // トークンをそのままセット
         initShareMode();
         return;
     }
@@ -492,6 +478,16 @@ async function initShareMode() {
         const res = await fetch(`/api?share=${shareUserId}`);
         if (res.ok) {
             memoriesData = await res.json();
+        } else {
+            // バックエンドでの検証に失敗した場合（期限切れ・不正なURL）
+            document.body.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:'Zen Kaku Gothic New',sans-serif;background:linear-gradient(135deg,#eef2f5,#dce6ee);gap:20px;padding:20px;box-sizing:border-box;">
+                <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="#6c8ca3" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <h2 style="margin:0;color:#444;font-size:1.5rem;text-align:center;">このリンクは無効または有効期限が切れました</h2>
+                <p style="margin:0;color:#888;font-size:0.95rem;text-align:center;line-height:1.7;">共有リンクは発行から1時間のみ有効です。<br>新しいリンクを発行してもらってください。</p>
+                <button onclick="window.location.href='/'" style="margin-top:20px; padding:12px 30px; background:#6c8ca3; color:white; border:none; border-radius:8px; font-size:1rem; font-weight:bold; cursor:pointer;">トップへ戻る</button>
+            </div>`;
+            return;
         }
     } catch(e) {
         console.error('Share load error', e);
@@ -884,6 +880,7 @@ async function deleteAccount() {
         hideLoading();
     }
 }
+
 async function deleteAllData() {
     if (confirm("すべてのデータを削除してもよろしいでしょうか。\nこの操作は取り消せません。")) {
         showLoading();
@@ -901,10 +898,7 @@ async function deleteAllData() {
         updateCounter();
 
         try {
-            // サーバーに「全部消せ」という命令を1回だけ送る
-            await apiFetch({ method: 'POST', body: JSON.stringify({ action: "delete_all" }) 
-            });
-            
+            await apiFetch({ method: 'POST', body: JSON.stringify({ action: "delete_all" }) });
             hideLoading();
             setTimeout(() => alert("すべてのデータを完全に削除しました。"), 100);
         } catch(e) {
@@ -992,6 +986,8 @@ function renderPrivacyPolicy() {
                 <p style="font-weight:bold;color:#444;margin-top:18px;">■ 利用するサービス</p>
                 <p>本サービスは、データの保存にSupabase（supabase.com）を利用しています。Supabaseのプライバシーポリシーは同社のウェブサイトをご確認ください。</p>
 
+                <p style="font-weight:bold;color:#444;margin-top:18px;">■ 写真データについて</p>
+                <p>アップロードされた写真は、運営者が閲覧することはありません。</p>
                 <p style="font-weight:bold;color:#444;margin-top:18px;">■ データの削除</p>
                 <p>アカウントを削除すると、すべての記録データおよびアップロードされた写真は完全に削除されます。</p>
 
@@ -1106,11 +1102,9 @@ async function doChangePassword() {
     }
 }
 
-function renderShareSettings() {
+async function renderShareSettings() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
-
-    const shareUrl = `${location.origin}${location.pathname}?share=${currentUser.id}&ts=${Date.now()}`;
 
     panel.innerHTML = `
     <div class="panel-header">
@@ -1120,21 +1114,42 @@ function renderShareSettings() {
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
         </div>
     </div>
-    <div class="panel-content">
-        <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
-            <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0;">
-                URLを共有して あしあと を共有しよう。<br>（閲覧モードでは編集はできません。）
-            </p>
-            <div style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#555; line-height:1.6;">
-                ${shareUrl}
-            </div>
-            <button onclick="copyShareUrl('${shareUrl}')"
-                style="padding:16px; background:#f4f7f6; color:#444; border:none; border-radius:12px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-                URLをコピー
-            </button>
-            <div id="share-copy-msg" style="text-align:center; color:#5a8a6a; font-size:0.9rem; min-height:20px;"></div>
-        </div>
+    <div class="panel-content" id="share-content-area" style="text-align:center; padding-top:40px;">
+        <div class="spinner" style="margin: 0 auto;"></div>
+        <p style="color:#888; margin-top:15px; font-size:0.9rem;">セキュリティリンクを発行中...</p>
     </div>`;
+
+    try {
+        const res = await apiFetch({
+            method: 'POST',
+            body: JSON.stringify({ action: 'generate_share_link' })
+        });
+        const data = await res.json();
+
+        if (data.token) {
+            const shareUrl = `${location.origin}${location.pathname}?share=${data.token}`;
+            document.getElementById('share-content-area').innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:16px; text-align:left;">
+                    <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0;">
+                        URLを共有して あしあと を共有しよう。<br>（閲覧モードでは編集はできません。）<br>
+                        <span style="color:#d32f2f; font-weight:bold; font-size:0.85rem;">※リンクは発行から1時間のみ有効です</span>
+                    </p>
+                    <div style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#555; line-height:1.6;">
+                        ${shareUrl}
+                    </div>
+                    <button onclick="copyShareUrl('${shareUrl}')"
+                        style="padding:16px; background:#f4f7f6; color:#444; border:none; border-radius:12px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                        URLをコピー
+                    </button>
+                    <div id="share-copy-msg" style="text-align:center; color:#5a8a6a; font-size:0.9rem; min-height:20px;"></div>
+                </div>
+            `;
+        } else {
+            document.getElementById('share-content-area').innerHTML = `<p style="color:#d32f2f; margin-top:20px;">リンクの発行に失敗しました。</p>`;
+        }
+    } catch (e) {
+        document.getElementById('share-content-area').innerHTML = `<p style="color:#d32f2f; margin-top:20px;">通信エラーが発生しました。</p>`;
+    }
 }
 
 function copyShareUrl(url) {
@@ -1350,7 +1365,6 @@ function renderContactSettings() {
 
     panel.innerHTML = headerHtml + contentHtml;
 
-    // 返信希望チェックでメールフィールドを表示
     document.getElementById('contact-reply').addEventListener('click', function() {
         document.getElementById('contact-email-wrap').style.display = this.checked ? 'block' : 'none';
         updateContactBtn();
@@ -1547,7 +1561,6 @@ function updateCounter() {
     const totalVisited = activeMemories.length + homePrefectures.length;
     document.getElementById('pref-counter').innerText = `${totalVisited} / 47`;
 
-    // 写真はあるが日付がない場合に黄色いドットを表示
     const hasWarning = memoriesData.some(m => {
         if (homePrefectures.includes(m.prefecture)) return false;
         const photos = JSON.parse(m.photo_urls || "[]");
@@ -1662,7 +1675,6 @@ function renderRightPanel() {
             }
             if (featureShowDate) {
                 if (data.date && !dateEditingMode) {
-                    // 登録済み：テーマカラーを使ったおしゃれな固定表示（タップで編集）
                     contentHtml += `
                     <div id="date-locked-display" onclick="enterDateEditMode()" title="タップして変更"
                         style="display:flex; align-items:center; justify-content:space-between;
@@ -1681,7 +1693,6 @@ function renderRightPanel() {
                         <div style="background:${color}44; border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; color:rgba(0,0,0,0.4); letter-spacing:0.5px;">変更</div>
                     </div>`;
                 } else {
-                    // 未登録 or 編集モード：日付入力UI
                     contentHtml += `
                     <div style="display:flex; align-items:center; gap:8px;">
                         <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
@@ -1696,7 +1707,6 @@ function renderRightPanel() {
                     style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px; font-family:inherit; background:#fafafa; color:#444; resize:none; box-sizing:border-box; margin-top:4px;">${data.memo || ''}</textarea>`;
             }
         } else {
-            // 共有モード：日付・メモを読み取り専用で表示
             if (data.date) {
                 contentHtml += `<p style="text-align:center; color:#888; font-size:0.9rem; margin:8px 0;">${formatDate(data.date)}</p>`;
             }
@@ -1708,7 +1718,6 @@ function renderRightPanel() {
         if (photos.length > 0) {
             const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
 
-            // サムネイル：先頭1枚を大きく表示
             if (featureShowThumbnail) {
                 const thumbUrl = photos[0];
                 const thumbDeleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${thumbUrl}')" style="top:10px; right:10px; width:32px; height:32px; font-size:15px;">✕</button>`;
@@ -1720,7 +1729,6 @@ function renderRightPanel() {
                 </div>`;
             }
 
-            // 全写真をサムネイル以外で小さく表示（サムネイルONの場合は2枚目以降）
             const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
             if (gridPhotos.length > 0) {
                 contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
@@ -1746,34 +1754,34 @@ function renderRightPanel() {
         panel.innerHTML = headerHtml + contentHtml;
 
         if (!isShareMode) {
-        const photoInput = document.getElementById('input-photos');
-        if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
+            const photoInput = document.getElementById('input-photos');
+            if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
 
-        if (featureShowDate) {
-            const fromInput = document.getElementById('input-date-from');
-            const toInput = document.getElementById('input-date-to');
-            if (fromInput && toInput) {
-                const handleDateChange = () => {
-                    if (fromInput.value && toInput.value) {
-                        if (fromInput.value === toInput.value) {
-                            toInput.value = '';
-                        } else if (new Date(fromInput.value) > new Date(toInput.value)) {
-                            const temp = fromInput.value;
-                            fromInput.value = toInput.value;
-                            toInput.value = temp;
+            if (featureShowDate) {
+                const fromInput = document.getElementById('input-date-from');
+                const toInput = document.getElementById('input-date-to');
+                if (fromInput && toInput) {
+                    const handleDateChange = () => {
+                        if (fromInput.value && toInput.value) {
+                            if (fromInput.value === toInput.value) {
+                                toInput.value = '';
+                            } else if (new Date(fromInput.value) > new Date(toInput.value)) {
+                                const temp = fromInput.value;
+                                fromInput.value = toInput.value;
+                                toInput.value = temp;
+                            }
                         }
-                    }
-                    triggerAutoSave();
-                };
-                fromInput.addEventListener('change', handleDateChange);
-                toInput.addEventListener('change', handleDateChange);
+                        triggerAutoSave();
+                    };
+                    fromInput.addEventListener('change', handleDateChange);
+                    toInput.addEventListener('change', handleDateChange);
+                }
+            }
+            if (featureShowMemo) {
+                const memoInput = document.getElementById('input-memo');
+                if (memoInput) memoInput.addEventListener('input', triggerAutoSave);
             }
         }
-        if (featureShowMemo) {
-            const memoInput = document.getElementById('input-memo');
-            if (memoInput) memoInput.addEventListener('input', triggerAutoSave);
-        }
-        } // end !isShareMode
     }
 }
 
@@ -1803,10 +1811,8 @@ function triggerAutoSave() {
     autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
 }
 
-// ③ Supabaseに画像を直接アップロード（Python経由なし）
 async function uploadImageDirect(file) {
     const compressed = await compressImage(file);
-    // base64 → Blob変換
     const base64 = compressed.split(',')[1];
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
@@ -1837,12 +1843,10 @@ async function saveMemoryData() {
 
     let dateValue;
     if (fromEl) {
-        // 編集モード：inputから取得
         const fromVal = toSlashDate(fromEl.value);
         const toVal = toEl ? toSlashDate(toEl.value) : '';
         dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
     } else {
-        // 固定表示モード：既存データをそのまま保持
         const existingData = memoriesData.find(m => m.prefecture === selectedPref);
         dateValue = existingData?.date || '';
     }
@@ -1855,14 +1859,12 @@ async function saveMemoryData() {
     }
 
     try {
-        // 既存URLはそのまま保持
         let existingUrls = [];
         const existingData = memoriesData.find(m => m.prefecture === selectedPref);
         if (existingData && existingData.photo_urls) {
             try { existingUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
-        // ③ 新規画像をSupabaseに直接並列アップロード
         let newUrls = [];
         if (files.length > 0) {
             const remaining = 100 - existingUrls.length;
@@ -1916,13 +1918,11 @@ async function saveMemoryData() {
     }
 }
 
-// --- ゴーストデータを画面に表示させない処理を追加 ---
 async function fetchMemories(redraw = true) {
     try {
         const res = await apiFetch({ method: 'GET', url: '/api?t=' + new Date().getTime() });
         const rawData = await res.json();
         
-        // 同じ都道府県があったら1つにまとめる（ダミーを排除）
         const uniqueData = {};
         rawData.forEach(item => {
             if (!uniqueData[item.prefecture]) {
@@ -1937,7 +1937,6 @@ async function fetchMemories(redraw = true) {
         });
         memoriesData = Object.values(uniqueData);
 
-        // is_homeフラグからhomePrefecturesを復元
         homePrefectures = memoriesData
             .filter(m => m.is_home === true)
             .map(m => m.prefecture);
@@ -2007,7 +2006,6 @@ function openSliderAt(url, photos) {
     const modal = document.getElementById('slider-modal');
     modal.classList.remove('hidden');
 
-    // スワイプ設定（重複登録防止）
     if (!modal._swipeReady) {
         modal._swipeReady = true;
         let touchStartX = 0;
@@ -2097,20 +2095,17 @@ function showInstallSlides() {
     function renderSlide(slide) {
         overlay.innerHTML = '';
 
-        // スキップボタン
         const skipBtn = document.createElement('button');
         skipBtn.textContent = 'スキップ';
         skipBtn.style.cssText = 'position:absolute; top:20px; right:20px; background:none; border:none; color:#aaa; font-size:0.9rem; cursor:pointer; font-family:inherit;';
         skipBtn.onclick = () => { overlay.remove(); startTutorial(); };
         overlay.appendChild(skipBtn);
 
-        // コンテンツ
         const box = document.createElement('div');
         box.style.cssText = 'width:100%; max-width:360px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:20px;';
         box.innerHTML = slide.html;
         overlay.appendChild(box);
 
-        // ドット
         const dots = document.createElement('div');
         dots.style.cssText = 'position:absolute; bottom:100px; display:flex; gap:8px;';
         [0,1,2].forEach(i => {
@@ -2121,7 +2116,6 @@ function showInstallSlides() {
         overlay.appendChild(dots);
     }
 
-    // スライド1: ようこそ
     function slide1() {
         renderSlide({ index: 0, html:
             '<h1 style="font-size:1.8rem; color:#333; margin:0; letter-spacing:2px;">あしあとへようこそ</h1>' +
@@ -2131,7 +2125,6 @@ function showInstallSlides() {
         window.installSlide2 = slide2;
     }
 
-    // スライド2: OS選択
     function slide2() {
         renderSlide({ index: 1, html:
             '<h2 style="font-size:1.4rem; color:#333; margin:0;">アプリとして使おう</h2>' +
@@ -2147,7 +2140,6 @@ function showInstallSlides() {
         window.installSlide4 = slide4;
     }
 
-    // スライド3a: iOS手順
     function slide3ios() {
         renderSlide({ index: 2, html:
             '<h2 style="font-size:1.3rem; color:#333; margin:0;">iPhoneの場合</h2>' +
@@ -2162,7 +2154,6 @@ function showInstallSlides() {
         window.installSlide4 = slide4;
     }
 
-    // スライド3b: Android手順
     function slide3android() {
         renderSlide({ index: 2, html:
             '<h2 style="font-size:1.3rem; color:#333; margin:0;">Androidの場合</h2>' +
@@ -2176,7 +2167,6 @@ function showInstallSlides() {
         window.installSlide4 = slide4;
     }
 
-    // スライド4: 完了
     function slide4() {
         overlay.innerHTML = '';
         overlay.style.justifyContent = 'center';
@@ -2237,11 +2227,9 @@ function startTutorial() {
 }
 
 function showTutorialStep() {
-    // app-screenが非表示なら中断
     const appScreen = document.getElementById('app-screen');
     if (!appScreen || appScreen.classList.contains('hidden')) return;
 
-    // 既存オーバーレイ削除
     const old = document.getElementById('tutorial-overlay');
     if (old) old.remove();
 
@@ -2252,7 +2240,6 @@ function showTutorialStep() {
 
     const step = TUTORIAL_STEPS[tutorialStep];
 
-    // ターゲット要素の位置取得
     let targetEl = document.getElementById(step.targetId);
     if (step.targetId === '__photo-fab__') {
         targetEl = document.querySelector('.add-photo-fab');
@@ -2272,7 +2259,6 @@ function showTutorialStep() {
         const cy = rect.top + rect.height / 2;
         const r  = Math.max(rect.width, rect.height) * 0.8 + 20;
 
-        // スポットライト（SVGクリップ）
         const svgNS = 'http://www.w3.org/2000/svg';
         const svg = document.createElementNS(svgNS, 'svg');
         svg.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; pointer-events:all;';
@@ -2288,26 +2274,12 @@ function showTutorialStep() {
         `;
         overlay.appendChild(svg);
 
-        // バブルの位置を決める
-        const bubbleW = 300;
         const bubbleH = 150;
-        const margin  = 20;
-        let bx, by, arrowDir;
-
-        // バブル位置：完全固定（left/top固定値）
-        bx = 28;
-        by = window.innerHeight / 2 - bubbleH / 2;
-        arrowDir = null;
+        let bx = 28;
+        let by = window.innerHeight / 2 - bubbleH / 2;
 
         bubbleStyle = `position:fixed; left:28px; right:28px; top:${by}px; width:auto; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
-
-        if (arrowDir === 'up') {
-            arrowStyle = `position:absolute; left:${cx - bx - 10}px; top:-10px; width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:10px solid white;`;
-        } else if (arrowDir === 'down') {
-            arrowStyle = `position:absolute; left:${cx - bx - 10}px; bottom:-10px; width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid white;`;
-        }
     } else {
-        // ターゲットが見つからない場合も同じ固定スタイル
         const by = window.innerHeight / 2 - 75;
         bubbleStyle = `position:fixed; left:28px; right:28px; top:${by}px; width:auto; background:white; border-radius:16px; padding:26px 28px; box-shadow:0 8px 32px rgba(0,0,0,0.25); pointer-events:all; text-align:center;`;
         const svg = document.createElement('div');
@@ -2316,11 +2288,9 @@ function showTutorialStep() {
         overlay.appendChild(svg);
     }
 
-    // バブル本体
     const bubble = document.createElement('div');
     bubble.style.cssText = bubbleStyle;
     bubble.innerHTML = `
-        ${arrowStyle ? `<div style="${arrowStyle}"></div>` : ''}
         <div style="font-size:1.1rem; font-weight:bold; color:#333; margin-bottom:10px;">${step.title}</div>
         <div style="font-size:0.95rem; color:#666; line-height:1.7; white-space:pre-line;">${step.text}</div>
         <div style="display:flex; gap:8px; margin-top:14px; justify-content:center;">
