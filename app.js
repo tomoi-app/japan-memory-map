@@ -122,6 +122,7 @@ let isPasswordRecoveryMode = false;
 // 機能ON/OFF設定
 let featureShowDate = localStorage.getItem('featureShowDate') !== 'false';
 let featureShowMemo = localStorage.getItem('featureShowMemo') === 'true';
+let dateEditingMode = false; // 日付編集モードフラグ
 
 // ログイン ↔ サインアップ 切り替え
 function switchToSignup() {
@@ -664,8 +665,14 @@ function openPanel() {
     updateUIVisibility();
 }
 
+function enterDateEditMode() {
+    dateEditingMode = true;
+    renderRightPanel();
+}
+
 async function clearDateAndSave() {
     if (!selectedPref) return;
+    dateEditingMode = false;
     const data = memoriesData.find(m => m.prefecture === selectedPref);
     if (data) data.date = '';
     const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [] };
@@ -680,9 +687,14 @@ function cleanupEmptyDate() {
     if (selectedPref && !homePrefectures.includes(selectedPref)) {
         const fromEl = document.getElementById('input-date-from');
         const toEl = document.getElementById('input-date-to');
+        // inputが表示されていない（固定表示）場合は何もしない
+        if (!fromEl) return;
         const hasDateInput = (fromEl && fromEl.value) || (toEl && toEl.value);
 
         const data = memoriesData.find(m => m.prefecture === selectedPref);
+        // 既にDBに保存済みの日付がある場合は消さない
+        if (data && data.date) return;
+
         let photoCount = 0;
         if (data) {
             try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
@@ -700,6 +712,7 @@ function cleanupEmptyDate() {
 function closePanel() {
     clearTimeout(autoSaveTimer);
     cleanupEmptyDate();
+    dateEditingMode = false;
     panelOpen = false;
     selectedPref = null;
     document.getElementById('right-panel').classList.remove('open');
@@ -711,6 +724,7 @@ function closePanel() {
 function backToList() {
     clearTimeout(autoSaveTimer);
     cleanupEmptyDate();
+    dateEditingMode = false;
     selectedPref = null;
     renderRightPanel();
     updateMapColors();
@@ -1527,18 +1541,18 @@ function renderRightPanel() {
                 contentHtml += `<div class="warning-banner" style="margin-bottom: 15px;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
             }
             if (featureShowDate) {
-                if (data.date) {
-                    // 登録済み：おしゃれな固定表示＋×ボタン
+                if (data.date && !dateEditingMode) {
+                    // 登録済み：タップで編集できるおしゃれな固定表示
                     contentHtml += `
-                    <div id="date-locked-display" style="display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg,#eef4f8,#e6eef4); border-radius:12px; padding:12px 16px; border:1px solid #d0dde8;">
+                    <div id="date-locked-display" onclick="enterDateEditMode()" title="タップして変更" style="display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg,#eef4f8,#e6eef4); border-radius:12px; padding:12px 16px; border:1px solid #d0dde8; cursor:pointer; transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 2px 10px rgba(108,140,163,0.2)'" onmouseout="this.style.boxShadow='none'">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#6c8ca3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                             <span style="font-size:15px; font-weight:600; color:#4a6a82; letter-spacing:0.5px;">${formatDate(data.date)}</span>
                         </div>
-                        <button onclick="clearDateAndSave()" title="日付をリセット" style="background:none; border:none; cursor:pointer; color:#aaa; font-size:18px; line-height:1; padding:2px 4px; border-radius:50%; transition:color 0.2s;" onmouseover="this.style.color='#e57373'" onmouseout="this.style.color='#aaa'">✕</button>
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </div>`;
                 } else {
-                    // 未登録：日付入力UI
+                    // 未登録 or 編集モード：日付入力UI
                     contentHtml += `
                     <div style="display:flex; align-items:center; gap:8px;">
                         <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
@@ -1672,12 +1686,19 @@ async function uploadImageDirect(file) {
 async function saveMemoryData() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
-    const files = document.getElementById('input-photos').files;
-    if (!fromEl) return;
-    
-    const fromVal = toSlashDate(fromEl.value);
-    const toVal = toSlashDate(toEl.value);
-    const dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
+    const files = document.getElementById('input-photos')?.files || [];
+
+    let dateValue;
+    if (fromEl) {
+        // 編集モード：inputから取得
+        const fromVal = toSlashDate(fromEl.value);
+        const toVal = toEl ? toSlashDate(toEl.value) : '';
+        dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
+    } else {
+        // 固定表示モード：既存データをそのまま保持
+        const existingData = memoriesData.find(m => m.prefecture === selectedPref);
+        dateValue = existingData?.date || '';
+    }
     
     const statusEl = document.getElementById('autosave-status');
     
@@ -1714,6 +1735,7 @@ async function saveMemoryData() {
         const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
         
         if (res.ok) {
+            dateEditingMode = false;
             await fetchMemories(false);
             renderRightPanel();
             updateMapColors();
