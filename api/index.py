@@ -5,9 +5,6 @@ import urllib.parse
 import base64
 import uuid
 import traceback
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -337,10 +334,10 @@ class handler(BaseHTTPRequestHandler):
             return
 
         elif action == "send_contact":
-            gmail_user = os.environ.get("GMAIL_USER", "").strip()
-            gmail_pass = os.environ.get("GMAIL_PASS", "").strip()
-            if not gmail_user or not gmail_pass:
-                raise Exception("GMAIL_USER or GMAIL_PASS is not set in Vercel environment variables.")
+            sendgrid_api_key = os.environ.get("SENDGRID_API_KEY", "").strip()
+            from_email = "tomoi.app21@gmail.com"
+            if not sendgrid_api_key:
+                raise Exception("SENDGRID_API_KEY is not set in Vercel environment variables.")
 
             name        = payload.get("name", "（名前未記入）")
             body        = payload.get("body", "")
@@ -359,15 +356,22 @@ class handler(BaseHTTPRequestHandler):
             except:
                 pass
 
-            def send_gmail(to_addr, subject, html_body):
-                msg = MIMEMultipart("alternative")
-                msg["Subject"] = subject
-                msg["From"]    = gmail_user
-                msg["To"]      = to_addr
-                msg.attach(MIMEText(html_body, "html", "utf-8"))
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-                    server.login(gmail_user, gmail_pass)
-                    server.sendmail(gmail_user, to_addr, msg.as_string())
+            def send_sendgrid(to_addr, subject, html_body):
+                sg_payload = {
+                    "personalizations": [{"to": [{"email": to_addr}]}],
+                    "from": {"email": from_email, "name": "あしあと"},
+                    "subject": subject,
+                    "content": [{"type": "text/html", "value": html_body}]
+                }
+                sg_req = urllib.request.Request(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    data=json.dumps(sg_payload).encode("utf-8"),
+                    method="POST"
+                )
+                sg_req.add_header("Authorization", f"Bearer {sendgrid_api_key}")
+                sg_req.add_header("Content-Type", "application/json")
+                with urllib.request.urlopen(sg_req, timeout=10) as r:
+                    pass
 
             # ① 管理者への通知メール
             reply_label = ("はい（" + reply_email + "）") if want_reply else "いいえ"
@@ -380,7 +384,7 @@ class handler(BaseHTTPRequestHandler):
                 "<p><b>内容：</b></p>"
                 f"<p style='white-space:pre-wrap;'>{body}</p>"
             )
-            send_gmail(gmail_user, f"【あしあと】お問い合わせ：{name}", admin_html)
+            send_sendgrid(from_email, f"【あしあと】お問い合わせ：{name}", admin_html)
 
             # ② 返信希望の場合、ユーザーへ自動返信
             if want_reply and reply_email:
@@ -390,7 +394,7 @@ class handler(BaseHTTPRequestHandler):
                     "<br><p style='color:#888; font-size:0.9em;'>※このメールは自動送信されています。</p>"
                 )
                 try:
-                    send_gmail(reply_email, "【あしあと】お問い合わせありがとうございます", auto_html)
+                    send_sendgrid(reply_email, "【あしあと】お問い合わせありがとうございます", auto_html)
                 except:
                     pass
 
