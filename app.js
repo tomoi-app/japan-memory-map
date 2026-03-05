@@ -1542,14 +1542,22 @@ function renderRightPanel() {
             }
             if (featureShowDate) {
                 if (data.date && !dateEditingMode) {
-                    // 登録済み：タップで編集できるおしゃれな固定表示
+                    // 登録済み：テーマカラーを使ったおしゃれな固定表示（タップで編集）
                     contentHtml += `
-                    <div id="date-locked-display" onclick="enterDateEditMode()" title="タップして変更" style="display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg,#eef4f8,#e6eef4); border-radius:12px; padding:12px 16px; border:1px solid #d0dde8; cursor:pointer; transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 2px 10px rgba(108,140,163,0.2)'" onmouseout="this.style.boxShadow='none'">
+                    <div id="date-locked-display" onclick="enterDateEditMode()" title="タップして変更"
+                        style="display:flex; align-items:center; justify-content:space-between;
+                               background:${color}; border-radius:14px; padding:14px 18px;
+                               cursor:pointer; box-shadow: 0 3px 12px ${color}55;
+                               transition: transform 0.15s, box-shadow 0.15s;"
+                        onmouseover="this.style.transform='scale(1.01)'; this.style.boxShadow='0 5px 18px ${color}77';"
+                        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 3px 12px ${color}55';">
                         <div style="display:flex; align-items:center; gap:10px;">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#6c8ca3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            <span style="font-size:15px; font-weight:600; color:#4a6a82; letter-spacing:0.5px;">${formatDate(data.date)}</span>
+                            <div style="background:rgba(255,255,255,0.35); border-radius:8px; padding:5px 6px; display:flex; align-items:center; justify-content:center;">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="rgba(0,0,0,0.55)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            </div>
+                            <span style="font-size:15px; font-weight:700; color:rgba(0,0,0,0.62); letter-spacing:0.8px;">${formatDate(data.date)}</span>
                         </div>
-                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        <div style="background:rgba(255,255,255,0.3); border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; color:rgba(0,0,0,0.45); letter-spacing:0.5px;">変更</div>
                     </div>`;
                 } else {
                     // 未登録 or 編集モード：日付入力UI
