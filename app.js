@@ -299,18 +299,31 @@ function startApp(session) {
     applyTheme(currentTheme);
     currentUser = session.user;
     currentToken = session.access_token;
-    // 状態を初期化してから表示
+    // 状態を完全リセット
     panelOpen = false;
     settingsOpen = false;
     selectedPref = null;
+    dateEditingMode = false;
+    memoriesData = [];
+    homePrefectures = [];
+
+    // 既存のLeaflet mapを破棄（2回目ログイン時の二重初期化を防ぐ）
+    if (map) {
+        try { map.remove(); } catch(e) {}
+        map = null;
+        geoJsonLayer = null;
+        initialBounds = null;
+    }
+
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-screen').classList.remove('hidden');
-    // パネルが開いていたら閉じる
     const rightPanel = document.getElementById('right-panel');
     const settingsPanel = document.getElementById('settings-panel');
     if (rightPanel) rightPanel.classList.remove('open');
     if (settingsPanel) settingsPanel.classList.remove('open');
+
     initApp();
+    updateUIVisibility();
 }
 
 // ログアウト
@@ -685,23 +698,15 @@ async function clearDateAndSave() {
 
 function cleanupEmptyDate() {
     if (selectedPref && !homePrefectures.includes(selectedPref)) {
-        const fromEl = document.getElementById('input-date-from');
-        const toEl = document.getElementById('input-date-to');
-        // inputが表示されていない（固定表示）場合は何もしない
-        if (!fromEl) return;
-        const hasDateInput = (fromEl && fromEl.value) || (toEl && toEl.value);
-
         const data = memoriesData.find(m => m.prefecture === selectedPref);
-        // 既にDBに保存済みの日付がある場合は消さない
-        if (data && data.date) return;
+        if (!data) return;
 
         let photoCount = 0;
-        if (data) {
-            try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
-        }
+        try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
 
-        if (hasDateInput && photoCount === 0) {
-            if (data) data.date = "";
+        // 写真が0枚なのに日付だけ保存されている場合は削除する
+        if (data.date && photoCount === 0) {
+            data.date = "";
             const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [] };
             apiFetch({ method: 'POST', body: JSON.stringify(payload) })
                 .then(() => fetchMemories(false));
@@ -1424,21 +1429,13 @@ function updateCounter() {
     const activeMemories = memoriesData.filter(m => {
         if (homePrefectures.includes(m.prefecture)) return false;
         const photos = JSON.parse(m.photo_urls || "[]");
-        return m.date || photos.length > 0;
+        return m.date && photos.length > 0;
     });
     const totalVisited = activeMemories.length + homePrefectures.length;
     document.getElementById('pref-counter').innerText = `${totalVisited} / 47`;
 
-    const hasWarning = activeMemories.some(m => {
-        const photos = JSON.parse(m.photo_urls || "[]");
-        return !m.date || photos.length === 0;
-    });
     const menuBtn = document.getElementById('menu-btn');
-    if (hasWarning) {
-        menuBtn.classList.add('warning');
-    } else {
-        menuBtn.classList.remove('warning');
-    }
+    menuBtn.classList.remove('warning');
 }
 
 function toSlashDate(val) { return val ? val.replace(/-/g, '/') : ''; }
@@ -1481,7 +1478,7 @@ function renderRightPanel() {
         const activeMemories = memoriesData.filter(m => {
             if (homePrefectures.includes(m.prefecture)) return false;
             const photos = JSON.parse(m.photo_urls || "[]");
-            return m.date || photos.length > 0;
+            return m.date && photos.length > 0;
         });
 
         if (activeMemories.length === 0 && homePrefectures.length === 0) {
@@ -1532,7 +1529,7 @@ function renderRightPanel() {
         const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
-        const hasWarning = (data.date || photos.length > 0) && (!data.date || photos.length === 0);
+        const hasWarning = (data.date && photos.length === 0) || (!data.date && photos.length > 0);
 
         let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
             
@@ -1546,18 +1543,19 @@ function renderRightPanel() {
                     contentHtml += `
                     <div id="date-locked-display" onclick="enterDateEditMode()" title="タップして変更"
                         style="display:flex; align-items:center; justify-content:space-between;
-                               background:${color}; border-radius:14px; padding:14px 18px;
-                               cursor:pointer; box-shadow: 0 3px 12px ${color}55;
-                               transition: transform 0.15s, box-shadow 0.15s;"
-                        onmouseover="this.style.transform='scale(1.01)'; this.style.boxShadow='0 5px 18px ${color}77';"
-                        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 3px 12px ${color}55';">
+                               background:${color}55; border-radius:14px; padding:14px 18px;
+                               border: 1.5px solid ${color}99;
+                               cursor:pointer; box-shadow: 0 2px 10px ${color}33;
+                               transition: transform 0.15s, box-shadow 0.15s, background 0.15s;"
+                        onmouseover="this.style.transform='scale(1.01)'; this.style.background='${color}77'; this.style.boxShadow='0 4px 16px ${color}44';"
+                        onmouseout="this.style.transform='scale(1)'; this.style.background='${color}55'; this.style.boxShadow='0 2px 10px ${color}33';">
                         <div style="display:flex; align-items:center; gap:10px;">
-                            <div style="background:rgba(255,255,255,0.35); border-radius:8px; padding:5px 6px; display:flex; align-items:center; justify-content:center;">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="rgba(0,0,0,0.55)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <div style="background:${color}66; border-radius:8px; padding:5px 6px; display:flex; align-items:center; justify-content:center;">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                             </div>
-                            <span style="font-size:15px; font-weight:700; color:rgba(0,0,0,0.62); letter-spacing:0.8px;">${formatDate(data.date)}</span>
+                            <span style="font-size:15px; font-weight:700; color:rgba(0,0,0,0.58); letter-spacing:0.8px;">${formatDate(data.date)}</span>
                         </div>
-                        <div style="background:rgba(255,255,255,0.3); border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; color:rgba(0,0,0,0.45); letter-spacing:0.5px;">変更</div>
+                        <div style="background:${color}44; border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; color:rgba(0,0,0,0.4); letter-spacing:0.5px;">変更</div>
                     </div>`;
                 } else {
                     // 未登録 or 編集モード：日付入力UI
@@ -1694,7 +1692,8 @@ async function uploadImageDirect(file) {
 async function saveMemoryData() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
-    const files = document.getElementById('input-photos')?.files || [];
+    const photoInputEl = document.getElementById('input-photos');
+    const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
 
     let dateValue;
     if (fromEl) {
@@ -1726,7 +1725,7 @@ async function saveMemoryData() {
         // ③ 新規画像をSupabaseに直接並列アップロード
         let newUrls = [];
         if (files.length > 0) {
-            newUrls = await Promise.all(Array.from(files).map(f => uploadImageDirect(f)));
+            newUrls = await Promise.all(files.map(f => uploadImageDirect(f)));
         }
 
         const allUrls = [...existingUrls, ...newUrls];
@@ -1826,7 +1825,7 @@ function updateMapColors() {
         let isVisited = isHome;
         if (!isVisited && memory) {
             const photos = JSON.parse(memory.photo_urls || "[]");
-            if (memory.date || photos.length > 0) isVisited = true;
+            if (memory.date && photos.length > 0) isVisited = true;
         }
         layer.setStyle({
             fillColor: isVisited ? (getCurrentColors()[pref] || '#8ab4f8') : '#f4f7f6',
