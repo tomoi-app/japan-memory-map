@@ -1768,19 +1768,19 @@ async function saveMemoryData() {
         // ③ 新規画像をSupabaseに直接並列アップロード
         let newUrls = [];
         if (files.length > 0) {
-            const remaining = 100 - existingUrls.length;
+            const remaining = 2 - existingUrls.length;
             const filesToUpload = files.slice(0, Math.max(0, remaining));
             if (filesToUpload.length > 0) {
                 newUrls = await Promise.all(filesToUpload.map(f => uploadImageDirect(f)));
             }
         }
 
-        const allUrls = [...existingUrls, ...newUrls].slice(0, 100);
+        const allUrls = [...existingUrls, ...newUrls].slice(0, 2);
 
-        if (allUrls.length >= 100) {
+        if (allUrls.length >= 2) {
             if (statusEl) {
                 statusEl.style.color = '#e57373';
-                statusEl.innerText = '100枚保存されました。これ以上保存できません。ご要望はお問い合わせフォームかお気軽にご連絡ください。';
+                statusEl.innerText = '2枚保存されました。これ以上保存できません。ご要望はお問い合わせフォームかお気軽にご連絡ください。';
             }
         }
         const memoValue = document.getElementById('input-memo')?.value || '';
