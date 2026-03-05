@@ -1697,7 +1697,7 @@ function renderRightPanel() {
                             <span style="color:#aaa;">-</span>
                             <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                         </div>
-                        <button onclick="saveDateManual()" style="width:100%; padding:10px; background:#6c8ca3; color:white; border:none; border-radius:8px; font-size:14px; font-weight:bold; font-family:inherit; cursor:pointer;">保存</button>
+                        <button id="date-save-btn" onclick="saveDateManual()" style="width:100%; padding:10px; background:#ddd; color:#aaa; border:none; border-radius:8px; font-size:14px; font-weight:bold; font-family:inherit; cursor:not-allowed; transition: background 0.3s, transform 0.15s, box-shadow 0.3s;">保存</button>
                     </div>`;
                 }
             }
@@ -1761,7 +1761,28 @@ function renderRightPanel() {
         if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
 
         if (featureShowDate) {
-            // 日付は保存ボタンで手動保存するため自動保存しない
+            const fromInput = document.getElementById('input-date-from');
+            const toInput = document.getElementById('input-date-to');
+            const activateSaveBtn = () => {
+                const btn = document.getElementById('date-save-btn');
+                if (!btn) return;
+                const hasDate = (fromInput && fromInput.value) || (toInput && toInput.value);
+                if (hasDate) {
+                    btn.style.background = '#6c8ca3';
+                    btn.style.color = 'white';
+                    btn.style.cursor = 'pointer';
+                    btn.style.boxShadow = '0 4px 12px rgba(108,140,163,0.4)';
+                    btn.style.animation = 'date-btn-pulse 1.2s ease-in-out infinite';
+                } else {
+                    btn.style.background = '#ddd';
+                    btn.style.color = '#aaa';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.boxShadow = 'none';
+                    btn.style.animation = 'none';
+                }
+            };
+            if (fromInput) fromInput.addEventListener('change', activateSaveBtn);
+            if (toInput) toInput.addEventListener('change', activateSaveBtn);
         }
         if (featureShowMemo) {
             const memoInput = document.getElementById('input-memo');
