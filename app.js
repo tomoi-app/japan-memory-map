@@ -1145,7 +1145,14 @@ async function renderShareSettings() {
                 </div>
             `;
         } else {
-            document.getElementById('share-content-area').innerHTML = `<p style="color:#d32f2f; margin-top:20px;">リンクの発行に失敗しました。</p>`;
+            const errDetail = data.error || data.trace || JSON.stringify(data);
+            document.getElementById('share-content-area').innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:16px; text-align:left;">
+                    <p style="color:#d32f2f; margin-top:20px; font-weight:bold;">リンクの発行に失敗しました。</p>
+                    <div style="text-align:left; background:#f4f7f6; padding:12px; border-radius:8px; font-size:0.85rem; color:#555; word-break:break-all; margin-top:10px;">
+                        【エラー詳細】<br>${errDetail}
+                    </div>
+                </div>`;
         }
     } catch (e) {
         document.getElementById('share-content-area').innerHTML = `<p style="color:#d32f2f; margin-top:20px;">通信エラーが発生しました。</p>`;
