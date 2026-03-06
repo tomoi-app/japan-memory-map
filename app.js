@@ -126,6 +126,93 @@ let featureShowThumbnail = localStorage.getItem('featureShowThumbnail') !== 'fal
 let dateEditingMode = false; // 日付編集モードフラグ
 
 // ログイン ↔ サインアップ 切り替え
+// 長押し選択モード管理
+let bulkSelectMode = false;
+let bulkSelectedUrls = new Set();
+let longPressTimer = null;
+
+function handlePhotoClick(event, url, photos) {
+    if (bulkSelectMode) {
+        togglePhotoSelect(url);
+        return;
+    }
+    openSliderAt(url, photos);
+}
+
+function startLongPress(event, url, photos) {
+    longPressTimer = setTimeout(() => {
+        if (!bulkSelectMode) {
+            enterBulkSelectMode();
+        }
+        togglePhotoSelect(url);
+    }, 500);
+}
+
+function cancelLongPress() {
+    clearTimeout(longPressTimer);
+}
+
+function enterBulkSelectMode() {
+    bulkSelectMode = true;
+    bulkSelectedUrls = new Set();
+    const bar = document.getElementById('bulk-delete-bar');
+    if (bar) bar.style.display = 'flex';
+    // 既存の✕ボタンを非表示
+    document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
+}
+
+function cancelBulkSelect() {
+    bulkSelectMode = false;
+    bulkSelectedUrls = new Set();
+    const bar = document.getElementById('bulk-delete-bar');
+    if (bar) bar.style.display = 'none';
+    // チェックマークを非表示
+    document.querySelectorAll('.photo-check, #thumb-check').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(el => {
+        el.style.outline = '';
+        el.classList.remove('photo-selected');
+    });
+    // ✕ボタンを再表示
+    document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = '');
+}
+
+function togglePhotoSelect(url) {
+    if (bulkSelectedUrls.has(url)) {
+        bulkSelectedUrls.delete(url);
+    } else {
+        bulkSelectedUrls.add(url);
+    }
+    // 対応するDOMのチェックマークを更新
+    document.querySelectorAll('[data-url]').forEach(el => {
+        const elUrl = el.getAttribute('data-url');
+        if (elUrl === url) {
+            const check = el.querySelector('.photo-check') || document.getElementById('thumb-check');
+            const isSelected = bulkSelectedUrls.has(url);
+            if (check) check.style.display = isSelected ? 'flex' : 'none';
+            el.style.outline = isSelected ? '3px solid #d32f2f' : '';
+        }
+    });
+    const countEl = document.getElementById('bulk-select-count');
+    if (countEl) countEl.textContent = `${bulkSelectedUrls.size}枚選択中`;
+}
+
+async function deleteBulkSelected() {
+    if (bulkSelectedUrls.size === 0) return;
+    if (!confirm(`${bulkSelectedUrls.size}枚の写真を削除しますか？`)) return;
+    showLoading();
+    try {
+        for (const url of bulkSelectedUrls) {
+            await apiFetch({ method: 'POST', body: JSON.stringify({ action: 'delete_photo', prefecture: selectedPref, photo_url: url }) });
+        }
+        await fetchMemories(false);
+        cancelBulkSelect();
+    } catch(e) {
+        console.error('bulk delete error', e);
+    } finally {
+        hideLoading();
+    }
+}
+
 function showAuthPrivacyPopup() {
     const existing = document.getElementById('auth-privacy-popup');
     if (existing) existing.remove();
@@ -402,25 +489,12 @@ async function logout() {
 
 // ページ読み込み時にセッション確認
 window.addEventListener('load', async () => {
-    // 共有URLチェック（?share=userId）
+    // 共有URLチェック（?share=token）
     const urlParams = new URLSearchParams(window.location.search);
-    const shareId = urlParams.get('share');
-    if (shareId) {
-        // タイムスタンプチェック（1時間制限）
-        const ts = parseInt(urlParams.get('ts') || '0', 10);
-        const now = Date.now();
-        const ONE_HOUR = 60 * 60 * 1000;
-        if (ts && now - ts > ONE_HOUR) {
-            document.body.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:'Zen Kaku Gothic New',sans-serif;background:linear-gradient(135deg,#eef2f5,#dce6ee);gap:20px;padding:20px;box-sizing:border-box;">
-                <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="#6c8ca3" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <h2 style="margin:0;color:#444;font-size:1.5rem;text-align:center;">このリンクの有効期限が切れました</h2>
-                <p style="margin:0;color:#888;font-size:0.95rem;text-align:center;line-height:1.7;">共有リンクは発行から1時間有効です。<br>新しいリンクを発行してもらってください。</p>
-            </div>`;
-            return;
-        }
+    const shareToken = urlParams.get('share');
+    if (shareToken) {
         isShareMode = true;
-        shareUserId = shareId;
+        shareUserId = shareToken;
         initShareMode();
         return;
     }
@@ -495,7 +569,7 @@ async function initShareMode() {
     // 共有ユーザーのデータを取得
     showLoading();
     try {
-        const res = await fetch(`/api?share=${shareUserId}`);
+        const res = await fetch(`/api?share=${encodeURIComponent(shareUserId)}`);
         if (res.ok) {
             memoriesData = await res.json();
             // 共有モードでもhomePrefecturesを復元
@@ -789,6 +863,8 @@ function cleanupEmptyDate() {
 }
 
 function closePanel() {
+    bulkSelectMode = false;
+    bulkSelectedUrls = new Set();
     clearTimeout(autoSaveTimer);
     cleanupEmptyDate();
     dateEditingMode = false;
@@ -1122,8 +1198,6 @@ function renderShareSettings() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
 
-    const shareUrl = `${location.origin}${location.pathname}?share=${currentUser.id}&ts=${Date.now()}`;
-
     panel.innerHTML = `
     <div class="panel-header">
         <div class="panel-header-title-row">
@@ -1137,16 +1211,33 @@ function renderShareSettings() {
             <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0;">
                 URLを共有して あしあと を共有しよう。<br>（閲覧モードでは編集はできません。）
             </p>
-            <div style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#555; line-height:1.6;">
-                ${shareUrl}
+            <div id="share-url-display" style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#aaa; line-height:1.6;">
+                URLを生成中...
             </div>
-            <button onclick="copyShareUrl('${shareUrl}')"
-                style="padding:16px; background:#f4f7f6; color:#444; border:none; border-radius:12px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <button id="share-copy-btn" onclick="copyShareUrl(window._currentShareUrl)"
+                style="padding:16px; background:#eee; color:#aaa; border:none; border-radius:12px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:not-allowed; box-shadow:0 2px 8px rgba(0,0,0,0.05);" disabled>
                 URLをコピー
             </button>
             <div id="share-copy-msg" style="text-align:center; color:#5a8a6a; font-size:0.9rem; min-height:20px;"></div>
         </div>
     </div>`;
+
+    // generate_share_link APIを呼び出してトークンベースURLを生成
+    apiFetch({ method: 'POST', body: JSON.stringify({ action: 'generate_share_link' }) })
+        .then(res => res.json())
+        .then(data => {
+            const token = data.token;
+            const shareUrl = `${location.origin}${location.pathname}?share=${token}`;
+            window._currentShareUrl = shareUrl;
+            const display = document.getElementById('share-url-display');
+            if (display) { display.textContent = shareUrl; display.style.color = '#555'; }
+            const btn = document.getElementById('share-copy-btn');
+            if (btn) { btn.disabled = false; btn.style.background = '#f4f7f6'; btn.style.color = '#444'; btn.style.cursor = 'pointer'; }
+        })
+        .catch(() => {
+            const display = document.getElementById('share-url-display');
+            if (display) display.textContent = 'URL生成に失敗しました。再度お試しください。';
+        });
 }
 
 function copyShareUrl(url) {
@@ -1724,14 +1815,29 @@ function renderRightPanel() {
         if (photos.length > 0) {
             const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
 
+            // 一括削除バーは非選択モード時は非表示
+            if (!isShareMode) {
+                contentHtml += `
+                <div id="bulk-delete-bar" style="display:none; align-items:center; justify-content:space-between; background:#fff0f0; border-radius:10px; padding:10px 14px; margin-top:10px;">
+                    <span id="bulk-select-count" style="font-size:0.9rem; color:#d32f2f; font-weight:bold;">0枚選択中</span>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#eee; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
+                        <button onclick="deleteBulkSelected()" style="padding:6px 14px; border:none; border-radius:8px; background:#d32f2f; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">削除</button>
+                    </div>
+                </div>`;
+            }
+
             // サムネイル：先頭1枚を大きく表示
             if (featureShowThumbnail) {
                 const thumbUrl = photos[0];
                 const thumbDeleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${thumbUrl}')" style="top:10px; right:10px; width:32px; height:32px; font-size:15px;">✕</button>`;
+                const escapedThumb = thumbUrl.replace(/'/g, "\'");
                 contentHtml += `
-                <div style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
-                    onclick="openSliderAt('${thumbUrl}', ${escapedPhotos})">
+                <div id="thumb-wrap" data-url="${thumbUrl}" style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
+                    onclick="handlePhotoClick(event, '${escapedThumb}', ${escapedPhotos})"
+                    oncontextmenu="event.preventDefault();">
                     <img src="${thumbUrl}" style="width:100%; height:280px; object-fit:cover; display:block;" loading="lazy">
+                    <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
                     ${thumbDeleteBtn}
                 </div>`;
             }
@@ -1740,9 +1846,16 @@ function renderRightPanel() {
             const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
             if (gridPhotos.length > 0) {
                 contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
-                gridPhotos.forEach(url => {
-                    const deleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${url}')">✕</button>`;
-                    contentHtml += `<div class="photo-grid-item" onclick="openSliderAt('${url}', ${escapedPhotos})"><img src="${url}" loading="lazy">${deleteBtn}</div>`;
+                gridPhotos.forEach((url, idx) => {
+                    const escapedUrl = url.replace(/'/g, "\'");
+                    const deleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${escapedUrl}')">✕</button>`;
+                    contentHtml += `<div class="photo-grid-item" data-url="${url}"
+                        onclick="handlePhotoClick(event, '${escapedUrl}', ${escapedPhotos})"
+                        oncontextmenu="event.preventDefault();">
+                        <img src="${url}" loading="lazy">
+                        <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
+                        ${deleteBtn}
+                    </div>`;
                 });
                 contentHtml += `</div>`;
             }
@@ -1764,6 +1877,28 @@ function renderRightPanel() {
         if (!isShareMode) {
         const photoInput = document.getElementById('input-photos');
         if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
+
+        // 写真の長押し選択イベント
+        document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(el => {
+            const url = el.getAttribute('data-url');
+            if (!url) return;
+            el.addEventListener('touchstart', (e) => {
+                longPressTimer = setTimeout(() => {
+                    if (!bulkSelectMode) enterBulkSelectMode();
+                    togglePhotoSelect(url);
+                }, 500);
+            }, { passive: true });
+            el.addEventListener('touchend', () => clearTimeout(longPressTimer), { passive: true });
+            el.addEventListener('touchmove', () => clearTimeout(longPressTimer), { passive: true });
+            el.addEventListener('mousedown', () => {
+                longPressTimer = setTimeout(() => {
+                    if (!bulkSelectMode) enterBulkSelectMode();
+                    togglePhotoSelect(url);
+                }, 500);
+            });
+            el.addEventListener('mouseup', () => clearTimeout(longPressTimer));
+            el.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+        });
 
         if (featureShowDate) {
             const fromInput = document.getElementById('input-date-from');
