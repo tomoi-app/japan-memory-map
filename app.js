@@ -342,13 +342,18 @@ function enterBulkSelectMode() {
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
-    // 写真を小さく・3列に・スクロール無効
+    // 写真を小さく・3列に・両端余白を広く
     const grid = document.querySelector('.photo-grid');
     if (grid) {
         grid.style.transition = 'all 0.25s ease';
         grid.style.gridTemplateColumns = '1fr 1fr 1fr';
         grid.style.gap = '6px';
-        grid.style.touchAction = 'none';
+        grid.style.padding = '0 20px';
+        // グリッド部分のスクロールをブロック
+        if (!grid._scrollBlock) {
+            grid._scrollBlock = (e) => { if (bulkSelectMode) e.preventDefault(); };
+            grid.addEventListener('touchmove', grid._scrollBlock, { passive: false });
+        }
     }
     document.querySelectorAll('.photo-grid-item img').forEach(img => {
         img.style.transition = 'height 0.25s ease';
@@ -360,7 +365,13 @@ function enterBulkSelectMode() {
         thumb.style.height = '120px';
     }
     const thumbWrap = document.getElementById('thumb-wrap');
-    if (thumbWrap) thumbWrap.style.touchAction = 'none';
+    if (thumbWrap) {
+        thumbWrap.style.margin = '0 20px';
+        if (!thumbWrap._scrollBlock) {
+            thumbWrap._scrollBlock = (e) => { if (bulkSelectMode) e.preventDefault(); };
+            thumbWrap.addEventListener('touchmove', thumbWrap._scrollBlock, { passive: false });
+        }
+    }
 }
 
 function cancelBulkSelect() {
@@ -376,12 +387,12 @@ function cancelBulkSelect() {
     const icon = document.getElementById('select-btn-icon');
     if (icon) icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = '');
-    // 写真を元のサイズ・2列に戻す・スクロール有効
+    // 写真を元のサイズ・2列に戻す
     const grid = document.querySelector('.photo-grid');
     if (grid) {
         grid.style.gridTemplateColumns = '1fr 1fr';
         grid.style.gap = '12px';
-        grid.style.touchAction = '';
+        grid.style.padding = '';
     }
     document.querySelectorAll('.photo-grid-item img').forEach(img => {
         img.style.transition = 'height 0.25s ease';
@@ -393,7 +404,7 @@ function cancelBulkSelect() {
         thumb.style.height = '280px';
     }
     const thumbWrap = document.getElementById('thumb-wrap');
-    if (thumbWrap) thumbWrap.style.touchAction = '';
+    if (thumbWrap) thumbWrap.style.margin = '';
 }
 
 function togglePhotoSelect(url, forceState) {
