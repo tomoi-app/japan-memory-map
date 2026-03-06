@@ -245,26 +245,29 @@ function initPhotoDragSort() {
     }, { passive: true });
 
     panelContent.addEventListener('touchmove', (e) => {
-        if (!bulkSelectMode || !selectStarted) return;
-        e.preventDefault();
+        if (!bulkSelectMode) return;
+
         const touch = e.touches[0];
+        // 指が写真エリア上にあるかチェック
+        const elUnder = document.elementFromPoint(touch.clientX, touch.clientY);
+        const onPhoto = elUnder && (
+            elUnder.closest('.photo-grid') ||
+            elUnder.closest('#thumb-wrap')
+        );
 
-        // 手動スクロール（指の動きに合わせてパネルをスクロール）
-        if (panelContent._lastY != null) {
-            const dy = touch.clientY - panelContent._lastY;
-            panelContent.scrollTop -= dy;
+        if (onPhoto) {
+            // 写真エリア上はスクロール完全ブロック
+            e.preventDefault();
+            if (!selectStarted) return;
+            const item = elUnder.closest('.photo-grid-item, #thumb-wrap');
+            if (!item) return;
+            const u = item.getAttribute('data-url');
+            if (u && !slideTouched.has(u)) {
+                slideTouched.add(u);
+                togglePhotoSelect(u, selectDirection);
+            }
         }
-        panelContent._lastY = touch.clientY;
-
-        // 写真選択
-        const el = document.elementFromPoint(touch.clientX, touch.clientY);
-        const item = el && el.closest('.photo-grid-item, #thumb-wrap');
-        if (!item) return;
-        const u = item.getAttribute('data-url');
-        if (u && !slideTouched.has(u)) {
-            slideTouched.add(u);
-            togglePhotoSelect(u, selectDirection);
-        }
+        // 写真エリア外はスクロール許可（preventDefaultしない）
     }, { passive: false });
 
     panelContent.addEventListener('touchend', () => {
@@ -279,6 +282,15 @@ function initPhotoDragSort() {
         slideTouched = new Set();
         selectStarted = false;
     }, { passive: true });
+
+    // PC用マウスクリックで選択
+    panelContent.addEventListener('click', (e) => {
+        if (!bulkSelectMode) return;
+        const item = e.target.closest('.photo-grid-item, #thumb-wrap');
+        if (!item) return;
+        const u = item.getAttribute('data-url');
+        if (u) togglePhotoSelect(u);
+    });
 }
 
 function getDropTarget(clientX, clientY, exclude) {
@@ -348,12 +360,8 @@ function enterBulkSelectMode() {
         grid.style.transition = 'all 0.25s ease';
         grid.style.gridTemplateColumns = '1fr 1fr 1fr';
         grid.style.gap = '6px';
-        grid.style.padding = '0 20px';
-        // グリッド部分のスクロールをブロック
-        if (!grid._scrollBlock) {
-            grid._scrollBlock = (e) => { if (bulkSelectMode) e.preventDefault(); };
-            grid.addEventListener('touchmove', grid._scrollBlock, { passive: false });
-        }
+        grid.style.padding = '0 70px 0 20px';
+
     }
     document.querySelectorAll('.photo-grid-item img').forEach(img => {
         img.style.transition = 'height 0.25s ease';
@@ -366,11 +374,7 @@ function enterBulkSelectMode() {
     }
     const thumbWrap = document.getElementById('thumb-wrap');
     if (thumbWrap) {
-        thumbWrap.style.margin = '0 20px';
-        if (!thumbWrap._scrollBlock) {
-            thumbWrap._scrollBlock = (e) => { if (bulkSelectMode) e.preventDefault(); };
-            thumbWrap.addEventListener('touchmove', thumbWrap._scrollBlock, { passive: false });
-        }
+        thumbWrap.style.margin = '0 70px 0 20px';
     }
 }
 
