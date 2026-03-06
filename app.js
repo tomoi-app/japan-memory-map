@@ -1113,6 +1113,7 @@ function closePanel() {
 }
 
 function backToList() {
+    cancelBulkSelect();
     clearTimeout(autoSaveTimer);
     cleanupEmptyDate();
     dateEditingMode = false;
@@ -1917,6 +1918,7 @@ function formatDate(dateStr) {
 }
 
 function renderRightPanel() {
+    cancelBulkSelect();
     const panel = document.getElementById('right-panel');
     const prefOrder = Object.keys(MAP_THEMES.default.colors);
     panel.style.backgroundColor = '#ffffff';
