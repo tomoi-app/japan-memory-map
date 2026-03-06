@@ -240,12 +240,23 @@ function initPhotoDragSort() {
         selectDirection = !bulkSelectedUrls.has(u);
         slideTouched = new Set([u]);
         selectStarted = true;
+        panelContent._lastY = e.touches[0].clientY;
         togglePhotoSelect(u, selectDirection);
     }, { passive: true });
 
     panelContent.addEventListener('touchmove', (e) => {
         if (!bulkSelectMode || !selectStarted) return;
+        e.preventDefault();
         const touch = e.touches[0];
+
+        // 手動スクロール（指の動きに合わせてパネルをスクロール）
+        if (panelContent._lastY != null) {
+            const dy = touch.clientY - panelContent._lastY;
+            panelContent.scrollTop -= dy;
+        }
+        panelContent._lastY = touch.clientY;
+
+        // 写真選択
         const el = document.elementFromPoint(touch.clientX, touch.clientY);
         const item = el && el.closest('.photo-grid-item, #thumb-wrap');
         if (!item) return;
@@ -254,10 +265,10 @@ function initPhotoDragSort() {
             slideTouched.add(u);
             togglePhotoSelect(u, selectDirection);
         }
-        // スクロールは妨げない（passive:true）
-    }, { passive: true });
+    }, { passive: false });
 
     panelContent.addEventListener('touchend', () => {
+        panelContent._lastY = null;
         selectDirection = null;
         slideTouched = new Set();
         selectStarted = false;
