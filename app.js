@@ -281,6 +281,7 @@ let featureShowMemo = localStorage.getItem('featureShowMemo') === 'true';
 let featureShowThumbnail = localStorage.getItem('featureShowThumbnail') !== 'false'; // デフォルトON
 let dateEditingMode = false; // 日付編集モードフラグ
 
+// ログイン ↔ サインアップ 切り替え
 // 長押し選択モード管理
 let bulkSelectMode = false;
 let bulkSelectedUrls = new Set();
@@ -288,11 +289,8 @@ let longPressTimer = null;
 window._isSwipeSelecting = false;
 
 function handlePhotoClick(event, idOrUrl, photos) {
-    if (bulkSelectMode) {
-        if (window._isSwipeSelecting) return; // スワイプ直後のタップ判定を無視
-        togglePhotoSelect(idOrUrl);
-        return;
-    }
+    // 選択モード中は touchend にて判定するため、クリックイベントは何もしない
+    if (bulkSelectMode) return;
     openSliderAt(idOrUrl, photos);
 }
 
@@ -337,10 +335,10 @@ function initPhotoDragSort() {
                 ghostOffsetX = e.touches[0].clientX - rect.left;
                 ghostOffsetY = e.touches[0].clientY - rect.top;
                 dragGhost = el.cloneNode(true);
-                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.85;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);transform:scale(1.05);transition:none;`;
+                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.9;pointer-events:none;z-index:9999;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.4);transform:scale(1.08);transition:transform 0.15s ease-out;`;
                 document.body.appendChild(dragGhost);
                 navigator.vibrate && navigator.vibrate(30);
-            }, 300); // 長押し時間を短縮してレスポンス良く
+            }, 300); // 長押しで浮き上がり
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
@@ -349,13 +347,23 @@ function initPhotoDragSort() {
             const dy = Math.abs(e.touches[0].clientY - startY);
             if (!isDragging && (dx > 8 || dy > 8)) clearTimeout(pressTimer);
             if (!isDragging || !dragGhost) return;
-            e.preventDefault(); // ドラッグ中のみスクロールを止める
+            e.preventDefault();
             const touch = e.touches[0];
             dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
             dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+            
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
+                if (t !== dragSrc) {
+                    t.style.transform = '';
+                    t.style.opacity = '1';
+                }
+            });
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
-            if (target) target.style.outline = '2px solid #6c8ca3';
+            if (target) {
+                target.style.transform = 'scale(0.92)';
+                target.style.opacity = '0.8';
+                target.style.transition = 'transform 0.15s ease, opacity 0.15s ease';
+            }
         }, { passive: false });
 
         el.addEventListener('touchend', async (e) => {
@@ -363,9 +371,15 @@ function initPhotoDragSort() {
             clearTimeout(pressTimer);
             if (!isDragging) return;
             isDragging = false;
-            el.style.opacity = '';
+            
+            el.style.opacity = '1';
+            el.style.transform = '';
             if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
+                t.style.transform = '';
+                t.style.opacity = '1';
+            });
+            
             const touch = e.changedTouches[0];
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
             if (target && target !== dragSrc) {
@@ -378,9 +392,13 @@ function initPhotoDragSort() {
             if (bulkSelectMode) return;
             clearTimeout(pressTimer);
             isDragging = false;
-            el.style.opacity = '';
+            el.style.opacity = '1';
+            el.style.transform = '';
             if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
+                t.style.transform = '';
+                t.style.opacity = '1';
+            });
             dragSrc = null;
         }, { passive: true });
     });
@@ -415,13 +433,11 @@ function initPhotoDragSort() {
 
     panelContent.addEventListener('touchmove', (e) => {
         if (!bulkSelectMode || !selectStarted) return;
-        
         const touch = e.touches[0];
         
         if (!window._isSwipeSelecting) {
             const dx = Math.abs(touch.clientX - startX);
             const dy = Math.abs(touch.clientY - startY);
-            // 一定以上動いたらスワイプ選択とみなす
             if (dx > 5 || dy > 5) {
                 window._isSwipeSelecting = true;
                 if (initialTouchUrl && !slideTouched.has(initialTouchUrl)) {
@@ -447,6 +463,10 @@ function initPhotoDragSort() {
     }, { passive: false });
 
     panelContent.addEventListener('touchend', () => {
+        if (selectStarted && !window._isSwipeSelecting && initialTouchUrl) {
+            // スワイプされなかった場合は単発タップとみなしてトグル
+            togglePhotoSelect(initialTouchUrl);
+        }
         selectStarted = false;
         initialTouchUrl = null;
         slideTouched.clear();
@@ -509,42 +529,6 @@ function toggleSelectOrDelete() {
     }
 }
 
-function selectAllPhotos() {
-    const data = memoriesData.find(m => m.prefecture === selectedPref);
-    if (!data) return;
-    let photos = JSON.parse(data.photo_urls || '[]');
-    
-    if (bulkSelectedUrls.size === photos.length) {
-        bulkSelectedUrls.clear();
-    } else {
-        photos.forEach(p => {
-            const idOrUrl = typeof p === 'string' ? p : p.id;
-            bulkSelectedUrls.add(idOrUrl);
-        });
-    }
-    
-    document.querySelectorAll('[data-url]').forEach(el => {
-        const elUrl = el.getAttribute('data-url');
-        const check = el.querySelector('.photo-check') || document.getElementById('thumb-check');
-        const isSelected = bulkSelectedUrls.has(elUrl);
-        if (check) check.style.display = isSelected ? 'flex' : 'none';
-        el.style.outline = isSelected ? '3px solid #d32f2f' : '';
-    });
-    
-    const countEl = document.getElementById('bulk-select-count');
-    if (countEl) countEl.textContent = `${bulkSelectedUrls.size}枚選択中`;
-    
-    const icon = document.getElementById('select-btn-icon');
-    if (icon) {
-        if (bulkSelectedUrls.size > 0) {
-            icon.innerHTML = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>';
-        } else {
-            icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
-        }
-    }
-    updateDownloadBtn();
-}
-
 function enterBulkSelectMode() {
     bulkSelectMode = true;
     bulkSelectedUrls = new Set();
@@ -584,10 +568,7 @@ function cancelBulkSelect() {
     if (bar) bar.style.display = 'none';
     
     // ダウンロードボタンを＋ボタンに戻す
-    const addBtn = document.getElementById('add-photo-btn');
-    if (addBtn) addBtn.style.display = 'flex';
-    const dlBtn = document.getElementById('download-photo-btn');
-    if (dlBtn) dlBtn.style.display = 'none';
+    updateDownloadBtn();
 
     document.querySelectorAll('.photo-check, #thumb-check').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(el => {
@@ -705,8 +686,9 @@ async function deleteBulkSelected() {
     // バックグラウンド化のためUIを即時更新
     const urlsToDelete = Array.from(bulkSelectedUrls);
     const deleteCount = urlsToDelete.length;
+    const targetPref = selectedPref;
     
-    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    const data = memoriesData.find(m => m.prefecture === targetPref);
     let photosToSave = [];
     if (data) {
         let photos = JSON.parse(data.photo_urls || '[]');
@@ -719,7 +701,7 @@ async function deleteBulkSelected() {
     renderRightPanel();
     updateCounter();
 
-    showSaveProgress(deleteCount, '処理中...');
+    showSaveProgress(deleteCount, '削除中...');
 
     globalSaveQueue = globalSaveQueue.then(async () => {
         let count = 0;
@@ -727,19 +709,9 @@ async function deleteBulkSelected() {
             if (!urlOrId.startsWith('http')) {
                 await deletePhotoFromIDB(urlOrId);
             }
+            await apiFetch({ method: 'POST', body: JSON.stringify({ action: 'delete_photo', prefecture: targetPref, photo_url: urlOrId }) });
             count++;
-            updateSaveProgress(count, deleteCount, '処理中...');
-        }
-        
-        // 削除後にSupabaseのDBを一括更新
-        if (data) {
-            await apiFetch({ method: 'POST', body: JSON.stringify({
-                action: 'save_memory',
-                prefecture: selectedPref,
-                date: data.date || '',
-                memo: data.memo || '',
-                existing_urls: photosToSave
-            })});
+            updateSaveProgress(count, deleteCount, '削除中...');
         }
         
         await fetchMemories(false);
@@ -831,7 +803,7 @@ async function sendResetEmail(email) {
 
     submitBtn.disabled = true;
     submitBtn.textContent = '送信中...';
-    showLoading();
+    showLoading('送信中...');
 
     try {
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
@@ -897,7 +869,7 @@ async function handleAuth() {
 
     submitBtn.disabled = true;
     submitBtn.textContent = '処理中...';
-    showLoading();
+    showLoading('認証中...');
 
     try {
         let result;
@@ -1093,12 +1065,11 @@ async function initShareMode() {
             map.fitBounds(initialBounds);
         });
 
-    const dataPromise = fetch(`/api?share=${encodeURIComponent(shareUserId)}`)
-        .then(res => {
-            if (!res.ok) throw new Error('Share link error');
-            return res.json();
-        })
-        .then(data => {
+    showLoading();
+    try {
+        const res = await fetch(`/api?share=${encodeURIComponent(shareUserId)}`);
+        if (res.ok) {
+            const data = await res.json();
             if (data.memories) {
                 memoriesData = data.memories;
                 shareSettings = data.settings;
@@ -1109,17 +1080,15 @@ async function initShareMode() {
             homePrefectures = memoriesData
                 .filter(m => m.is_home === true)
                 .map(m => m.prefecture);
-        });
-
-    try {
-        await Promise.all([mapPromise, dataPromise]);
+        }
     } catch(e) {
         console.error('Share load error', e);
     } finally {
-        updateMapColors();
-        updateCounter();
         hideLoading();
     }
+
+    updateMapColors();
+    updateCounter();
 
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) settingsBtn.style.display = 'none';
@@ -1340,6 +1309,7 @@ async function initApp() {
         }
     }
     
+    window.updateSettingsBadge = updateSettingsBadge;
     updateSettingsBadge();
 
     settingsBtnEl.onclick = () => {
@@ -1361,22 +1331,23 @@ async function initApp() {
 
 function showLoading(msg = null) {
     let overlay = document.getElementById('loading-overlay');
-    if (!overlay) {
+    
+    if (overlay) {
+        // HTMLに直書きされている不要な「処理中」テキストなどを完全に消去する
+        overlay.innerHTML = '';
+    } else {
         overlay = document.createElement('div');
         overlay.id = 'loading-overlay';
         overlay.className = 'hidden';
-        overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(3px);';
         document.body.appendChild(overlay);
     }
-    overlay.classList.remove('hidden');
     
-    let textEl = document.getElementById('loading-text');
-    if (!textEl) {
-        textEl = document.createElement('div');
-        textEl.id = 'loading-text';
-        textEl.style.cssText = 'color:#6c8ca3; font-weight:bold; margin-top:16px; font-size:1.1rem; letter-spacing:2px; font-family:"Zen Kaku Gothic New", sans-serif;';
-        overlay.appendChild(textEl);
-    }
+    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(3px);';
+    
+    let textEl = document.createElement('div');
+    textEl.id = 'loading-text';
+    textEl.style.cssText = 'color:#6c8ca3; font-weight:bold; margin-top:16px; font-size:1.1rem; letter-spacing:2px; font-family:"Zen Kaku Gothic New", sans-serif;';
+    overlay.appendChild(textEl);
     
     if (msg) {
         textEl.textContent = msg;
@@ -1384,11 +1355,17 @@ function showLoading(msg = null) {
     } else {
         textEl.style.display = 'none';
     }
+    
+    overlay.classList.remove('hidden');
+    overlay.style.display = 'flex';
 }
 
 function hideLoading() {
     const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.add('hidden');
+    if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.style.display = 'none';
+    }
 }
 
 // =============================================
@@ -1398,7 +1375,7 @@ function initProgressToast() {
     if (!document.getElementById('save-progress-toast')) {
         const toast = document.createElement('div');
         toast.id = 'save-progress-toast';
-        toast.style.cssText = 'position:fixed; bottom:-100px; left:20px; width:auto; min-width:200px; background:rgba(255,255,255,0.9); border-radius:30px; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:8px 16px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:4px; pointer-events:none; border:1px solid rgba(0,0,0,0.05);';
+        toast.style.cssText = 'position:fixed; bottom:-100px; left:25px; width:auto; min-width:200px; background:rgba(255,255,255,0.9); border-radius:30px; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:8px 16px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:4px; pointer-events:none; border:1px solid rgba(0,0,0,0.05);';
         toast.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:#555; font-weight:bold; font-family:inherit; gap:16px;">
                 <span id="save-progress-label">準備中...</span>
@@ -1537,6 +1514,10 @@ function renderSettingsMenu() {
         </div>
     </div>`;
     
+    const unreadCount = getUnreadCount();
+    const badgeHtml = unreadCount > 0 ? `<div style="position:absolute; top:12px; right:12px; width:12px; height:12px; background:#ffca28; border:2px solid #6c8ca3; border-radius:50%;"></div>` : '';
+    const mailSvg = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
+    
     const btnS = `text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
     <div class="panel-content" style="position: relative;">
@@ -1560,18 +1541,17 @@ function renderSettingsMenu() {
                 アカウント
             </button>
         </div>
+        <button onclick="toggleAdminMessages()" title="お知らせ"
+            style="position:fixed; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10000;">
+            ${mailSvg}
+            ${badgeHtml}
+        </button>
     </div>`;
     
-    let floatingBtnHtml = `
-        <button id="admin-msg-btn" onclick="toggleAdminMessages()" title="お知らせ"
-            style="position:fixed; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10000;">
-        </button>
-    `;
-    
-    panel.innerHTML = headerHtml + contentHtml + floatingBtnHtml;
-    if(window.updateSettingsBadge) window.updateSettingsBadge();
+    panel.innerHTML = headerHtml + contentHtml;
 }
 
+// ── 新規：お知らせ（メール）画面のレンダリング ──
 function renderAdminMessages() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
@@ -1618,9 +1598,16 @@ function renderAdminMessages() {
 
     contentHtml += `</div></div>`;
     
+    // スクロールしても固定されるお知らせ（戻る）ボタン
+    const mailSvg = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
+    const unreadCount = getUnreadCount();
+    const badgeHtml = unreadCount > 0 ? `<div style="position:absolute; top:12px; right:12px; width:12px; height:12px; background:#ffca28; border:2px solid #6c8ca3; border-radius:50%;"></div>` : '';
+
     let floatingBtnHtml = `
-        <button id="admin-msg-btn" onclick="toggleAdminMessages()" title="お知らせ"
+        <button id="admin-msg-btn" onclick="toggleAdminMessages()" title="設定に戻る"
             style="position:fixed; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10000;">
+            ${mailSvg}
+            ${badgeHtml}
         </button>
     `;
     
@@ -2591,6 +2578,7 @@ function renderRightPanel() {
                         <div style="display:flex; gap:8px;">
                             <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#ddd; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
                             <button onclick="selectAllPhotos()" style="padding:6px 14px; border:none; border-radius:8px; background:#6c8ca3; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">すべて選択</button>
+                            <button onclick="deleteBulkSelected()" style="padding:6px 14px; border:none; border-radius:8px; background:#d32f2f; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">削除</button>
                         </div>
                     </div>`;
                 }
