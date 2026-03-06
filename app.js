@@ -92,6 +92,12 @@ async function getAllPhotosFromIDB() {
 // =============================================
 const ADMIN_MESSAGES = [
     {
+        id: 'v2.0.2',
+        date: '2026.03.06',
+        title: 'version_2.0.2 アップデート',
+        content: '・写真の入れ替え（ドラッグ＆ドロップ）をより直感的に操作できるようにしました。\n・写真を追加・削除した際の処理中画面をなくし、裏側で保存するようにしたため、すぐに次の操作ができるようになりました。\n・選択モード時に「すべて選択」ボタンを追加しました。'
+    },
+    {
         id: 'v2.0.0',
         date: '2026.03.06',
         title: 'version_2.0.0 アップデート',
@@ -301,15 +307,19 @@ function initPhotoDragSort() {
             pressTimer = setTimeout(() => {
                 isDragging = true;
                 dragSrc = el;
-                el.style.opacity = '0.4';
+                // iPhoneライクな浮き上がりアニメーション
+                el.style.opacity = '0.3';
+                el.style.transform = 'scale(0.95)';
+                el.style.transition = 'transform 0.2s, opacity 0.2s';
+                
                 const rect = el.getBoundingClientRect();
                 ghostOffsetX = e.touches[0].clientX - rect.left;
                 ghostOffsetY = e.touches[0].clientY - rect.top;
                 dragGhost = el.cloneNode(true);
-                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.85;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);transform:scale(1.05);transition:none;`;
+                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.9;pointer-events:none;z-index:9999;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.4);transform:scale(1.08);transition:transform 0.15s ease-out;`;
                 document.body.appendChild(dragGhost);
                 navigator.vibrate && navigator.vibrate(30);
-            }, 400);
+            }, 300); // 400から300に短縮してよりレスポンシブに
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
@@ -322,9 +332,20 @@ function initPhotoDragSort() {
             const touch = e.touches[0];
             dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
             dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+            
+            // ドラッグ中のターゲット視覚効果
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
+                if (t !== dragSrc) {
+                    t.style.transform = '';
+                    t.style.opacity = '1';
+                }
+            });
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
-            if (target) target.style.outline = '2px solid #6c8ca3';
+            if (target) {
+                target.style.transform = 'scale(0.92)'; // 少し縮んで隙間ができるような錯覚
+                target.style.opacity = '0.8';
+                target.style.transition = 'transform 0.15s ease, opacity 0.15s ease';
+            }
         }, { passive: false });
 
         el.addEventListener('touchend', async (e) => {
@@ -332,9 +353,16 @@ function initPhotoDragSort() {
             clearTimeout(pressTimer);
             if (!isDragging) return;
             isDragging = false;
-            el.style.opacity = '';
+            
+            // スタイルリセット
+            el.style.opacity = '1';
+            el.style.transform = '';
             if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
+                t.style.transform = '';
+                t.style.opacity = '1';
+            });
+            
             const touch = e.changedTouches[0];
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
             if (target && target !== dragSrc) {
@@ -347,9 +375,13 @@ function initPhotoDragSort() {
             if (bulkSelectMode) return;
             clearTimeout(pressTimer);
             isDragging = false;
-            el.style.opacity = '';
+            el.style.opacity = '1';
+            el.style.transform = '';
             if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
+                t.style.transform = '';
+                t.style.opacity = '1';
+            });
             dragSrc = null;
         }, { passive: true });
     });
@@ -435,9 +467,12 @@ async function reorderPhotos(srcId, targetId) {
 
     const [removed] = photos.splice(srcIdx, 1);
     photos.splice(tgtIdx, 0, removed);
+    data.photo_urls = JSON.stringify(photos);
 
-    showLoading();
-    try {
+    // UIを即座に更新（バックグラウンドで保存）
+    renderRightPanel();
+
+    globalSaveQueue = globalSaveQueue.then(async () => {
         await apiFetch({ method: 'POST', body: JSON.stringify({
             action: 'save_memory',
             prefecture: selectedPref,
@@ -446,12 +481,7 @@ async function reorderPhotos(srcId, targetId) {
             existing_urls: photos
         })});
         await fetchMemories(false);
-        renderRightPanel();
-    } catch(e) {
-        console.error('reorder error', e);
-    } finally {
-        hideLoading();
-    }
+    }).catch(e => console.error('reorder error', e));
 }
 
 function toggleSelectOrDelete() {
@@ -463,6 +493,41 @@ function toggleSelectOrDelete() {
         }
     } else {
         enterBulkSelectMode();
+    }
+}
+
+function selectAllPhotos() {
+    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    if (!data) return;
+    let photos = JSON.parse(data.photo_urls || '[]');
+    
+    if (bulkSelectedUrls.size === photos.length) {
+        bulkSelectedUrls.clear();
+    } else {
+        photos.forEach(p => {
+            const idOrUrl = typeof p === 'string' ? p : p.id;
+            bulkSelectedUrls.add(idOrUrl);
+        });
+    }
+    
+    document.querySelectorAll('[data-url]').forEach(el => {
+        const elUrl = el.getAttribute('data-url');
+        const check = el.querySelector('.photo-check') || document.getElementById('thumb-check');
+        const isSelected = bulkSelectedUrls.has(elUrl);
+        if (check) check.style.display = isSelected ? 'flex' : 'none';
+        el.style.outline = isSelected ? '3px solid #d32f2f' : '';
+    });
+    
+    const countEl = document.getElementById('bulk-select-count');
+    if (countEl) countEl.textContent = `${bulkSelectedUrls.size}枚選択中`;
+    
+    const icon = document.getElementById('select-btn-icon');
+    if (icon) {
+        if (bulkSelectedUrls.size > 0) {
+            icon.innerHTML = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>';
+        } else {
+            icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+        }
     }
 }
 
@@ -562,22 +627,29 @@ function togglePhotoSelect(url, forceState = null) {
 async function deleteBulkSelected() {
     if (bulkSelectedUrls.size === 0) return;
     if (!confirm(`${bulkSelectedUrls.size}枚の写真を削除しますか？`)) return;
-    showLoading();
-    try {
-        for (const urlOrId of bulkSelectedUrls) {
+    
+    // バックグラウンド化のためUIを即時更新
+    const urlsToDelete = Array.from(bulkSelectedUrls);
+    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    if (data) {
+        let photos = JSON.parse(data.photo_urls || '[]');
+        photos = photos.filter(p => !bulkSelectedUrls.has(typeof p === 'string' ? p : p.id));
+        data.photo_urls = JSON.stringify(photos);
+    }
+    
+    cancelBulkSelect();
+    renderRightPanel();
+    updateCounter();
+
+    globalSaveQueue = globalSaveQueue.then(async () => {
+        for (const urlOrId of urlsToDelete) {
             if (!urlOrId.startsWith('http')) {
                 await deletePhotoFromIDB(urlOrId);
             }
             await apiFetch({ method: 'POST', body: JSON.stringify({ action: 'delete_photo', prefecture: selectedPref, photo_url: urlOrId }) });
         }
-        cancelBulkSelect();
         await fetchMemories(false);
-        renderRightPanel();
-    } catch(e) {
-        console.error('bulk delete error', e);
-    } finally {
-        hideLoading();
-    }
+    }).catch(e => console.error('bulk delete error', e));
 }
 
 function showAuthPrivacyPopup() {
@@ -818,7 +890,6 @@ function startApp(session) {
     initApp();
     updateUIVisibility();
     
-    // チュートリアルが完了している場合のみ起動時にポップアップを出す
     if (localStorage.getItem('tutorialDone')) {
         showUpdatePopup();
     }
@@ -1144,7 +1215,6 @@ function initApp() {
         }
     }
     
-    // 定期的にバッジを更新するためのメソッドをグローバルに
     window.updateSettingsBadge = updateSettingsBadge;
     updateSettingsBadge();
 
@@ -1325,8 +1395,8 @@ function renderSettingsMenu() {
     
     const btnS = `text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
-    <div class="panel-content">
-        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px; padding-bottom: 20px;">
+    <div class="panel-content" style="position: relative;">
+        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px; padding-bottom: 80px;">
             <button onclick="renderFeatureThemeSettings()" style="${btnS}">
                 テーマ・機能の変更
             </button>
@@ -1346,17 +1416,14 @@ function renderSettingsMenu() {
                 アカウント
             </button>
         </div>
-    </div>`;
-    
-    let floatingBtnHtml = `
         <button onclick="renderAdminMessages()" title="お知らせ"
             style="position:absolute; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
             ${mailSvg}
             ${badgeHtml}
         </button>
-    `;
+    </div>`;
     
-    panel.innerHTML = headerHtml + contentHtml + floatingBtnHtml;
+    panel.innerHTML = headerHtml + contentHtml;
 }
 
 // ── 新規：お知らせ（メール）画面のレンダリング ──
@@ -1540,7 +1607,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.0.1</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.0.2</p>
         </div>
     </div>`;
 
@@ -2074,7 +2141,7 @@ async function exportData() {
     try {
         const idbPhotos = await getAllPhotosFromIDB();
         const exportObj = {
-            version: "2.0.1",
+            version: "2.0.2",
             memories: memoriesData,
             photos: idbPhotos
         };
@@ -2365,11 +2432,11 @@ function renderRightPanel() {
 
                 if (!isShareMode) {
                     contentHtml += `
-                    <div id="bulk-delete-bar" style="display:none; align-items:center; justify-content:space-between; background:#fff0f0; border-radius:10px; padding:10px 14px; margin-top:10px;">
-                        <span id="bulk-select-count" style="font-size:0.9rem; color:#d32f2f; font-weight:bold;">0枚選択中</span>
+                    <div id="bulk-delete-bar" style="display:none; align-items:center; justify-content:space-between; background:#f0f4f8; border-radius:10px; padding:10px 14px; margin-top:10px;">
+                        <span id="bulk-select-count" style="font-size:0.95rem; color:#444; font-weight:bold;">0枚選択中</span>
                         <div style="display:flex; gap:8px;">
-                            <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#eee; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
-                            <button onclick="deleteBulkSelected()" style="padding:6px 14px; border:none; border-radius:8px; background:#d32f2f; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">削除</button>
+                            <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#ddd; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
+                            <button onclick="selectAllPhotos()" style="padding:6px 14px; border:none; border-radius:8px; background:#6c8ca3; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">すべて選択</button>
                         </div>
                     </div>`;
                 }
@@ -2557,11 +2624,18 @@ function triggerAutoSave() {
     let fromVal = fromEl ? toSlashDate(fromEl.value) : undefined;
     let toVal = toEl ? toSlashDate(toEl.value) : undefined;
 
-    autoSaveTimer = setTimeout(() => { 
+    if (files.length > 0) {
+        // 画像追加がある場合はタイマーを待たずに即座にキューに追加してプログレスバーを出す
         globalSaveQueue = globalSaveQueue.then(() => 
             performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
         ).catch(e => console.error(e));
-    }, 800);
+    } else {
+        autoSaveTimer = setTimeout(() => { 
+            globalSaveQueue = globalSaveQueue.then(() => 
+                performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
+            ).catch(e => console.error(e));
+        }, 800);
+    }
 }
 
 async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
@@ -2725,8 +2799,8 @@ function updateMapColors() {
 }
 
 function showUpdatePopup() {
-    if (localStorage.getItem('updateNotified_v2.0.0')) return;
-    localStorage.setItem('updateNotified_v2.0.0', '1');
+    if (localStorage.getItem('updateNotified_v2.0.2')) return;
+    localStorage.setItem('updateNotified_v2.0.2', '1');
 
     const popup = document.createElement('div');
     popup.id = 'update-popup';
@@ -2734,8 +2808,8 @@ function showUpdatePopup() {
     popup.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.0にアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・写真の保存先を端末に変更し、プライバシーと表示速度を向上させました。<br>・設定画面に機種変更時などに使える「データの引き継ぎ」機能を追加しました。</p>
+            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.2にアップデートされました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・写真の追加・削除・並べ替えの動作が高速化されました。<br>・選択モードに「すべて選択」ボタンを追加しました。</p>
         </div>
     `;
     document.body.appendChild(popup);
