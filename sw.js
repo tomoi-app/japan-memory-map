@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ashiato-cache-v4';
+const CACHE_NAME = 'ashiato-cache-v5';
 
 // キャッシュする静的ファイルのリスト
 const urlsToCache = [
@@ -23,7 +23,6 @@ self.addEventListener('install', (event) => {
                 return cache.addAll(urlsToCache);
             })
     );
-    // 新しいService Workerをすぐにアクティブにする
     self.skipWaiting();
 });
 
@@ -47,14 +46,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const requestUrl = new URL(event.request.url);
 
-    // VercelのAPI、Supabase、SendGridなどの動的なリクエストはキャッシュしない（常にネットワーク）
+    // VercelのAPI、Supabase、SendGridなどの動的なリクエストはキャッシュしない
     if (requestUrl.pathname.startsWith('/api') || 
         requestUrl.hostname.includes('supabase.co') || 
         event.request.method !== 'GET') {
         return;
     }
 
-    // 地図のGeoJSONデータは一度取得したらキャッシュを優先する
+    // 地図のGeoJSONデータ
     if (requestUrl.hostname === 'raw.githubusercontent.com') {
         event.respondWith(
             caches.match(event.request).then((cachedResponse) => {
@@ -73,18 +72,14 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 基本的な静的ファイルは「キャッシュファースト」戦略
+    // 基本的な静的ファイル
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
-                // キャッシュがあればそれを返す
                 if (response) {
                     return response;
                 }
-                
-                // キャッシュがなければネットワークから取得
                 return fetch(event.request).then((networkResponse) => {
-                    // 取得した新しいデータをキャッシュに保存
                     if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                         const responseToCache = networkResponse.clone();
                         caches.open(CACHE_NAME).then((cache) => {

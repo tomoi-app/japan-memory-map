@@ -92,16 +92,10 @@ async function getAllPhotosFromIDB() {
 // =============================================
 const ADMIN_MESSAGES = [
     {
-        id: 'v2.1.1',
+        id: 'v2.1.2',
         date: '2026.03.06',
-        title: 'version_2.1.1 アップデート',
-        content: '・選択モード時に「＋」ボタンが「ダウンロード」ボタンに切り替わり、選択した写真を端末に保存できるようになりました。\n・起動時の読み込み画面をわかりやすく改善しました。\n・お知らせボタンをスクロールしても左下に固定表示されるように修正しました。'
-    },
-    {
-        id: 'v2.0.2',
-        date: '2026.03.06',
-        title: 'version_2.0.2 アップデート',
-        content: '・写真の入れ替え（ドラッグ＆ドロップ）をより直感的に操作できるようにしました。\n・写真を追加・削除した際の処理中画面をなくし、裏側で保存するようにしたため、すぐに次の操作ができるようになりました。\n・選択モード時に「すべて選択」ボタンを追加しました。'
+        title: 'version_2.1.2 安定版アップデート',
+        content: '・動作が不安定になる問題を修正し、安定性を向上させました。\n・起動時に地図が読み込まれるまで「読み込み中」と表示されるようになりました。\n・写真選択モード時、右下の＋ボタンが「ダウンロードボタン」に切り替わり、端末に一括保存できるようになりました。'
     },
     {
         id: 'v2.0.0',
@@ -297,7 +291,7 @@ function cancelLongPress() {
 }
 
 function initPhotoDragSort() {
-    // ── ドラッグ＆ドロップ（選択モード外のみ）──
+    // 安定版：シンプルなドラッグ＆ドロップ（過度なpreventDefaultは避ける）
     let dragSrc = null, dragGhost = null;
     let ghostOffsetX = 0, ghostOffsetY = 0;
 
@@ -313,19 +307,15 @@ function initPhotoDragSort() {
             pressTimer = setTimeout(() => {
                 isDragging = true;
                 dragSrc = el;
-                // iPhoneライクな浮き上がりアニメーション
-                el.style.opacity = '0.3';
-                el.style.transform = 'scale(0.95)';
-                el.style.transition = 'transform 0.2s, opacity 0.2s';
-                
+                el.style.opacity = '0.4';
                 const rect = el.getBoundingClientRect();
                 ghostOffsetX = e.touches[0].clientX - rect.left;
                 ghostOffsetY = e.touches[0].clientY - rect.top;
                 dragGhost = el.cloneNode(true);
-                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.9;pointer-events:none;z-index:9999;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.4);transform:scale(1.08);transition:transform 0.15s ease-out;`;
+                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.85;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);transform:scale(1.05);transition:none;`;
                 document.body.appendChild(dragGhost);
                 navigator.vibrate && navigator.vibrate(30);
-            }, 300); // 400から300に短縮してよりレスポンシブに
+            }, 400);
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
@@ -334,24 +324,13 @@ function initPhotoDragSort() {
             const dy = Math.abs(e.touches[0].clientY - startY);
             if (!isDragging && (dx > 8 || dy > 8)) clearTimeout(pressTimer);
             if (!isDragging || !dragGhost) return;
-            e.preventDefault();
+            e.preventDefault(); // ドラッグ中のみスクロールを止める
             const touch = e.touches[0];
             dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
             dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
-            
-            // ドラッグ中のターゲット視覚効果
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
-                if (t !== dragSrc) {
-                    t.style.transform = '';
-                    t.style.opacity = '1';
-                }
-            });
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
-            if (target) {
-                target.style.transform = 'scale(0.92)'; // 少し縮んで隙間ができるような錯覚
-                target.style.opacity = '0.8';
-                target.style.transition = 'transform 0.15s ease, opacity 0.15s ease';
-            }
+            if (target) target.style.outline = '2px solid #6c8ca3';
         }, { passive: false });
 
         el.addEventListener('touchend', async (e) => {
@@ -359,16 +338,9 @@ function initPhotoDragSort() {
             clearTimeout(pressTimer);
             if (!isDragging) return;
             isDragging = false;
-            
-            // スタイルリセット
-            el.style.opacity = '1';
-            el.style.transform = '';
+            el.style.opacity = '';
             if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
-                t.style.transform = '';
-                t.style.opacity = '1';
-            });
-            
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
             const touch = e.changedTouches[0];
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
             if (target && target !== dragSrc) {
@@ -381,73 +353,12 @@ function initPhotoDragSort() {
             if (bulkSelectMode) return;
             clearTimeout(pressTimer);
             isDragging = false;
-            el.style.opacity = '1';
-            el.style.transform = '';
+            el.style.opacity = '';
             if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
-                t.style.transform = '';
-                t.style.opacity = '1';
-            });
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
             dragSrc = null;
         }, { passive: true });
     });
-
-    // ── iPhoneライクなスワイプ選択操作（panel-contentレベルで管理）──
-    const panelContent = document.querySelector('#right-panel .panel-content');
-    if (!panelContent || panelContent._selectReady) return;
-    panelContent._selectReady = true;
-
-    let selectDirection = null; // true=選択, false=解除
-    let slideTouched = new Set();
-    let selectStarted = false;
-    let initialTouchUrl = null;
-
-    panelContent.addEventListener('touchstart', (e) => {
-        if (!bulkSelectMode) return;
-        const item = e.target.closest('.photo-grid-item, #thumb-wrap');
-        if (!item) return;
-        const u = item.getAttribute('data-url');
-        if (!u) return;
-        
-        initialTouchUrl = u;
-        selectDirection = !bulkSelectedUrls.has(u);
-        slideTouched = new Set();
-        selectStarted = true;
-    }, { passive: true });
-
-    panelContent.addEventListener('touchmove', (e) => {
-        if (!bulkSelectMode || !selectStarted) return;
-        
-        const touch = e.touches[0];
-        const elUnder = document.elementFromPoint(touch.clientX, touch.clientY);
-        const item = elUnder ? elUnder.closest('.photo-grid-item, #thumb-wrap') : null;
-
-        if (item) {
-            e.preventDefault(); // スワイプ選択中はスクロールを止める
-            const u = item.getAttribute('data-url');
-            if (u && !slideTouched.has(u)) {
-                if (initialTouchUrl && u !== initialTouchUrl) {
-                    togglePhotoSelect(initialTouchUrl, selectDirection);
-                    slideTouched.add(initialTouchUrl);
-                    initialTouchUrl = null;
-                }
-                slideTouched.add(u);
-                togglePhotoSelect(u, selectDirection);
-            }
-        }
-    }, { passive: false });
-
-    panelContent.addEventListener('touchend', () => {
-        selectStarted = false;
-        initialTouchUrl = null;
-        slideTouched.clear();
-    }, { passive: true });
-
-    panelContent.addEventListener('touchcancel', () => {
-        selectStarted = false;
-        initialTouchUrl = null;
-        slideTouched.clear();
-    }, { passive: true });
 }
 
 function getDropTarget(clientX, clientY, exclude) {
@@ -473,12 +384,9 @@ async function reorderPhotos(srcId, targetId) {
 
     const [removed] = photos.splice(srcIdx, 1);
     photos.splice(tgtIdx, 0, removed);
-    data.photo_urls = JSON.stringify(photos);
 
-    // UIを即座に更新（バックグラウンドで保存）
-    renderRightPanel();
-
-    globalSaveQueue = globalSaveQueue.then(async () => {
+    showLoading('並べ替え中...');
+    try {
         await apiFetch({ method: 'POST', body: JSON.stringify({
             action: 'save_memory',
             prefecture: selectedPref,
@@ -487,7 +395,12 @@ async function reorderPhotos(srcId, targetId) {
             existing_urls: photos
         })});
         await fetchMemories(false);
-    }).catch(e => console.error('reorder error', e));
+        renderRightPanel();
+    } catch(e) {
+        console.error('reorder error', e);
+    } finally {
+        hideLoading();
+    }
 }
 
 function toggleSelectOrDelete() {
@@ -544,6 +457,7 @@ function enterBulkSelectMode() {
     if (bar) bar.style.display = 'flex';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
     
+    // ＋ボタンをダウンロードボタンに切り替え
     const addBtn = document.getElementById('add-photo-btn');
     if (addBtn) addBtn.style.display = 'none';
     const dlBtn = document.getElementById('download-photo-btn');
@@ -578,6 +492,7 @@ function cancelBulkSelect() {
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'none';
     
+    // ダウンロードボタンを＋ボタンに戻す
     const addBtn = document.getElementById('add-photo-btn');
     if (addBtn) addBtn.style.display = 'flex';
     const dlBtn = document.getElementById('download-photo-btn');
@@ -694,29 +609,22 @@ async function downloadSelectedPhotos() {
 async function deleteBulkSelected() {
     if (bulkSelectedUrls.size === 0) return;
     if (!confirm(`${bulkSelectedUrls.size}枚の写真を削除しますか？`)) return;
-    
-    // バックグラウンド化のためUIを即時更新
-    const urlsToDelete = Array.from(bulkSelectedUrls);
-    const data = memoriesData.find(m => m.prefecture === selectedPref);
-    if (data) {
-        let photos = JSON.parse(data.photo_urls || '[]');
-        photos = photos.filter(p => !bulkSelectedUrls.has(typeof p === 'string' ? p : p.id));
-        data.photo_urls = JSON.stringify(photos);
-    }
-    
-    cancelBulkSelect();
-    renderRightPanel();
-    updateCounter();
-
-    globalSaveQueue = globalSaveQueue.then(async () => {
-        for (const urlOrId of urlsToDelete) {
+    showLoading('削除中...');
+    try {
+        for (const urlOrId of bulkSelectedUrls) {
             if (!urlOrId.startsWith('http')) {
                 await deletePhotoFromIDB(urlOrId);
             }
             await apiFetch({ method: 'POST', body: JSON.stringify({ action: 'delete_photo', prefecture: selectedPref, photo_url: urlOrId }) });
         }
+        cancelBulkSelect();
         await fetchMemories(false);
-    }).catch(e => console.error('bulk delete error', e));
+        renderRightPanel();
+    } catch(e) {
+        console.error('bulk delete error', e);
+    } finally {
+        hideLoading();
+    }
 }
 
 function showAuthPrivacyPopup() {
@@ -798,7 +706,7 @@ async function sendResetEmail(email) {
 
     submitBtn.disabled = true;
     submitBtn.textContent = '送信中...';
-    showLoading();
+    showLoading('送信中...');
 
     try {
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
@@ -864,7 +772,7 @@ async function handleAuth() {
 
     submitBtn.disabled = true;
     submitBtn.textContent = '処理中...';
-    showLoading();
+    showLoading('認証中...');
 
     try {
         let result;
@@ -882,23 +790,32 @@ async function handleAuth() {
             if (msg.includes('rate limit') || msg.includes('Rate limit')) msg = '上限に達しました。しばらく時間をおいてください。';
             errorEl.textContent = msg;
             errorEl.classList.remove('hidden');
+            hideLoading();
+            submitBtn.disabled = false;
+            submitBtn.textContent = currentAuthTab === 'login' ? 'ログイン' : 'アカウントを作成';
         } else {
             if (currentAuthTab === 'signup') {
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (session) {
                     localStorage.removeItem('tutorialDone');
+                    hideLoading();
                     await startApp(session);
                     showInstallSlides();
                 }
             } else {
                 const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) startApp(session);
+                if (session) {
+                    await startApp(session);
+                } else {
+                    hideLoading();
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'ログイン';
+                }
             }
         }
     } catch(e) {
         errorEl.textContent = '通信エラーが発生しました';
         errorEl.classList.remove('hidden');
-    } finally {
         hideLoading();
         submitBtn.disabled = false;
         submitBtn.textContent = currentAuthTab === 'login' ? 'ログイン' : 'アカウントを作成';
@@ -957,7 +874,7 @@ async function startApp(session) {
     await initApp();
     updateUIVisibility();
     
-    // パッチバージョン(2.1.1)のため、大型アップデートのポップアップ(2.0.0)のみ未読なら表示
+    // パッチバージョン(2.1.2)のため、大型アップデートのポップアップ(2.0.0)のみ未読なら表示
     if (localStorage.getItem('tutorialDone')) {
         showUpdatePopup();
     }
@@ -965,7 +882,7 @@ async function startApp(session) {
 
 async function logout() {
     if (!confirm('ログアウトしますか？')) return;
-    showLoading();
+    showLoading('ログアウト中...');
     await supabaseClient.auth.signOut();
     currentUser = null;
     currentToken = null;
@@ -980,7 +897,8 @@ async function logout() {
 }
 
 window.addEventListener('load', async () => {
-    showLoading('読み込み中...');
+    // 起動時にローディング画面を表示
+    showLoading('地図を読み込み中...');
     
     const urlParams = new URLSearchParams(window.location.search);
     const shareToken = urlParams.get('share');
@@ -1138,6 +1056,14 @@ async function initShareMode() {
     banner.style.cssText = 'position:fixed; bottom:0; left:0; right:0; background:#6c8ca3; color:white; text-align:center; padding:8px; font-size:0.88rem; font-weight:bold; z-index:1000;';
     banner.textContent = '閲覧モード（編集できません）';
     document.body.appendChild(banner);
+}
+
+async function apiFetch(options = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
+    const url = options.url || '/api';
+    const { url: _, ...rest } = options;
+    return fetch(url, { headers, ...rest });
 }
 
 let map;
@@ -1314,7 +1240,7 @@ function showLoading(msg = null) {
         overlay = document.createElement('div');
         overlay.id = 'loading-overlay';
         overlay.className = 'hidden';
-        overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center;';
+        overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(3px);';
         document.body.appendChild(overlay);
     }
     overlay.classList.remove('hidden');
@@ -1347,11 +1273,11 @@ function initProgressToast() {
     if (!document.getElementById('save-progress-toast')) {
         const toast = document.createElement('div');
         toast.id = 'save-progress-toast';
-        toast.style.cssText = 'position:fixed; bottom:-100px; left:50%; transform:translateX(-50%); width:auto; min-width:220px; background:rgba(255,255,255,0.95); border-radius:30px; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:10px 18px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:6px; pointer-events:none; backdrop-filter:blur(5px); border:1px solid rgba(0,0,0,0.05);';
+        toast.style.cssText = 'position:fixed; bottom:-100px; left:50%; transform:translateX(-50%); width:auto; min-width:200px; background:rgba(255,255,255,0.9); border-radius:30px; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:8px 16px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:4px; pointer-events:none; border:1px solid rgba(0,0,0,0.05);';
         toast.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:#555; font-weight:bold; font-family:inherit; gap:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:#555; font-weight:bold; font-family:inherit; gap:16px;">
                 <span id="save-progress-label">準備中...</span>
-                <span id="save-progress-text" style="color:#6c8ca3; font-size:0.8rem;"></span>
+                <span id="save-progress-text" style="color:#6c8ca3; font-size:0.75rem;"></span>
             </div>
             <div style="width:100%; height:4px; background:#eef2f5; border-radius:2px; overflow:hidden; position:relative;">
                 <div id="save-progress-bar" style="width:0%; height:100%; background:#6c8ca3; transition:width 0.2s ease-out; border-radius:2px;"></div>
@@ -1367,7 +1293,7 @@ function showSaveProgress(total, label = '写真を保存中...') {
     document.getElementById('save-progress-label').textContent = label;
     document.getElementById('save-progress-text').textContent = `0 / ${total}`;
     document.getElementById('save-progress-bar').style.width = '0%';
-    toast.style.bottom = '25px';
+    toast.style.bottom = '20px';
 }
 
 function updateSaveProgress(current, total, label = null) {
@@ -1699,7 +1625,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.1.1</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.1.2</p>
         </div>
     </div>`;
 
@@ -2233,7 +2159,7 @@ async function exportData() {
     try {
         const idbPhotos = await getAllPhotosFromIDB();
         const exportObj = {
-            version: "2.1.1",
+            version: "2.1.2",
             memories: memoriesData,
             photos: idbPhotos
         };
@@ -2377,7 +2303,7 @@ function formatDate(dateStr) {
 }
 
 function renderRightPanel() {
-    // パネル描画時に選択モードをリセット
+    // パネル描画時に選択モードを確実にリセット
     cancelBulkSelect();
     const panel = document.getElementById('right-panel');
     const prefOrder = Object.keys(MAP_THEMES.default.colors);
@@ -2681,9 +2607,7 @@ function compressImageDual(file) {
     });
 }
 
-// ── バックグラウンド処理用のキュー ──
-let globalSaveQueue = Promise.resolve();
-
+// 安定版：シンプルな保存処理ロジック
 async function saveDateManual() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
@@ -2709,63 +2633,57 @@ function triggerAutoSave() {
     if (statusEl) statusEl.innerText = '保存準備中...';
     clearTimeout(autoSaveTimer);
     
+    // 写真を選択した場合はすぐに処理を開始する（タイマーを待たない）
     const photoInputEl = document.getElementById('input-photos');
     const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
-    
-    const targetPref = selectedPref;
-    const fromEl = document.getElementById('input-date-from');
-    const toEl = document.getElementById('input-date-to');
-    const memoValue = document.getElementById('input-memo')?.value || '';
-    
-    let fromVal = fromEl ? toSlashDate(fromEl.value) : undefined;
-    let toVal = toEl ? toSlashDate(toEl.value) : undefined;
-
     if (files.length > 0) {
-        showSaveProgress(files.length, "準備中...");
-        
-        setTimeout(() => {
-            if (photoInputEl) photoInputEl.value = '';
-            globalSaveQueue = globalSaveQueue.then(() => 
-                performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
-            ).catch(e => console.error(e));
-        }, 300);
+        saveMemoryData();
     } else {
-        autoSaveTimer = setTimeout(() => { 
-            globalSaveQueue = globalSaveQueue.then(() => 
-                performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
-            ).catch(e => console.error(e));
-        }, 800);
+        autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
     }
 }
 
-async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
-    if (!targetPref) return;
-
-    const existingData = memoriesData.find(m => m.prefecture === targetPref) || {};
+async function saveMemoryData() {
+    const fromEl = document.getElementById('input-date-from');
+    const toEl = document.getElementById('input-date-to');
+    const photoInputEl = document.getElementById('input-photos');
+    const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
     
+    // ファイル入力の即時リセット
+    if (photoInputEl) photoInputEl.value = '';
+
     let dateValue;
-    if (fromVal !== undefined) {
+    if (fromEl) {
+        const fromVal = toSlashDate(fromEl.value);
+        const toVal = toEl ? toSlashDate(toEl.value) : '';
         dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
     } else {
-        dateValue = existingData.date || '';
+        const existingData = memoriesData.find(m => m.prefecture === selectedPref);
+        dateValue = existingData?.date || '';
     }
-
+    
     const statusEl = document.getElementById('autosave-status');
     const isHeavyTask = files.length > 0;
 
-    if (!isHeavyTask && statusEl && selectedPref === targetPref) {
+    if (isHeavyTask) {
+        showSaveProgress(files.length, "準備中...");
+    } else if (statusEl) {
         statusEl.innerText = '保存中...';
     }
 
     try {
         let existingUrls = [];
-        if (existingData.photo_urls) {
+        const existingData = memoriesData.find(m => m.prefecture === selectedPref);
+        if (existingData && existingData.photo_urls) {
             try { existingUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
         let newUrls = [];
         if (isHeavyTask) {
+            // メインスレッドを少し解放してから圧縮開始
+            await new Promise(r => setTimeout(r, 100));
             updateSaveProgress(0, files.length, "圧縮中...");
+            
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const { highResData, thumbData } = await compressImageDual(file);
@@ -2775,25 +2693,18 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
                 newUrls.push({ id: photoId, thumb: thumbData });
                 
                 updateSaveProgress(i + 1, files.length, "保存中...");
-                
+                // 連続保存時のフリーズ対策
                 await new Promise(r => setTimeout(r, 40)); 
             }
             updateSaveProgress(files.length, files.length, "クラウド同期中...");
         }
 
         const allUrls = [...existingUrls, ...newUrls];
-
-        if (selectedPref === targetPref) {
-            existingData.photo_urls = JSON.stringify(allUrls);
-            if (fromVal !== undefined) existingData.date = dateValue;
-            existingData.memo = memoValue;
-            if (!memoriesData.includes(existingData)) memoriesData.push(existingData);
-            renderRightPanel();
-        }
-
+        const memoValue = document.getElementById('input-memo')?.value || '';
+        
         const payload = {
             action: "save_memory",
-            prefecture: targetPref,
+            prefecture: selectedPref,
             date: dateValue,
             existing_urls: allUrls,
             new_photos: [],
@@ -2803,19 +2714,19 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
         const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
         
         if (res.ok) {
+            dateEditingMode = false;
             await fetchMemories(false);
-            
+            renderRightPanel();
             updateMapColors();
             updateCounter();
-
-            if (statusEl && selectedPref === targetPref) {
+            
+            if (statusEl) {
                 statusEl.innerText = '保存完了';
                 setTimeout(() => { 
                     const el = document.getElementById('autosave-status');
                     if (el) el.innerText = ''; 
                 }, 2000);
             }
-            
             if (isHeavyTask) {
                 updateSaveProgress(files.length, files.length, "完了！");
                 setTimeout(() => { hideSaveProgress(); }, 1500);
@@ -2823,12 +2734,12 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
         } else {
             const errData = await res.json().catch(() => ({}));
             const errMsg = errData.error || '保存に失敗しました';
-            if (statusEl && selectedPref === targetPref) statusEl.innerText = `⚠ ${errMsg}`;
+            if (statusEl) statusEl.innerText = `⚠ ${errMsg}`;
             if (isHeavyTask) hideSaveProgress();
         }
     } catch(e) { 
         console.error("Save Error", e); 
-        if (statusEl && selectedPref === targetPref) {
+        if (statusEl) {
             statusEl.style.color = '#d32f2f';
             statusEl.innerText = '⚠ 保存に失敗しました。';
         }
@@ -2905,7 +2816,7 @@ function updateMapColors() {
 }
 
 function showUpdatePopup() {
-    // 2.0.0の大型アップデートのみ、まだ見ていないユーザーに表示する。パッチバージョン（右端の数字変更）の場合は出さないルール。
+    // パッチバージョン(2.1.2)のため、2.0.0のポップアップのみ表示
     if (localStorage.getItem('updateNotified_v2.0.0')) return;
     localStorage.setItem('updateNotified_v2.0.0', '1');
 
