@@ -133,7 +133,7 @@ let longPressTimer = null;
 
 function handlePhotoClick(event, url, photos) {
     if (bulkSelectMode) {
-        togglePhotoSelect(url);
+        // 選択はpanel-contentのtouchstartで処理するためここでは何もしない
         return;
     }
     openSliderAt(url, photos);
@@ -153,33 +153,17 @@ function cancelLongPress() {
 }
 
 function initPhotoDragSort() {
-    let dragSrc = null;
-    let dragGhost = null;
+    // ── ドラッグ＆ドロップ（選択モード外のみ）──
+    let dragSrc = null, dragGhost = null;
     let ghostOffsetX = 0, ghostOffsetY = 0;
 
-    const allItems = [...document.querySelectorAll('.photo-grid-item, #thumb-wrap')];
-    if (allItems.length === 0) return;
-
-    allItems.forEach(el => {
+    document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(el => {
         const url = el.getAttribute('data-url');
         if (!url) return;
-
-        let pressTimer = null;
-        let isDragging = false;
-        let startX = 0, startY = 0;
-        // 選択モード用：touchstartで決めた選択方向（true=選択, false=解除）
-        let selectDirection = null;
-        // スライド中にすでに処理した写真URLのセット
-        let slideTouched = new Set();
+        let pressTimer = null, isDragging = false, startX = 0, startY = 0;
 
         el.addEventListener('touchstart', (e) => {
-            if (bulkSelectMode) {
-                // stopPropagationしない（スクロールを妨げない）
-                selectDirection = !bulkSelectedUrls.has(url);
-                slideTouched = new Set([url]);
-                togglePhotoSelect(url, selectDirection);
-                return;
-            }
+            if (bulkSelectMode) return;
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
             pressTimer = setTimeout(() => {
@@ -190,27 +174,14 @@ function initPhotoDragSort() {
                 ghostOffsetX = e.touches[0].clientX - rect.left;
                 ghostOffsetY = e.touches[0].clientY - rect.top;
                 dragGhost = el.cloneNode(true);
-                dragGhost.style.cssText = `position:fixed; top:${rect.top}px; left:${rect.left}px; width:${rect.width}px; height:${rect.height}px; opacity:0.85; pointer-events:none; z-index:9999; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.3); transform:scale(1.05); transition:none;`;
+                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.85;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);transform:scale(1.05);transition:none;`;
                 document.body.appendChild(dragGhost);
                 navigator.vibrate && navigator.vibrate(30);
             }, 400);
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
-            if (bulkSelectMode) {
-                const touch = e.touches[0];
-                const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                const item = target && (target.closest ? target.closest('.photo-grid-item') || (target.id === 'thumb-wrap' ? target : null) : null);
-                if (item) {
-                    const u = item.getAttribute('data-url');
-                    // まだ処理していない写真だけ、最初に決めた方向で選択/解除
-                    if (u && !slideTouched.has(u)) {
-                        slideTouched.add(u);
-                        togglePhotoSelect(u, selectDirection);
-                    }
-                }
-                return;
-            }
+            if (bulkSelectMode) return;
             const dx = Math.abs(e.touches[0].clientX - startX);
             const dy = Math.abs(e.touches[0].clientY - startY);
             if (!isDragging && (dx > 8 || dy > 8)) clearTimeout(pressTimer);
@@ -225,11 +196,7 @@ function initPhotoDragSort() {
         }, { passive: false });
 
         el.addEventListener('touchend', async (e) => {
-            if (bulkSelectMode) {
-                selectDirection = null;
-                slideTouched = new Set();
-                return;
-            }
+            if (bulkSelectMode) return;
             clearTimeout(pressTimer);
             if (!isDragging) return;
             isDragging = false;
@@ -254,6 +221,53 @@ function initPhotoDragSort() {
             dragSrc = null;
         }, { passive: true });
     });
+
+    // ── iPhoneライクな選択操作（panel-contentレベルで管理）──
+    const panelContent = document.querySelector('#right-panel .panel-content');
+    if (!panelContent || panelContent._selectReady) return;
+    panelContent._selectReady = true;
+
+    let selectDirection = null; // true=選択, false=解除
+    let slideTouched = new Set();
+    let selectStarted = false;
+
+    panelContent.addEventListener('touchstart', (e) => {
+        if (!bulkSelectMode) return;
+        const item = e.target.closest('.photo-grid-item, #thumb-wrap');
+        if (!item) return;
+        const u = item.getAttribute('data-url');
+        if (!u) return;
+        selectDirection = !bulkSelectedUrls.has(u);
+        slideTouched = new Set([u]);
+        selectStarted = true;
+        togglePhotoSelect(u, selectDirection);
+    }, { passive: true });
+
+    panelContent.addEventListener('touchmove', (e) => {
+        if (!bulkSelectMode || !selectStarted) return;
+        const touch = e.touches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const item = el && el.closest('.photo-grid-item, #thumb-wrap');
+        if (!item) return;
+        const u = item.getAttribute('data-url');
+        if (u && !slideTouched.has(u)) {
+            slideTouched.add(u);
+            togglePhotoSelect(u, selectDirection);
+        }
+        // スクロールは妨げない（passive:true）
+    }, { passive: true });
+
+    panelContent.addEventListener('touchend', () => {
+        selectDirection = null;
+        slideTouched = new Set();
+        selectStarted = false;
+    }, { passive: true });
+
+    panelContent.addEventListener('touchcancel', () => {
+        selectDirection = null;
+        slideTouched = new Set();
+        selectStarted = false;
+    }, { passive: true });
 }
 
 function getDropTarget(clientX, clientY, exclude) {
@@ -301,7 +315,11 @@ async function reorderPhotos(srcUrl, targetUrl) {
 
 function toggleSelectOrDelete() {
     if (bulkSelectMode) {
-        deleteBulkSelected();
+        if (bulkSelectedUrls.size === 0) {
+            cancelBulkSelect();
+        } else {
+            deleteBulkSelected();
+        }
     } else {
         enterBulkSelectMode();
     }
@@ -2059,19 +2077,7 @@ function renderRightPanel() {
         // 写真のドラッグ＆ドロップ（長押しで開始）・選択モード
         initPhotoDragSort();
 
-        // 写真以外をタップしたら選択モード解除
-        const panelContent = document.querySelector('#right-panel .panel-content');
-        if (panelContent) {
-            panelContent.addEventListener('touchstart', (e) => {
-                if (!bulkSelectMode) return;
-                const isPhoto = e.target.closest('.photo-grid-item, #thumb-wrap');
-                const isSelectBtn = e.target.closest('#select-mode-btn');
-                const isBulkBar = e.target.closest('#bulk-delete-bar');
-                if (!isPhoto && !isSelectBtn && !isBulkBar) {
-                    cancelBulkSelect();
-                }
-            }, { passive: true });
-        }
+
 
         if (featureShowDate) {
             const fromInput = document.getElementById('input-date-from');
