@@ -281,7 +281,6 @@ let featureShowMemo = localStorage.getItem('featureShowMemo') === 'true';
 let featureShowThumbnail = localStorage.getItem('featureShowThumbnail') !== 'false'; // デフォルトON
 let dateEditingMode = false; // 日付編集モードフラグ
 
-// ログイン ↔ サインアップ 切り替え
 // 長押し選択モード管理
 let bulkSelectMode = false;
 let bulkSelectedUrls = new Set();
@@ -330,7 +329,11 @@ function initPhotoDragSort() {
             pressTimer = setTimeout(() => {
                 isDragging = true;
                 dragSrc = el;
-                el.style.opacity = '0.4';
+                // iPhoneライクな浮き上がりアニメーション
+                el.style.opacity = '0.3';
+                el.style.transform = 'scale(0.95)';
+                el.style.transition = 'transform 0.2s, opacity 0.2s';
+                
                 const rect = el.getBoundingClientRect();
                 ghostOffsetX = e.touches[0].clientX - rect.left;
                 ghostOffsetY = e.touches[0].clientY - rect.top;
@@ -347,7 +350,7 @@ function initPhotoDragSort() {
             const dy = Math.abs(e.touches[0].clientY - startY);
             if (!isDragging && (dx > 8 || dy > 8)) clearTimeout(pressTimer);
             if (!isDragging || !dragGhost) return;
-            e.preventDefault();
+            e.preventDefault(); // ドラッグ中のみスクロールを止める
             const touch = e.touches[0];
             dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
             dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
@@ -523,10 +526,60 @@ async function reorderPhotos(srcId, targetId) {
 
 function toggleSelectOrDelete() {
     if (bulkSelectMode) {
-        cancelBulkSelect();
+        if (bulkSelectedUrls.size === 0) {
+            cancelBulkSelect();
+        } else {
+            deleteBulkSelected();
+        }
     } else {
         enterBulkSelectMode();
     }
+}
+
+function selectAllPhotos() {
+    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    if (!data) return;
+    let photos = JSON.parse(data.photo_urls || '[]');
+    
+    const isAllSelected = bulkSelectedUrls.size === photos.length && photos.length > 0;
+    
+    bulkSelectedUrls.clear();
+    
+    if (!isAllSelected) {
+        photos.forEach(p => {
+            const idOrUrl = typeof p === 'string' ? p : p.id;
+            bulkSelectedUrls.add(idOrUrl);
+        });
+    }
+    
+    // UIをまとめて更新
+    document.querySelectorAll('#right-panel [data-url]').forEach(el => {
+        const elUrl = el.getAttribute('data-url');
+        const isSelected = bulkSelectedUrls.has(elUrl);
+        
+        const check = el.id === 'thumb-wrap' ? document.getElementById('thumb-check') : el.querySelector('.photo-check');
+        if (check) check.style.display = isSelected ? 'flex' : 'none';
+        el.style.outline = isSelected ? '3px solid #d32f2f' : '';
+    });
+    
+    const countEl = document.getElementById('bulk-select-count');
+    if (countEl) countEl.textContent = `${bulkSelectedUrls.size}枚選択中`;
+    
+    const icon = document.getElementById('select-btn-icon');
+    if (icon) {
+        if (bulkSelectedUrls.size > 0) {
+            icon.innerHTML = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>';
+        } else {
+            icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+        }
+    }
+    
+    const selectAllBtn = document.getElementById('select-all-btn');
+    if (selectAllBtn) {
+        selectAllBtn.textContent = bulkSelectedUrls.size === photos.length && photos.length > 0 ? 'すべて解除' : 'すべて選択';
+    }
+
+    updateDownloadBtn();
 }
 
 function enterBulkSelectMode() {
@@ -608,17 +661,19 @@ function togglePhotoSelect(url, forceState = null) {
         else bulkSelectedUrls.add(url);
     }
     
-    document.querySelectorAll('[data-url]').forEach(el => {
+    document.querySelectorAll('#right-panel [data-url]').forEach(el => {
         const elUrl = el.getAttribute('data-url');
         if (elUrl === url) {
-            const check = el.querySelector('.photo-check') || document.getElementById('thumb-check');
+            const check = el.id === 'thumb-wrap' ? document.getElementById('thumb-check') : el.querySelector('.photo-check');
             const isSelected = bulkSelectedUrls.has(url);
             if (check) check.style.display = isSelected ? 'flex' : 'none';
             el.style.outline = isSelected ? '3px solid #d32f2f' : '';
         }
     });
+    
     const countEl = document.getElementById('bulk-select-count');
     if (countEl) countEl.textContent = `${bulkSelectedUrls.size}枚選択中`;
+    
     const icon = document.getElementById('select-btn-icon');
     if (icon) {
         if (bulkSelectedUrls.size > 0) {
@@ -627,6 +682,14 @@ function togglePhotoSelect(url, forceState = null) {
             icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
         }
     }
+    
+    const selectAllBtn = document.getElementById('select-all-btn');
+    if (selectAllBtn) {
+        const data = memoriesData.find(m => m.prefecture === selectedPref);
+        const photosCount = data ? JSON.parse(data.photo_urls || '[]').length : 0;
+        selectAllBtn.textContent = (photosCount > 0 && bulkSelectedUrls.size === photosCount) ? 'すべて解除' : 'すべて選択';
+    }
+
     updateDownloadBtn();
 }
 
@@ -709,9 +772,19 @@ async function deleteBulkSelected() {
             if (!urlOrId.startsWith('http')) {
                 await deletePhotoFromIDB(urlOrId);
             }
-            await apiFetch({ method: 'POST', body: JSON.stringify({ action: 'delete_photo', prefecture: targetPref, photo_url: urlOrId }) });
             count++;
             updateSaveProgress(count, deleteCount, '削除中...');
+        }
+        
+        // 削除後にSupabaseのDBを一括更新
+        if (data) {
+            await apiFetch({ method: 'POST', body: JSON.stringify({
+                action: 'save_memory',
+                prefecture: targetPref,
+                date: data.date || '',
+                memo: data.memo || '',
+                existing_urls: photosToSave
+            })});
         }
         
         await fetchMemories(false);
@@ -803,7 +876,7 @@ async function sendResetEmail(email) {
 
     submitBtn.disabled = true;
     submitBtn.textContent = '送信中...';
-    showLoading('送信中...');
+    showLoading();
 
     try {
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
@@ -869,7 +942,7 @@ async function handleAuth() {
 
     submitBtn.disabled = true;
     submitBtn.textContent = '処理中...';
-    showLoading('認証中...');
+    showLoading();
 
     try {
         let result;
@@ -1065,11 +1138,12 @@ async function initShareMode() {
             map.fitBounds(initialBounds);
         });
 
-    showLoading();
-    try {
-        const res = await fetch(`/api?share=${encodeURIComponent(shareUserId)}`);
-        if (res.ok) {
-            const data = await res.json();
+    const dataPromise = fetch(`/api?share=${encodeURIComponent(shareUserId)}`)
+        .then(res => {
+            if (!res.ok) throw new Error('Share link error');
+            return res.json();
+        })
+        .then(data => {
             if (data.memories) {
                 memoriesData = data.memories;
                 shareSettings = data.settings;
@@ -1080,15 +1154,17 @@ async function initShareMode() {
             homePrefectures = memoriesData
                 .filter(m => m.is_home === true)
                 .map(m => m.prefecture);
-        }
+        });
+
+    try {
+        await Promise.all([mapPromise, dataPromise]);
     } catch(e) {
         console.error('Share load error', e);
     } finally {
+        updateMapColors();
+        updateCounter();
         hideLoading();
     }
-
-    updateMapColors();
-    updateCounter();
 
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) settingsBtn.style.display = 'none';
@@ -1333,9 +1409,15 @@ function showLoading(msg = null) {
     let overlay = document.getElementById('loading-overlay');
     
     if (overlay) {
-        // HTMLに直書きされている不要な「処理中」テキストなどを完全に消去する
-        overlay.innerHTML = '';
-    } else {
+        // HTMLに直書きされているかもしれない不要なテキストノードを消去
+        Array.from(overlay.childNodes).forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim().length > 0) {
+                node.nodeValue = '';
+            }
+        });
+    }
+
+    if (!overlay) {
         overlay = document.createElement('div');
         overlay.id = 'loading-overlay';
         overlay.className = 'hidden';
@@ -1344,10 +1426,13 @@ function showLoading(msg = null) {
     
     overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(3px);';
     
-    let textEl = document.createElement('div');
-    textEl.id = 'loading-text';
-    textEl.style.cssText = 'color:#6c8ca3; font-weight:bold; margin-top:16px; font-size:1.1rem; letter-spacing:2px; font-family:"Zen Kaku Gothic New", sans-serif;';
-    overlay.appendChild(textEl);
+    let textEl = document.getElementById('loading-text');
+    if (!textEl) {
+        textEl = document.createElement('div');
+        textEl.id = 'loading-text';
+        textEl.style.cssText = 'color:#6c8ca3; font-weight:bold; margin-top:16px; font-size:1.1rem; letter-spacing:2px; font-family:"Zen Kaku Gothic New", sans-serif;';
+        overlay.appendChild(textEl);
+    }
     
     if (msg) {
         textEl.textContent = msg;
@@ -1395,7 +1480,7 @@ function showSaveProgress(total, label = '写真を保存中...') {
     document.getElementById('save-progress-label').textContent = label;
     document.getElementById('save-progress-text').textContent = `0 / ${total}`;
     document.getElementById('save-progress-bar').style.width = '0%';
-    toast.style.bottom = '20px';
+    toast.style.bottom = '95px'; // 設定ボタン等に被らない高さに調整
 }
 
 function updateSaveProgress(current, total, label = null) {
@@ -2577,8 +2662,7 @@ function renderRightPanel() {
                         <span id="bulk-select-count" style="font-size:0.95rem; color:#444; font-weight:bold;">0枚選択中</span>
                         <div style="display:flex; gap:8px;">
                             <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#ddd; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
-                            <button onclick="selectAllPhotos()" style="padding:6px 14px; border:none; border-radius:8px; background:#6c8ca3; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">すべて選択</button>
-                            <button onclick="deleteBulkSelected()" style="padding:6px 14px; border:none; border-radius:8px; background:#d32f2f; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">削除</button>
+                            <button id="select-all-btn" onclick="selectAllPhotos()" style="padding:6px 14px; border:none; border-radius:8px; background:#6c8ca3; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">すべて選択</button>
                         </div>
                     </div>`;
                 }

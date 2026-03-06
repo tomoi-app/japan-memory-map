@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ashiato-cache-v7';
+const CACHE_NAME = 'ashiato-cache-v8';
 
 // キャッシュする静的ファイルのリスト
 const urlsToCache = [
