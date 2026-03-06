@@ -152,6 +152,132 @@ function cancelLongPress() {
     clearTimeout(longPressTimer);
 }
 
+function initPhotoDragSort() {
+    let dragSrc = null;
+    let dragGhost = null;
+    let ghostOffsetX = 0, ghostOffsetY = 0;
+
+    const allItems = [...document.querySelectorAll('.photo-grid-item, #thumb-wrap')];
+    if (allItems.length === 0) return;
+
+    allItems.forEach(el => {
+        const url = el.getAttribute('data-url');
+        if (!url) return;
+
+        // タッチ長押しでドラッグ開始
+        let pressTimer = null;
+        let isDragging = false;
+        let startX = 0, startY = 0;
+
+        el.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            pressTimer = setTimeout(() => {
+                isDragging = true;
+                dragSrc = el;
+                el.style.opacity = '0.4';
+
+                // ゴースト作成
+                const rect = el.getBoundingClientRect();
+                ghostOffsetX = e.touches[0].clientX - rect.left;
+                ghostOffsetY = e.touches[0].clientY - rect.top;
+                dragGhost = el.cloneNode(true);
+                dragGhost.style.cssText = `position:fixed; top:${rect.top}px; left:${rect.left}px; width:${rect.width}px; height:${rect.height}px; opacity:0.85; pointer-events:none; z-index:9999; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.3); transform:scale(1.05); transition:none;`;
+                document.body.appendChild(dragGhost);
+
+                navigator.vibrate && navigator.vibrate(30);
+            }, 400);
+        }, { passive: true });
+
+        el.addEventListener('touchmove', (e) => {
+            const dx = Math.abs(e.touches[0].clientX - startX);
+            const dy = Math.abs(e.touches[0].clientY - startY);
+            if (!isDragging && (dx > 8 || dy > 8)) {
+                clearTimeout(pressTimer);
+            }
+            if (!isDragging || !dragGhost) return;
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
+            dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
+
+            // ホバー先を検出してハイライト
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+            const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
+            if (target) target.style.outline = '2px solid #6c8ca3';
+        }, { passive: false });
+
+        el.addEventListener('touchend', async (e) => {
+            clearTimeout(pressTimer);
+            if (!isDragging) return;
+            isDragging = false;
+            el.style.opacity = '';
+            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+
+            const touch = e.changedTouches[0];
+            const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
+            if (target && target !== dragSrc) {
+                await reorderPhotos(dragSrc.getAttribute('data-url'), target.getAttribute('data-url'));
+            }
+            dragSrc = null;
+        }, { passive: true });
+
+        el.addEventListener('touchcancel', () => {
+            clearTimeout(pressTimer);
+            isDragging = false;
+            el.style.opacity = '';
+            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
+            dragSrc = null;
+        }, { passive: true });
+    });
+}
+
+function getDropTarget(clientX, clientY, exclude) {
+    const items = [...document.querySelectorAll('.photo-grid-item, #thumb-wrap')];
+    for (const item of items) {
+        if (item === exclude) continue;
+        const rect = item.getBoundingClientRect();
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+            return item;
+        }
+    }
+    return null;
+}
+
+async function reorderPhotos(srcUrl, targetUrl) {
+    // 現在の写真リストを取得して並び替え
+    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    if (!data) return;
+    let photos = JSON.parse(data.photo_urls || '[]');
+    const srcIdx = photos.indexOf(srcUrl);
+    const tgtIdx = photos.indexOf(targetUrl);
+    if (srcIdx < 0 || tgtIdx < 0) return;
+
+    photos.splice(srcIdx, 1);
+    photos.splice(tgtIdx, 0, srcUrl);
+
+    // 保存
+    showLoading();
+    try {
+        await apiFetch({ method: 'POST', body: JSON.stringify({
+            action: 'save_memory',
+            prefecture: selectedPref,
+            date: data.date || '',
+            memo: data.memo || '',
+            existing_urls: photos
+        })});
+        await fetchMemories(false);
+        renderRightPanel();
+    } catch(e) {
+        console.error('reorder error', e);
+    } finally {
+        hideLoading();
+    }
+}
+
 function enterBulkSelectMode() {
     bulkSelectMode = true;
     bulkSelectedUrls = new Set();
@@ -204,8 +330,9 @@ async function deleteBulkSelected() {
         for (const url of bulkSelectedUrls) {
             await apiFetch({ method: 'POST', body: JSON.stringify({ action: 'delete_photo', prefecture: selectedPref, photo_url: url }) });
         }
-        await fetchMemories(false);
         cancelBulkSelect();
+        await fetchMemories(false);
+        renderRightPanel();
     } catch(e) {
         console.error('bulk delete error', e);
     } finally {
@@ -1045,6 +1172,8 @@ function renderAccountSettings() {
             <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
                 ログアウト
             </button>
+
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.0.0</p>
         </div>
     </div>`;
 
@@ -1868,6 +1997,10 @@ function renderRightPanel() {
             <label for="input-photos" class="add-photo-fab" style="background:${color};" title="写真を追加">
                 <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </label>
+            <button onclick="enterBulkSelectMode()" id="select-mode-btn" title="写真を選択"
+                style="position:absolute; bottom:90px; right:25px; width:44px; height:44px; border-radius:50%; background:white; border:none; box-shadow:0 2px 8px rgba(0,0,0,0.15); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="1.5" fill="#555"/><circle cx="15" cy="7" r="1.5" fill="#555"/><rect x="3" y="3" width="18" height="18" rx="3"/><polyline points="9,13 11,15 15,11"/></svg>
+            </button>
             <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">`;
         }
         contentHtml += `</div>`;
@@ -1878,26 +2011,8 @@ function renderRightPanel() {
         const photoInput = document.getElementById('input-photos');
         if (photoInput) photoInput.addEventListener('change', triggerAutoSave);
 
-        // 写真の長押し選択イベント
-        document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(el => {
-            const url = el.getAttribute('data-url');
-            if (!url) return;
-            el.addEventListener('touchstart', (e) => {
-                longPressTimer = setTimeout(() => {
-                    if (!bulkSelectMode) enterBulkSelectMode();
-                    togglePhotoSelect(url);
-                }, 500);
-            }, { passive: true });
-            el.addEventListener('touchend', () => clearTimeout(longPressTimer), { passive: true });
-            el.addEventListener('touchmove', () => clearTimeout(longPressTimer), { passive: true });
-            el.addEventListener('mousedown', () => {
-                longPressTimer = setTimeout(() => {
-                    if (!bulkSelectMode) enterBulkSelectMode();
-                    togglePhotoSelect(url);
-                }, 500);
-            });
-            el.addEventListener('mouseup', () => clearTimeout(longPressTimer));
-            el.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+        // 写真のドラッグ＆ドロップ（長押しで開始）・選択モード
+        initPhotoDragSort();
         });
 
         if (featureShowDate) {
