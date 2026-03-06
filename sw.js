@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ashiato-cache-v5';
+const CACHE_NAME = 'ashiato-cache-v6';
 
 // キャッシュする静的ファイルのリスト
 const urlsToCache = [
@@ -53,7 +53,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 地図のGeoJSONデータ
+    // 地図のGeoJSONデータは一度取得したらキャッシュを優先する
     if (requestUrl.hostname === 'raw.githubusercontent.com') {
         event.respondWith(
             caches.match(event.request).then((cachedResponse) => {
@@ -72,7 +72,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 基本的な静的ファイル
+    // 基本的な静的ファイルは「キャッシュファースト」戦略
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
