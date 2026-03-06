@@ -341,8 +341,17 @@ function enterBulkSelectMode() {
     bulkSelectedUrls = new Set();
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
-    // ゴミ箱はまだ表示しない（1枚以上選択後に切り替わる）
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
+    // 写真を小さくしてグリッド外のスクロールエリアを広くする
+    document.querySelectorAll('.photo-grid-item img').forEach(img => {
+        img.style.transition = 'height 0.25s ease';
+        img.style.height = '80px';
+    });
+    const thumb = document.querySelector('#thumb-wrap img');
+    if (thumb) {
+        thumb.style.transition = 'height 0.25s ease';
+        thumb.style.height = '140px';
+    }
 }
 
 function cancelBulkSelect() {
@@ -358,6 +367,16 @@ function cancelBulkSelect() {
     const icon = document.getElementById('select-btn-icon');
     if (icon) icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = '');
+    // 写真を元のサイズに戻す
+    document.querySelectorAll('.photo-grid-item img').forEach(img => {
+        img.style.transition = 'height 0.25s ease';
+        img.style.height = '140px';
+    });
+    const thumb = document.querySelector('#thumb-wrap img');
+    if (thumb) {
+        thumb.style.transition = 'height 0.25s ease';
+        thumb.style.height = '280px';
+    }
 }
 
 function togglePhotoSelect(url, forceState) {
