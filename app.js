@@ -92,6 +92,12 @@ async function getAllPhotosFromIDB() {
 // =============================================
 const ADMIN_MESSAGES = [
     {
+        id: 'v2.1.1',
+        date: '2026.03.06',
+        title: 'version_2.1.1 アップデート',
+        content: '・選択モード時に「＋」ボタンが「ダウンロード」ボタンに切り替わり、選択した写真を端末に保存できるようになりました。\n・起動時の読み込み画面をわかりやすく改善しました。\n・お知らせボタンをスクロールしても左下に固定表示されるように修正しました。'
+    },
+    {
         id: 'v2.0.2',
         date: '2026.03.06',
         title: 'version_2.0.2 アップデート',
@@ -537,6 +543,12 @@ function enterBulkSelectMode() {
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
+    
+    const addBtn = document.getElementById('add-photo-btn');
+    if (addBtn) addBtn.style.display = 'none';
+    const dlBtn = document.getElementById('download-photo-btn');
+    if (dlBtn) dlBtn.style.display = 'flex';
+
     const grid = document.querySelector('.photo-grid');
     if (grid) {
         grid.style.transition = 'all 0.25s ease';
@@ -565,6 +577,12 @@ function cancelBulkSelect() {
     bulkSelectedUrls = new Set();
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'none';
+    
+    const addBtn = document.getElementById('add-photo-btn');
+    if (addBtn) addBtn.style.display = 'flex';
+    const dlBtn = document.getElementById('download-photo-btn');
+    if (dlBtn) dlBtn.style.display = 'none';
+
     document.querySelectorAll('.photo-check, #thumb-check').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(el => {
         el.style.outline = '';
@@ -621,6 +639,55 @@ function togglePhotoSelect(url, forceState = null) {
         } else {
             icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
         }
+    }
+}
+
+async function downloadSelectedPhotos() {
+    if (bulkSelectedUrls.size === 0) {
+        alert("ダウンロードする写真を選択してください");
+        return;
+    }
+    showLoading('準備中...');
+    try {
+        let count = 0;
+        for (const urlOrId of bulkSelectedUrls) {
+            count++;
+            showLoading(`ダウンロード中... ${count} / ${bulkSelectedUrls.size}`);
+            
+            if (!urlOrId.startsWith('http')) {
+                const base64 = await getPhotoFromIDB(urlOrId);
+                if (base64) {
+                    const a = document.createElement('a');
+                    a.href = base64;
+                    a.download = `ashiato_${selectedPref}_${count}.jpg`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    await new Promise(r => setTimeout(r, 600)); // ブラウザの連続DL制限を回避
+                }
+            } else {
+                 try {
+                     const resp = await fetch(urlOrId);
+                     const blob = await resp.blob();
+                     const a = document.createElement('a');
+                     a.href = URL.createObjectURL(blob);
+                     a.download = `ashiato_${selectedPref}_${count}.jpg`;
+                     document.body.appendChild(a);
+                     a.click();
+                     document.body.removeChild(a);
+                     URL.revokeObjectURL(a.href);
+                     await new Promise(r => setTimeout(r, 600));
+                 } catch (e) {
+                     window.open(urlOrId, '_blank');
+                 }
+            }
+        }
+        showLoading('完了！');
+        setTimeout(() => { hideLoading(); cancelBulkSelect(); }, 1000);
+    } catch(e) {
+        console.error('Download error', e);
+        alert('ダウンロード中にエラーが発生しました');
+        hideLoading();
     }
 }
 
@@ -862,7 +929,7 @@ function showPasswordRecoveryScreen() {
     renderChangePassword();
 }
 
-function startApp(session) {
+async function startApp(session) {
     applyTheme(currentTheme);
     currentUser = session.user;
     currentToken = session.access_token;
@@ -887,9 +954,10 @@ function startApp(session) {
     if (rightPanel) rightPanel.classList.remove('open');
     if (settingsPanel) settingsPanel.classList.remove('open');
 
-    initApp();
+    await initApp();
     updateUIVisibility();
     
+    // パッチバージョン(2.1.1)のため、大型アップデートのポップアップ(2.0.0)のみ未読なら表示
     if (localStorage.getItem('tutorialDone')) {
         showUpdatePopup();
     }
@@ -912,6 +980,8 @@ async function logout() {
 }
 
 window.addEventListener('load', async () => {
+    showLoading('読み込み中...');
+    
     const urlParams = new URLSearchParams(window.location.search);
     const shareToken = urlParams.get('share');
     if (shareToken) {
@@ -937,6 +1007,7 @@ window.addEventListener('load', async () => {
             currentToken = session.access_token;
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('app-screen').classList.remove('hidden');
+            hideLoading();
             showPasswordRecoveryScreen();
         }
     });
@@ -944,7 +1015,11 @@ window.addEventListener('load', async () => {
     await new Promise(r => setTimeout(r, 300));
     if (!recoveryHandled) {
         const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) startApp(session);
+        if (session) {
+            await startApp(session);
+        } else {
+            hideLoading();
+        }
     }
 });
 
@@ -966,7 +1041,7 @@ async function initShareMode() {
         zoomSnap: 0
     }).setView([38.0, 137.0], 5);
 
-    fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
+    const mapPromise = fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
@@ -984,11 +1059,12 @@ async function initShareMode() {
             map.fitBounds(initialBounds);
         });
 
-    showLoading();
-    try {
-        const res = await fetch(`/api?share=${encodeURIComponent(shareUserId)}`);
-        if (res.ok) {
-            const data = await res.json();
+    const dataPromise = fetch(`/api?share=${encodeURIComponent(shareUserId)}`)
+        .then(res => {
+            if (!res.ok) throw new Error('Share link error');
+            return res.json();
+        })
+        .then(data => {
             if (data.memories) {
                 memoriesData = data.memories;
                 shareSettings = data.settings;
@@ -999,15 +1075,17 @@ async function initShareMode() {
             homePrefectures = memoriesData
                 .filter(m => m.is_home === true)
                 .map(m => m.prefecture);
-        }
+        });
+
+    try {
+        await Promise.all([mapPromise, dataPromise]);
     } catch(e) {
         console.error('Share load error', e);
     } finally {
+        updateMapColors();
+        updateCounter();
         hideLoading();
     }
-
-    updateMapColors();
-    updateCounter();
 
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) settingsBtn.style.display = 'none';
@@ -1062,14 +1140,6 @@ async function initShareMode() {
     document.body.appendChild(banner);
 }
 
-async function apiFetch(options = {}) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
-    const url = options.url || '/api';
-    const { url: _, ...rest } = options;
-    return fetch(url, { headers, ...rest });
-}
-
 let map;
 let geoJsonLayer;
 let selectedPref = null;
@@ -1085,8 +1155,7 @@ let homePrefectures = [];
 let isShareMode = false;
 let shareUserId = null;
 
-function initApp() {
-    applyTheme(currentTheme);
+async function initApp() {
     map = L.map('map-container', {
         zoomControl: false,
         attributionControl: false,
@@ -1094,7 +1163,7 @@ function initApp() {
         zoomSnap: 0
     }).setView([38.0, 137.0], 5);
 
-    fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
+    const mapPromise = fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
         .then(res => res.json())
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
@@ -1121,9 +1190,16 @@ function initApp() {
                 map.setMaxBounds(initialBounds.pad(0.05));
                 map.dragging.disable();
             }, 100);
-
-            updateMapColors();
         });
+
+    const dataPromise = fetchMemories(false);
+
+    await Promise.all([mapPromise, dataPromise]);
+    
+    updateMapColors();
+    updateCounter();
+    hideLoading();
+    checkAndStartTutorial();
 
     map.on('zoomend', function() {
         if (map.getZoom() <= map.getMinZoom()) {
@@ -1171,9 +1247,6 @@ function initApp() {
         }
         lastTouchTime = currentTime;
     });
-
-    fetchMemories();
-    checkAndStartTutorial();
 
     const menuBtn = document.getElementById('menu-btn');
     menuBtn.title = "一覧";
@@ -1235,9 +1308,31 @@ function initApp() {
     }
 }
 
-function showLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
+function showLoading(msg = null) {
+    let overlay = document.getElementById('loading-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'loading-overlay';
+        overlay.className = 'hidden';
+        overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center;';
+        document.body.appendChild(overlay);
+    }
+    overlay.classList.remove('hidden');
+    
+    let textEl = document.getElementById('loading-text');
+    if (!textEl) {
+        textEl = document.createElement('div');
+        textEl.id = 'loading-text';
+        textEl.style.cssText = 'color:#6c8ca3; font-weight:bold; margin-top:16px; font-size:1.1rem; letter-spacing:2px; font-family:"Zen Kaku Gothic New", sans-serif;';
+        overlay.appendChild(textEl);
+    }
+    
+    if (msg) {
+        textEl.textContent = msg;
+        textEl.style.display = 'block';
+    } else {
+        textEl.style.display = 'none';
+    }
 }
 
 function hideLoading() {
@@ -1252,27 +1347,27 @@ function initProgressToast() {
     if (!document.getElementById('save-progress-toast')) {
         const toast = document.createElement('div');
         toast.id = 'save-progress-toast';
-        toast.style.cssText = 'position:fixed; bottom:-100px; left:50%; transform:translateX(-50%); width:90%; max-width:350px; background:#fff; border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,0.15); padding:18px 22px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:12px; pointer-events:none;';
+        toast.style.cssText = 'position:fixed; bottom:-100px; left:50%; transform:translateX(-50%); width:auto; min-width:220px; background:rgba(255,255,255,0.95); border-radius:30px; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:10px 18px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:6px; pointer-events:none; backdrop-filter:blur(5px); border:1px solid rgba(0,0,0,0.05);';
         toast.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:1rem; color:#444; font-weight:bold; font-family:inherit;">
-                <span id="save-progress-label">写真を保存中...</span>
-                <span id="save-progress-text" style="color:#6c8ca3; font-size:0.95rem;">0 / 0</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:#555; font-weight:bold; font-family:inherit; gap:16px;">
+                <span id="save-progress-label">準備中...</span>
+                <span id="save-progress-text" style="color:#6c8ca3; font-size:0.8rem;"></span>
             </div>
-            <div style="width:100%; height:8px; background:#eef2f5; border-radius:4px; overflow:hidden; position:relative;">
-                <div id="save-progress-bar" style="width:0%; height:100%; background:#6c8ca3; transition:width 0.2s ease-out; border-radius:4px;"></div>
+            <div style="width:100%; height:4px; background:#eef2f5; border-radius:2px; overflow:hidden; position:relative;">
+                <div id="save-progress-bar" style="width:0%; height:100%; background:#6c8ca3; transition:width 0.2s ease-out; border-radius:2px;"></div>
             </div>
         `;
         document.body.appendChild(toast);
     }
 }
 
-function showSaveProgress(total) {
+function showSaveProgress(total, label = '写真を保存中...') {
     initProgressToast();
     const toast = document.getElementById('save-progress-toast');
-    document.getElementById('save-progress-label').textContent = '写真を保存中...';
+    document.getElementById('save-progress-label').textContent = label;
     document.getElementById('save-progress-text').textContent = `0 / ${total}`;
     document.getElementById('save-progress-bar').style.width = '0%';
-    toast.style.bottom = '30px';
+    toast.style.bottom = '25px';
 }
 
 function updateSaveProgress(current, total, label = null) {
@@ -1409,15 +1504,12 @@ function renderSettingsMenu() {
             <button onclick="renderGroupSettings()" style="${btnS}">
                 お互いの記録が1つの地図に
             </button>
-            <button onclick="renderContactSettings()" style="${btnS}">
-                お問い合わせ
-            </button>
             <button onclick="renderAccountSettings()" style="${btnS}">
                 アカウント
             </button>
         </div>
         <button onclick="renderAdminMessages()" title="お知らせ"
-            style="position:absolute; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
+            style="position:fixed; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10000;">
             ${mailSvg}
             ${badgeHtml}
         </button>
@@ -1500,7 +1592,7 @@ async function deleteAccount() {
     const second = confirm("本当に削除しますか？\nこの操作は元に戻せません。");
     if (!second) return;
 
-    showLoading();
+    showLoading('削除中...');
     try {
         const db = await initDB();
         const tx = db.transaction(IDB_STORE, 'readwrite');
@@ -1527,7 +1619,7 @@ async function deleteAccount() {
 
 async function deleteAllData() {
     if (confirm("すべてのデータを削除してもよろしいでしょうか。\nこの操作は取り消せません。")) {
-        showLoading();
+        showLoading('削除中...');
         
         homePrefectures = [];
         memoriesData = [];
@@ -1607,7 +1699,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.0.2</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.1.1</p>
         </div>
     </div>`;
 
@@ -1687,7 +1779,7 @@ async function doChangePassword() {
 
     const btn = document.querySelector('#settings-panel button[onclick="doChangePassword()"]');
     if (btn) { btn.disabled = true; btn.textContent = '変更中...'; }
-    showLoading();
+    showLoading('変更中...');
 
     try {
         const { error } = await supabaseClient.auth.updateUser({ password: newPw });
@@ -1992,7 +2084,7 @@ async function submitContact() {
     }
 
     if (btn) { btn.disabled = true; btn.textContent = '送信中...'; }
-    showLoading();
+    showLoading('送信中...');
 
     try {
         const res = await apiFetch({
@@ -2137,11 +2229,11 @@ function renderDataSettings() {
 }
 
 async function exportData() {
-    showLoading();
+    showLoading('エクスポートの準備中...');
     try {
         const idbPhotos = await getAllPhotosFromIDB();
         const exportObj = {
-            version: "2.0.2",
+            version: "2.1.1",
             memories: memoriesData,
             photos: idbPhotos
         };
@@ -2170,7 +2262,7 @@ async function importData(event) {
         return;
     }
     
-    showLoading();
+    showLoading('インポート中...');
     try {
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -2285,6 +2377,7 @@ function formatDate(dateStr) {
 }
 
 function renderRightPanel() {
+    // パネル描画時に選択モードをリセット
     cancelBulkSelect();
     const panel = document.getElementById('right-panel');
     const prefOrder = Object.keys(MAP_THEMES.default.colors);
@@ -2498,9 +2591,13 @@ function renderRightPanel() {
         
         if (!isShareMode) {
             contentHtml += `
-            <label for="input-photos" class="add-photo-fab" style="background:${color};" title="写真を追加">
+            <label id="add-photo-btn" for="input-photos" class="add-photo-fab" style="background:${color}; display:flex;" title="写真を追加">
                 <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </label>
+            <button id="download-photo-btn" onclick="downloadSelectedPhotos()" title="選択した写真をダウンロード"
+                style="display:none; position:absolute; bottom:25px; right:25px; width:56px; height:56px; border-radius:50%; background:${color}; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </button>
             <button onclick="toggleSelectOrDelete()" id="select-mode-btn" title="写真を選択"
                 style="position:absolute; bottom:90px; right:25px; width:56px; height:56px; border-radius:50%; background:${color}; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
                 <svg id="select-btn-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2609,13 +2706,12 @@ async function saveDateManual() {
 
 function triggerAutoSave() {
     const statusEl = document.getElementById('autosave-status');
-    if (statusEl) statusEl.innerText = '保存中...';
+    if (statusEl) statusEl.innerText = '保存準備中...';
     clearTimeout(autoSaveTimer);
     
     const photoInputEl = document.getElementById('input-photos');
     const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
-    if (photoInputEl) photoInputEl.value = ''; // ファイル入力の即時リセット
-
+    
     const targetPref = selectedPref;
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
@@ -2625,10 +2721,14 @@ function triggerAutoSave() {
     let toVal = toEl ? toSlashDate(toEl.value) : undefined;
 
     if (files.length > 0) {
-        // 画像追加がある場合はタイマーを待たずに即座にキューに追加してプログレスバーを出す
-        globalSaveQueue = globalSaveQueue.then(() => 
-            performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
-        ).catch(e => console.error(e));
+        showSaveProgress(files.length, "準備中...");
+        
+        setTimeout(() => {
+            if (photoInputEl) photoInputEl.value = '';
+            globalSaveQueue = globalSaveQueue.then(() => 
+                performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
+            ).catch(e => console.error(e));
+        }, 300);
     } else {
         autoSaveTimer = setTimeout(() => { 
             globalSaveQueue = globalSaveQueue.then(() => 
@@ -2653,9 +2753,7 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
     const statusEl = document.getElementById('autosave-status');
     const isHeavyTask = files.length > 0;
 
-    if (isHeavyTask) {
-        showSaveProgress(files.length);
-    } else if (statusEl && selectedPref === targetPref) {
+    if (!isHeavyTask && statusEl && selectedPref === targetPref) {
         statusEl.innerText = '保存中...';
     }
 
@@ -2667,6 +2765,7 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
 
         let newUrls = [];
         if (isHeavyTask) {
+            updateSaveProgress(0, files.length, "圧縮中...");
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const { highResData, thumbData } = await compressImageDual(file);
@@ -2675,12 +2774,22 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
                 await savePhotoToIDB(photoId, highResData);
                 newUrls.push({ id: photoId, thumb: thumbData });
                 
-                updateSaveProgress(i + 1, files.length);
+                updateSaveProgress(i + 1, files.length, "保存中...");
+                
+                await new Promise(r => setTimeout(r, 40)); 
             }
-            updateSaveProgress(files.length, files.length, "クラウドと同期中...");
+            updateSaveProgress(files.length, files.length, "クラウド同期中...");
         }
 
         const allUrls = [...existingUrls, ...newUrls];
+
+        if (selectedPref === targetPref) {
+            existingData.photo_urls = JSON.stringify(allUrls);
+            if (fromVal !== undefined) existingData.date = dateValue;
+            existingData.memo = memoValue;
+            if (!memoriesData.includes(existingData)) memoriesData.push(existingData);
+            renderRightPanel();
+        }
 
         const payload = {
             action: "save_memory",
@@ -2696,9 +2805,6 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
         if (res.ok) {
             await fetchMemories(false);
             
-            if (panelOpen && selectedPref === targetPref) {
-                renderRightPanel();
-            }
             updateMapColors();
             updateCounter();
 
@@ -2711,7 +2817,7 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
             }
             
             if (isHeavyTask) {
-                updateSaveProgress(files.length, files.length, "保存完了！");
+                updateSaveProgress(files.length, files.length, "完了！");
                 setTimeout(() => { hideSaveProgress(); }, 1500);
             }
         } else {
@@ -2799,8 +2905,9 @@ function updateMapColors() {
 }
 
 function showUpdatePopup() {
-    if (localStorage.getItem('updateNotified_v2.0.2')) return;
-    localStorage.setItem('updateNotified_v2.0.2', '1');
+    // 2.0.0の大型アップデートのみ、まだ見ていないユーザーに表示する。パッチバージョン（右端の数字変更）の場合は出さないルール。
+    if (localStorage.getItem('updateNotified_v2.0.0')) return;
+    localStorage.setItem('updateNotified_v2.0.0', '1');
 
     const popup = document.createElement('div');
     popup.id = 'update-popup';
@@ -2808,8 +2915,8 @@ function showUpdatePopup() {
     popup.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.2にアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・写真の追加・削除・並べ替えの動作が高速化されました。<br>・選択モードに「すべて選択」ボタンを追加しました。</p>
+            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.0にアップデートされました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・写真の保存先を端末に変更し、プライバシーと表示速度を向上させました。<br>・設定画面に機種変更時などに使える「データの引き継ぎ」機能を追加しました。</p>
         </div>
     `;
     document.body.appendChild(popup);
