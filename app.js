@@ -92,27 +92,27 @@ async function getAllPhotosFromIDB() {
 // =============================================
 const ADMIN_MESSAGES = [
     {
-        id: 'v2.0.1',
-        date: '2026.03.06',
-        title: '🎉 version_2.0.1 アップデート',
-        content: '・設定画面の左下に「お知らせ機能」を追加しました。\n・写真の保存中も画面操作ができるように、画面下部に進行状況バーを表示するように改善しました。\n・保存処理をバックグラウンド化し、より安定して複数の写真を保存できるようにしました。'
-    },
-    {
         id: 'v2.0.0',
         date: '2026.03.06',
-        title: '🎉 version_2.0.0 アップデート',
+        title: 'version_2.0.0 アップデート',
         content: '・写真の保存先を端末（IndexedDB）に変更し、プライバシーと表示速度を大幅に向上させました。\n・1都道府県につき100枚までとしていた写真の保存上限を完全に解除しました。\n・設定画面から「データの引き継ぎ」ができるようになりました。機種変更時などにご利用ください。\n・共有機能で「閲覧時間」「サムネイルの有無」「日付の有無」を細かく設定できるようになりました。'
     },
     {
         id: 'v1.1.0',
-        date: '2026.02.20',
-        title: '✨ version_1.1.0 アップデート',
+        date: '2026.03.06',
+        title: 'version_1.1.0 アップデート',
         content: '・写真の操作感を向上しました。\n・✓ボタンから写真を選択して一括削除できるようになりました。\n・アプリの維持・向上のため広告を導入しました。'
     },
     {
+        id: 'v1.0.0',
+        date: '2026.03.06',
+        title: 'version_1.0.0 アップデート',
+        content: '・カレンダー機能が向上されました。\n・ドメインtomoi-app.comを入手しセキュリティが強化されました。\n・お問い合わせ機能が向上されました。'
+    },
+    {
         id: 'welcome',
-        date: '2025.10.01',
-        title: '✉️ あしあとへようこそ！',
+        date: '2026.03.06',
+        title: 'あしあとへようこそ！',
         content: 'あしあとをご利用いただきありがとうございます。\nこの画面では運営からのアップデート情報やお知らせをお届けします。\n日本全国、あなただけの思い出を地図に記録していきましょう！'
     }
 ];
@@ -1325,8 +1325,8 @@ function renderSettingsMenu() {
     
     const btnS = `text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
-    <div class="panel-content" style="position: relative;">
-        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px; padding-bottom: 80px;">
+    <div class="panel-content">
+        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px; padding-bottom: 20px;">
             <button onclick="renderFeatureThemeSettings()" style="${btnS}">
                 テーマ・機能の変更
             </button>
@@ -1346,14 +1346,17 @@ function renderSettingsMenu() {
                 アカウント
             </button>
         </div>
+    </div>`;
+    
+    let floatingBtnHtml = `
         <button onclick="renderAdminMessages()" title="お知らせ"
             style="position:absolute; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
             ${mailSvg}
             ${badgeHtml}
         </button>
-    </div>`;
+    `;
     
-    panel.innerHTML = headerHtml + contentHtml;
+    panel.innerHTML = headerHtml + contentHtml + floatingBtnHtml;
 }
 
 // ── 新規：お知らせ（メール）画面のレンダリング ──
@@ -2722,8 +2725,8 @@ function updateMapColors() {
 }
 
 function showUpdatePopup() {
-    if (localStorage.getItem('updateNotified_v2.0.1')) return;
-    localStorage.setItem('updateNotified_v2.0.1', '1');
+    if (localStorage.getItem('updateNotified_v2.0.0')) return;
+    localStorage.setItem('updateNotified_v2.0.0', '1');
 
     const popup = document.createElement('div');
     popup.id = 'update-popup';
@@ -2731,8 +2734,8 @@ function showUpdatePopup() {
     popup.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.1にアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・設定画面の左下に「お知らせ機能」を追加しました。<br>・写真の保存中も画面操作ができるように、画面下部に進行状況バーを表示するように改善しました。</p>
+            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.0にアップデートされました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・写真の保存先を端末に変更し、プライバシーと表示速度を向上させました。<br>・設定画面に機種変更時などに使える「データの引き継ぎ」機能を追加しました。</p>
         </div>
     `;
     document.body.appendChild(popup);
@@ -3012,7 +3015,7 @@ function showTutorialStep() {
 
     if (tutorialStep >= TUTORIAL_STEPS.length) {
         localStorage.setItem('tutorialDone', '1');
-        showUpdatePopup(); // チュートリアル完了直後にポップアップ表示
+        showUpdatePopup(); 
         return;
     }
 
@@ -3105,7 +3108,7 @@ function skipTutorial() {
     const el = document.getElementById('tutorial-overlay');
     if (el) el.remove();
     localStorage.setItem('tutorialDone', '1');
-    showUpdatePopup(); // チュートリアルスキップ直後にポップアップ表示
+    showUpdatePopup(); 
 }
 
 function checkAndStartTutorial() {
