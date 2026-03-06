@@ -56,12 +56,19 @@ class handler(BaseHTTPRequestHandler):
                     padding = '=' * (-len(share_token) % 4)
                     decoded_bytes = base64.urlsafe_b64decode((share_token + padding).encode('utf-8'))
                     decoded_str = decoded_bytes.decode('utf-8')
-                    share_user_id, expires_at_str, signature = decoded_str.split(":")
+                    parts = decoded_str.split(":")
+                    
+                    if len(parts) == 3:
+                        share_user_id, expires_at_str, signature = parts
+                        show_thumb, show_date = "1", "1"
+                        expected_msg = f"{share_user_id}:{expires_at_str}"
+                    else:
+                        share_user_id, expires_at_str, show_thumb, show_date, signature = parts
+                        expected_msg = f"{share_user_id}:{expires_at_str}:{show_thumb}:{show_date}"
 
                     if int(time.time()) > int(expires_at_str):
                         raise Exception("Link expired")
 
-                    expected_msg = f"{share_user_id}:{expires_at_str}"
                     expected_sig = hmac.new(supabase_svc_key.encode('utf-8'), expected_msg.encode('utf-8'), hashlib.sha256).hexdigest()
                     if not hmac.compare_digest(signature, expected_sig):
                         raise Exception("Invalid signature")
@@ -71,13 +78,21 @@ class handler(BaseHTTPRequestHandler):
                     s_req.add_header("apikey", supabase_svc_key)
                     s_req.add_header("Authorization", f"Bearer {supabase_svc_key}")
                     with urllib.request.urlopen(s_req, timeout=10) as r:
-                        data = r.read()
+                        records = json.loads(r.read())
+                    
+                    response_data = {
+                        "memories": records,
+                        "settings": {
+                            "show_thumb": show_thumb == "1",
+                            "show_date": show_date == "1"
+                        }
+                    }
                     
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json; charset=utf-8')
                     self.send_header('Access-Control-Allow-Origin', '*')
                     self.end_headers()
-                    self.wfile.write(data)
+                    self.wfile.write(json.dumps(response_data).encode('utf-8'))
                 except Exception as e:
                     self.send_response(403)
                     self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -139,8 +154,16 @@ class handler(BaseHTTPRequestHandler):
         action = payload.get("action", "")
 
         if action == "generate_share_link":
-            expires_at = int(time.time()) + 3600
-            message = f"{current_user_id}:{expires_at}"
+            expires_in = payload.get("expires_in", 3600)
+            if expires_in == -1:
+                expires_at = int(time.time()) + 3153600000 # 約100年後（制限なし）
+            else:
+                expires_at = int(time.time()) + expires_in
+                
+            show_thumb = "1" if payload.get("show_thumb", True) else "0"
+            show_date = "1" if payload.get("show_date", True) else "0"
+
+            message = f"{current_user_id}:{expires_at}:{show_thumb}:{show_date}"
             signature = hmac.new(supabase_svc_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
             token_str = f"{message}:{signature}"
             token_b64 = base64.urlsafe_b64encode(token_str.encode('utf-8')).decode('utf-8')
@@ -286,7 +309,7 @@ class handler(BaseHTTPRequestHandler):
 
         elif action == "delete_photo":
             pref = payload.get("prefecture", "")
-            identifier = payload.get("photo_url", "") # 以前はURL、今後はIDを受け取る
+            identifier = payload.get("photo_url", "")
 
             safe_pref = urllib.parse.quote(pref)
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
@@ -307,7 +330,6 @@ class handler(BaseHTTPRequestHandler):
             except:
                 pass
 
-            # 文字列（旧URL）と辞書（新仕様）の両方に対応した削除
             new_urls = []
             for item in photo_urls:
                 if isinstance(item, str):
@@ -317,7 +339,6 @@ class handler(BaseHTTPRequestHandler):
                     if item.get("id") != identifier:
                         new_urls.append(item)
 
-            # 古いURL形式の場合のみStorageから削除を試みる
             if isinstance(identifier, str) and str(identifier).startswith("http"):
                 filename = identifier.split('/')[-1]
                 del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"

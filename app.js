@@ -210,6 +210,7 @@ let longPressTimer = null;
 
 function handlePhotoClick(event, idOrUrl, photos) {
     if (bulkSelectMode) {
+        togglePhotoSelect(idOrUrl);
         return;
     }
     openSliderAt(idOrUrl, photos);
@@ -306,6 +307,7 @@ function initPhotoDragSort() {
     let selectDirection = null; // true=選択, false=解除
     let slideTouched = new Set();
     let selectStarted = false;
+    let initialTouchUrl = null;
 
     panelContent.addEventListener('touchstart', (e) => {
         if (!bulkSelectMode) return;
@@ -313,30 +315,30 @@ function initPhotoDragSort() {
         if (!item) return;
         const u = item.getAttribute('data-url');
         if (!u) return;
+        
+        initialTouchUrl = u;
         selectDirection = !bulkSelectedUrls.has(u);
-        slideTouched = new Set([u]);
+        slideTouched = new Set();
         selectStarted = true;
-        panelContent._lastY = e.touches[0].clientY;
-        togglePhotoSelect(u, selectDirection);
     }, { passive: true });
 
     panelContent.addEventListener('touchmove', (e) => {
-        if (!bulkSelectMode) return;
-
+        if (!bulkSelectMode || !selectStarted) return;
+        
         const touch = e.touches[0];
         const elUnder = document.elementFromPoint(touch.clientX, touch.clientY);
-        const onPhoto = elUnder && (
-            elUnder.closest('.photo-grid') ||
-            elUnder.closest('#thumb-wrap')
-        );
+        const item = elUnder ? elUnder.closest('.photo-grid-item, #thumb-wrap') : null;
 
-        if (onPhoto) {
-            e.preventDefault();
-            if (!selectStarted) return;
-            const item = elUnder.closest('.photo-grid-item, #thumb-wrap');
-            if (!item) return;
+        if (item) {
+            e.preventDefault(); // スワイプ選択中はスクロールを止める
             const u = item.getAttribute('data-url');
             if (u && !slideTouched.has(u)) {
+                // 最初の要素もスワイプ開始時に一緒にトグルする
+                if (initialTouchUrl && u !== initialTouchUrl) {
+                    togglePhotoSelect(initialTouchUrl, selectDirection);
+                    slideTouched.add(initialTouchUrl);
+                    initialTouchUrl = null;
+                }
                 slideTouched.add(u);
                 togglePhotoSelect(u, selectDirection);
             }
@@ -344,16 +346,15 @@ function initPhotoDragSort() {
     }, { passive: false });
 
     panelContent.addEventListener('touchend', () => {
-        panelContent._lastY = null;
-        selectDirection = null;
-        slideTouched = new Set();
         selectStarted = false;
+        initialTouchUrl = null;
+        slideTouched.clear();
     }, { passive: true });
 
     panelContent.addEventListener('touchcancel', () => {
-        selectDirection = null;
-        slideTouched = new Set();
         selectStarted = false;
+        initialTouchUrl = null;
+        slideTouched.clear();
     }, { passive: true });
 }
 
@@ -474,12 +475,15 @@ function cancelBulkSelect() {
     }
 }
 
-function togglePhotoSelect(url) {
-    if (bulkSelectedUrls.has(url)) {
-        bulkSelectedUrls.delete(url);
+function togglePhotoSelect(url, forceState = null) {
+    if (forceState !== null) {
+        if (forceState) bulkSelectedUrls.add(url);
+        else bulkSelectedUrls.delete(url);
     } else {
-        bulkSelectedUrls.add(url);
+        if (bulkSelectedUrls.has(url)) bulkSelectedUrls.delete(url);
+        else bulkSelectedUrls.add(url);
     }
+    
     document.querySelectorAll('[data-url]').forEach(el => {
         const elUrl = el.getAttribute('data-url');
         if (elUrl === url) {
@@ -818,6 +822,8 @@ window.addEventListener('load', async () => {
 // =============================================
 // 共有モード（閲覧のみ）
 // =============================================
+let shareSettings = { show_thumb: true, show_date: true };
+
 async function initShareMode() {
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-screen').classList.remove('hidden');
@@ -853,7 +859,14 @@ async function initShareMode() {
     try {
         const res = await fetch(`/api?share=${encodeURIComponent(shareUserId)}`);
         if (res.ok) {
-            memoriesData = await res.json();
+            const data = await res.json();
+            if (data.memories) {
+                memoriesData = data.memories;
+                shareSettings = data.settings;
+            } else {
+                memoriesData = data;
+                shareSettings = { show_thumb: true, show_date: true };
+            }
             homePrefectures = memoriesData
                 .filter(m => m.is_home === true)
                 .map(m => m.prefecture);
@@ -1191,8 +1204,8 @@ function renderSettingsMenu() {
     
     const btnS = `text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
-    <div class="panel-content">
-        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+    <div class="panel-content" style="position: relative;">
+        <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px; padding-bottom: 80px;">
             <button onclick="renderFeatureThemeSettings()" style="${btnS}">
                 テーマ・機能の変更
             </button>
@@ -1205,13 +1218,16 @@ function renderSettingsMenu() {
             <button onclick="renderGroupSettings()" style="${btnS}">
                 お互いの記録が1つの地図に
             </button>
-            <button onclick="renderContactSettings()" style="${btnS}">
-                お問い合わせ
-            </button>
             <button onclick="renderAccountSettings()" style="${btnS}">
                 アカウント
             </button>
         </div>
+        <button onclick="renderContactSettings()" title="お問い合わせ"
+            style="position:absolute; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+        </button>
     </div>`;
     
     panel.innerHTML = headerHtml + contentHtml;
@@ -1453,10 +1469,32 @@ function renderShareSettings() {
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
             <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0;">
-                URLを共有して あしあと を共有しよう。<br>（閲覧モードでは編集はできません。）
+                設定を選んでURLを生成し、あしあとを共有しよう。
             </p>
+            
+            <div style="background:#f4f7f6; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                <label style="font-size:0.95rem; font-weight:bold; color:#444;">閲覧時間</label>
+                <select id="share-expires" style="padding:10px; border-radius:8px; border:1px solid #ccc; font-size:1rem; font-family:inherit;">
+                    <option value="3600">1時間</option>
+                    <option value="86400">24時間</option>
+                    <option value="-1">制限なし</option>
+                </select>
+
+                <label style="font-size:0.95rem; font-weight:bold; color:#444; margin-top:8px;">共有する内容</label>
+                <label style="display:flex; align-items:center; gap:10px; font-size:0.95rem; color:#555; cursor:pointer;">
+                    <input type="checkbox" id="share-show-thumb" checked style="width:18px; height:18px; accent-color:#6c8ca3; cursor:pointer;">
+                    写真（サムネイル）を含める
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; font-size:0.95rem; color:#555; cursor:pointer;">
+                    <input type="checkbox" id="share-show-date" checked style="width:18px; height:18px; accent-color:#6c8ca3; cursor:pointer;">
+                    期間（日付）を含める
+                </label>
+                
+                <button onclick="generateShareLink()" style="margin-top:10px; padding:12px; background:#6c8ca3; color:white; border:none; border-radius:8px; font-size:1rem; font-weight:bold; cursor:pointer;">URLを生成</button>
+            </div>
+
             <div id="share-url-display" style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#aaa; line-height:1.6;">
-                URLを生成中...
+                URL未生成
             </div>
             <button id="share-copy-btn" onclick="copyShareUrl(window._currentShareUrl)"
                 style="padding:16px; background:#eee; color:#aaa; border:none; border-radius:12px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:not-allowed; box-shadow:0 2px 8px rgba(0,0,0,0.05);" disabled>
@@ -1465,22 +1503,40 @@ function renderShareSettings() {
             <div id="share-copy-msg" style="text-align:center; color:#5a8a6a; font-size:0.9rem; min-height:20px;"></div>
         </div>
     </div>`;
+}
 
-    apiFetch({ method: 'POST', body: JSON.stringify({ action: 'generate_share_link' }) })
-        .then(res => res.json())
-        .then(data => {
-            const token = data.token;
-            const shareUrl = `${location.origin}${location.pathname}?share=${token}`;
-            window._currentShareUrl = shareUrl;
-            const display = document.getElementById('share-url-display');
-            if (display) { display.textContent = shareUrl; display.style.color = '#555'; }
-            const btn = document.getElementById('share-copy-btn');
-            if (btn) { btn.disabled = false; btn.style.background = '#f4f7f6'; btn.style.color = '#444'; btn.style.cursor = 'pointer'; }
-        })
-        .catch(() => {
-            const display = document.getElementById('share-url-display');
-            if (display) display.textContent = 'URL生成に失敗しました。再度お試しください。';
-        });
+window.generateShareLink = function() {
+    const expires_in = parseInt(document.getElementById('share-expires').value);
+    const show_thumb = document.getElementById('share-show-thumb').checked;
+    const show_date = document.getElementById('share-show-date').checked;
+    
+    const display = document.getElementById('share-url-display');
+    const btn = document.getElementById('share-copy-btn');
+    display.textContent = 'URLを生成中...';
+    btn.disabled = true;
+    btn.style.background = '#eee'; btn.style.color = '#aaa'; btn.style.cursor = 'not-allowed';
+
+    apiFetch({ 
+        method: 'POST', 
+        body: JSON.stringify({ 
+            action: 'generate_share_link',
+            expires_in: expires_in,
+            show_thumb: show_thumb,
+            show_date: show_date
+        }) 
+    })
+    .then(res => res.json())
+    .then(data => {
+        const token = data.token;
+        const shareUrl = `${location.origin}${location.pathname}?share=${token}`;
+        window._currentShareUrl = shareUrl;
+        display.textContent = shareUrl; 
+        display.style.color = '#555';
+        btn.disabled = false; btn.style.background = '#f4f7f6'; btn.style.color = '#444'; btn.style.cursor = 'pointer';
+    })
+    .catch(() => {
+        display.textContent = 'URL生成に失敗しました。再度お試しください。';
+    });
 }
 
 function copyShareUrl(url) {
@@ -2093,7 +2149,11 @@ function renderRightPanel() {
             }
         } else {
             if (data.date) {
-                contentHtml += `<p style="text-align:center; color:#888; font-size:0.9rem; margin:8px 0;">${formatDate(data.date)}</p>`;
+                if (shareSettings.show_date) {
+                    contentHtml += `<p style="text-align:center; color:#888; font-size:0.9rem; margin:8px 0;">${formatDate(data.date)}</p>`;
+                } else {
+                    contentHtml += `<p style="text-align:center; color:#bbb; font-size:0.9rem; margin:8px 0;">（期間は非公開）</p>`;
+                }
             }
             if (data.memo) {
                 contentHtml += `<p style="padding:10px 14px; background:#fafafa; border-radius:8px; font-size:0.9rem; color:#555; line-height:1.7; white-space:pre-wrap; margin-top:8px;">${data.memo}</p>`;
@@ -2104,68 +2164,72 @@ function renderRightPanel() {
         const getThumbSrc = p => typeof p === 'string' ? p : p.thumb;
 
         if (photos.length > 0) {
-            const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
+            if (isShareMode && !shareSettings.show_thumb) {
+                contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">（写真は非公開に設定されています）</p>`;
+            } else {
+                const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
 
-            if (!isShareMode) {
-                contentHtml += `
-                <div id="bulk-delete-bar" style="display:none; align-items:center; justify-content:space-between; background:#fff0f0; border-radius:10px; padding:10px 14px; margin-top:10px;">
-                    <span id="bulk-select-count" style="font-size:0.9rem; color:#d32f2f; font-weight:bold;">0枚選択中</span>
-                    <div style="display:flex; gap:8px;">
-                        <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#eee; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
-                        <button onclick="deleteBulkSelected()" style="padding:6px 14px; border:none; border-radius:8px; background:#d32f2f; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">削除</button>
-                    </div>
-                </div>`;
-            }
-
-            if (featureShowThumbnail) {
-                const thumbObj = photos[0];
-                const thumbId = getPhotoId(thumbObj);
-                const thumbSrc = getThumbSrc(thumbObj);
-                const escapedThumbId = thumbId.replace(/'/g, "\'");
-                contentHtml += `
-                <div id="thumb-wrap" data-url="${escapedThumbId}" style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
-                    onclick="if(bulkSelectMode){ togglePhotoSelect('${escapedThumbId}'); } else { handlePhotoClick(event, '${escapedThumbId}', ${escapedPhotos}); }"
-                    oncontextmenu="event.preventDefault();">
-                    <img id="img-${escapedThumbId}" src="${thumbSrc}" style="width:100%; height:280px; object-fit:cover; display:block;" loading="lazy">
-                    <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
-                </div>`;
-
-                if (!isShareMode && typeof thumbObj !== 'string') {
-                    setTimeout(async () => {
-                        const highRes = await getPhotoFromIDB(thumbId);
-                        if (highRes) {
-                            const imgEl = document.getElementById(`img-${thumbId}`);
-                            if (imgEl) imgEl.src = highRes;
-                        }
-                    }, 0);
+                if (!isShareMode) {
+                    contentHtml += `
+                    <div id="bulk-delete-bar" style="display:none; align-items:center; justify-content:space-between; background:#fff0f0; border-radius:10px; padding:10px 14px; margin-top:10px;">
+                        <span id="bulk-select-count" style="font-size:0.9rem; color:#d32f2f; font-weight:bold;">0枚選択中</span>
+                        <div style="display:flex; gap:8px;">
+                            <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#eee; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
+                            <button onclick="deleteBulkSelected()" style="padding:6px 14px; border:none; border-radius:8px; background:#d32f2f; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">削除</button>
+                        </div>
+                    </div>`;
                 }
-            }
 
-            const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
-            if (gridPhotos.length > 0) {
-                contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
-                gridPhotos.forEach((p) => {
-                    const pid = getPhotoId(p);
-                    const psrc = getThumbSrc(p);
-                    const escapedId = pid.replace(/'/g, "\'");
-                    contentHtml += `<div class="photo-grid-item" data-url="${escapedId}"
-                        onclick="if(bulkSelectMode){ togglePhotoSelect('${escapedId}'); } else { handlePhotoClick(event, '${escapedId}', ${escapedPhotos}); }"
+                if (featureShowThumbnail) {
+                    const thumbObj = photos[0];
+                    const thumbId = getPhotoId(thumbObj);
+                    const thumbSrc = getThumbSrc(thumbObj);
+                    const escapedThumbId = thumbId.replace(/'/g, "\'");
+                    contentHtml += `
+                    <div id="thumb-wrap" data-url="${escapedThumbId}" style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
+                        onclick="handlePhotoClick(event, '${escapedThumbId}', ${escapedPhotos})"
                         oncontextmenu="event.preventDefault();">
-                        <img id="img-${escapedId}" src="${psrc}" loading="lazy">
-                        <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
+                        <img id="img-${escapedThumbId}" src="${thumbSrc}" style="width:100%; height:280px; object-fit:cover; display:block;" loading="lazy">
+                        <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
                     </div>`;
 
-                    if (!isShareMode && typeof p !== 'string') {
+                    if (!isShareMode && typeof thumbObj !== 'string') {
                         setTimeout(async () => {
-                            const highRes = await getPhotoFromIDB(pid);
+                            const highRes = await getPhotoFromIDB(thumbId);
                             if (highRes) {
-                                const imgEl = document.getElementById(`img-${pid}`);
+                                const imgEl = document.getElementById(`img-${thumbId}`);
                                 if (imgEl) imgEl.src = highRes;
                             }
                         }, 0);
                     }
-                });
-                contentHtml += `</div>`;
+                }
+
+                const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
+                if (gridPhotos.length > 0) {
+                    contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
+                    gridPhotos.forEach((p) => {
+                        const pid = getPhotoId(p);
+                        const psrc = getThumbSrc(p);
+                        const escapedId = pid.replace(/'/g, "\'");
+                        contentHtml += `<div class="photo-grid-item" data-url="${escapedId}"
+                            onclick="handlePhotoClick(event, '${escapedId}', ${escapedPhotos})"
+                            oncontextmenu="event.preventDefault();">
+                            <img id="img-${escapedId}" src="${psrc}" loading="lazy">
+                            <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
+                        </div>`;
+
+                        if (!isShareMode && typeof p !== 'string') {
+                            setTimeout(async () => {
+                                const highRes = await getPhotoFromIDB(pid);
+                                if (highRes) {
+                                    const imgEl = document.getElementById(`img-${pid}`);
+                                    if (imgEl) imgEl.src = highRes;
+                                }
+                            }, 0);
+                        }
+                    });
+                    contentHtml += `</div>`;
+                }
             }
         } else if (!isShareMode) {
             contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>`;
@@ -2234,10 +2298,17 @@ function compressImageDual(file) {
             img.onload = () => {
                 const canvasHigh = document.createElement('canvas');
                 let w = img.width, h = img.height;
-                if (w > 1200) { h = h * (1200 / w); w = 1200; }
+                const MAX_SIZE = 3000;
+                if (w > MAX_SIZE || h > MAX_SIZE) {
+                    if (w > h) {
+                        h = h * (MAX_SIZE / w); w = MAX_SIZE;
+                    } else {
+                        w = w * (MAX_SIZE / h); h = MAX_SIZE;
+                    }
+                }
                 canvasHigh.width = w; canvasHigh.height = h;
                 canvasHigh.getContext('2d').drawImage(img, 0, 0, w, h);
-                const highResData = canvasHigh.toDataURL('image/jpeg', 0.8);
+                const highResData = canvasHigh.toDataURL('image/jpeg', 0.95);
 
                 const canvasThumb = document.createElement('canvas');
                 let tw = img.width, th = img.height;
@@ -2314,10 +2385,8 @@ async function saveMemoryData() {
 
         let newUrls = [];
         if (files.length > 0) {
-            const remaining = 100 - existingUrls.length;
-            const filesToUpload = files.slice(0, Math.max(0, remaining));
-            
-            for (const file of filesToUpload) {
+            // 上限を解除し、選択された全ての画像を保存
+            for (const file of files) {
                 const { highResData, thumbData } = await compressImageDual(file);
                 const photoId = crypto.randomUUID();
                 
@@ -2326,11 +2395,8 @@ async function saveMemoryData() {
             }
         }
 
-        const allUrls = [...existingUrls, ...newUrls].slice(0, 100);
+        const allUrls = [...existingUrls, ...newUrls];
 
-        if (allUrls.length >= 100 && files.length > 0) {
-            showLimitPopup();
-        }
         const memoValue = document.getElementById('input-memo')?.value || '';
         const payload = {
             action: "save_memory",
@@ -2449,21 +2515,6 @@ function showUpdatePopup() {
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
             <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.0にアップデートされました。</p>
             <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・写真の保存先を端末に変更し、プライバシーと表示速度を向上させました。<br>・設定画面に機種変更時などに使える「データの引き継ぎ」機能を追加しました。</p>
-        </div>
-    `;
-    document.body.appendChild(popup);
-}
-
-function showLimitPopup() {
-    const existing = document.getElementById('limit-popup');
-    if (existing) return;
-    const popup = document.createElement('div');
-    popup.id = 'limit-popup';
-    popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9000;padding:20px;box-sizing:border-box;';
-    popup.innerHTML = `
-        <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;text-align:center;">
-            <button onclick="document.getElementById('limit-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0;font-size:1rem;color:#444;line-height:1.8;font-family:'Zen Kaku Gothic New',sans-serif;">100枚保存されました。<br>これ以上保存できません。<br>ご要望はお問い合わせフォームから<br>お気軽にご連絡ください。</p>
         </div>
     `;
     document.body.appendChild(popup);
