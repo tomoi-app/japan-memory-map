@@ -360,7 +360,7 @@ function enterBulkSelectMode() {
         grid.style.transition = 'all 0.25s ease';
         grid.style.gridTemplateColumns = '1fr 1fr 1fr';
         grid.style.gap = '6px';
-        grid.style.padding = '0 70px 0 20px';
+        grid.style.padding = '0 120px 0 20px';
 
     }
     document.querySelectorAll('.photo-grid-item img').forEach(img => {
@@ -374,7 +374,7 @@ function enterBulkSelectMode() {
     }
     const thumbWrap = document.getElementById('thumb-wrap');
     if (thumbWrap) {
-        thumbWrap.style.margin = '0 70px 0 20px';
+        thumbWrap.style.margin = '0 120px 0 20px';
     }
 }
 
