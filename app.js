@@ -92,10 +92,16 @@ async function getAllPhotosFromIDB() {
 // =============================================
 const ADMIN_MESSAGES = [
     {
-        id: 'v2.1.2',
+        id: 'v2.1.3',
         date: '2026.03.06',
-        title: 'version_2.1.2 安定版アップデート',
-        content: '・動作が不安定になる問題を修正し、安定性を向上させました。\n・起動時に地図が読み込まれるまで「読み込み中」と表示されるようになりました。\n・写真選択モード時、右下の＋ボタンが「ダウンロードボタン」に切り替わり、端末に一括保存できるようになりました。'
+        title: 'version_2.1.3 アップデート',
+        content: '・写真の削除処理をバックグラウンド化し、すぐに画面を操作できるように改善しました。\n・写真の選択方法を改善し、スワイプでなぞるだけで連続して選択・解除できるようにしました。'
+    },
+    {
+        id: 'v2.1.1',
+        date: '2026.03.06',
+        title: 'version_2.1.1 アップデート',
+        content: '・選択モード時に「＋」ボタンが「ダウンロード」ボタンに切り替わり、選択した写真を端末に保存できるようになりました。\n・起動時の読み込み画面をわかりやすく改善しました。\n・お知らせボタンをスクロールしても左下に固定表示されるように修正しました。'
     },
     {
         id: 'v2.0.0',
@@ -145,7 +151,19 @@ function markAsRead(id) {
 function markAllAsRead() {
     const allIds = ADMIN_MESSAGES.map(m => m.id);
     localStorage.setItem('readAdminMessages', JSON.stringify(allIds));
-    renderAdminMessages(); 
+    if (window.isAdminMsgOpen) renderAdminMessages(); 
+}
+
+// お知らせ画面の開閉トグル用フラグ
+window.isAdminMsgOpen = false;
+
+function toggleAdminMessages() {
+    window.isAdminMsgOpen = !window.isAdminMsgOpen;
+    if (window.isAdminMsgOpen) {
+        renderAdminMessages();
+    } else {
+        renderSettingsMenu();
+    }
 }
 
 // =============================================
@@ -263,7 +281,6 @@ let featureShowMemo = localStorage.getItem('featureShowMemo') === 'true';
 let featureShowThumbnail = localStorage.getItem('featureShowThumbnail') !== 'false'; // デフォルトON
 let dateEditingMode = false; // 日付編集モードフラグ
 
-// ログイン ↔ サインアップ 切り替え
 // 長押し選択モード管理
 let bulkSelectMode = false;
 let bulkSelectedUrls = new Set();
@@ -323,7 +340,7 @@ function initPhotoDragSort() {
                 dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.85;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);transform:scale(1.05);transition:none;`;
                 document.body.appendChild(dragGhost);
                 navigator.vibrate && navigator.vibrate(30);
-            }, 400);
+            }, 300); // 長押し時間を短縮してレスポンス良く
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
@@ -332,7 +349,7 @@ function initPhotoDragSort() {
             const dy = Math.abs(e.touches[0].clientY - startY);
             if (!isDragging && (dx > 8 || dy > 8)) clearTimeout(pressTimer);
             if (!isDragging || !dragGhost) return;
-            e.preventDefault();
+            e.preventDefault(); // ドラッグ中のみスクロールを止める
             const touch = e.touches[0];
             dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
             dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
@@ -566,7 +583,11 @@ function cancelBulkSelect() {
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'none';
     
-    updateDownloadBtn();
+    // ダウンロードボタンを＋ボタンに戻す
+    const addBtn = document.getElementById('add-photo-btn');
+    if (addBtn) addBtn.style.display = 'flex';
+    const dlBtn = document.getElementById('download-photo-btn');
+    if (dlBtn) dlBtn.style.display = 'none';
 
     document.querySelectorAll('.photo-check, #thumb-check').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(el => {
@@ -686,10 +707,12 @@ async function deleteBulkSelected() {
     const deleteCount = urlsToDelete.length;
     
     const data = memoriesData.find(m => m.prefecture === selectedPref);
+    let photosToSave = [];
     if (data) {
         let photos = JSON.parse(data.photo_urls || '[]');
-        photos = photos.filter(p => !bulkSelectedUrls.has(typeof p === 'string' ? p : p.id));
-        data.photo_urls = JSON.stringify(photos);
+        const urlsToDeleteSet = new Set(urlsToDelete);
+        photosToSave = photos.filter(p => !urlsToDeleteSet.has(typeof p === 'string' ? p : p.id));
+        data.photo_urls = JSON.stringify(photosToSave);
     }
     
     cancelBulkSelect();
@@ -704,10 +727,21 @@ async function deleteBulkSelected() {
             if (!urlOrId.startsWith('http')) {
                 await deletePhotoFromIDB(urlOrId);
             }
-            await apiFetch({ method: 'POST', body: JSON.stringify({ action: 'delete_photo', prefecture: selectedPref, photo_url: urlOrId }) });
             count++;
             updateSaveProgress(count, deleteCount, '処理中...');
         }
+        
+        // 削除後にSupabaseのDBを一括更新
+        if (data) {
+            await apiFetch({ method: 'POST', body: JSON.stringify({
+                action: 'save_memory',
+                prefecture: selectedPref,
+                date: data.date || '',
+                memo: data.memo || '',
+                existing_urls: photosToSave
+            })});
+        }
+        
         await fetchMemories(false);
         updateSaveProgress(deleteCount, deleteCount, '完了！');
         setTimeout(() => hideSaveProgress(), 1500);
@@ -1288,7 +1322,17 @@ async function initApp() {
         document.querySelector('.main-layout').appendChild(settingsBtnEl);
     }
     
-    function updateSettingsBadge() {
+    window.updateSettingsBadge = function() {
+        const btn = document.getElementById('admin-msg-btn');
+        if (!btn) return;
+        const mailSvg = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
+        if (getUnreadCount() > 0) {
+            btn.innerHTML = `${mailSvg}<div style="position:absolute; top:4px; right:4px; width:10px; height:10px; background:#ffca28; border-radius:50%; border:2px solid white;"></div>`;
+        } else {
+            btn.innerHTML = mailSvg;
+        }
+        
+        // 設定ボタン側の小さいバッジも同期
         if (getUnreadCount() > 0) {
             settingsBtnEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#555"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg><div style="position:absolute; top:4px; right:4px; width:10px; height:10px; background:#ffca28; border-radius:50%; border:2px solid white;"></div>`;
         } else {
@@ -1296,7 +1340,6 @@ async function initApp() {
         }
     }
     
-    window.updateSettingsBadge = updateSettingsBadge;
     updateSettingsBadge();
 
     settingsBtnEl.onclick = () => {
@@ -1349,13 +1392,13 @@ function hideLoading() {
 }
 
 // =============================================
-// 写真保存用のバックグラウンドプログレス機能
+// 写真保存・削除用のバックグラウンドプログレス機能
 // =============================================
 function initProgressToast() {
     if (!document.getElementById('save-progress-toast')) {
         const toast = document.createElement('div');
         toast.id = 'save-progress-toast';
-        toast.style.cssText = 'position:fixed; bottom:-100px; left:50%; transform:translateX(-50%); width:auto; min-width:200px; background:rgba(255,255,255,0.9); border-radius:30px; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:8px 16px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:4px; pointer-events:none; border:1px solid rgba(0,0,0,0.05);';
+        toast.style.cssText = 'position:fixed; bottom:-100px; left:20px; width:auto; min-width:200px; background:rgba(255,255,255,0.9); border-radius:30px; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:8px 16px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:4px; pointer-events:none; border:1px solid rgba(0,0,0,0.05);';
         toast.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:#555; font-weight:bold; font-family:inherit; gap:16px;">
                 <span id="save-progress-label">準備中...</span>
@@ -1463,6 +1506,7 @@ function backToList() {
 
 function openSettings() {
     settingsOpen = true;
+    window.isAdminMsgOpen = false; // 設定を開く時は必ずメニュー画面に
     document.getElementById('settings-panel').classList.add('open');
     const adContainer = document.getElementById('ad-container');
     if (adContainer) adContainer.style.display = 'none';
@@ -1472,6 +1516,7 @@ function openSettings() {
 
 function closeSettings() {
     settingsOpen = false;
+    window.isAdminMsgOpen = false;
     document.getElementById('settings-panel').classList.remove('open');
     const adContainer = document.getElementById('ad-container');
     if (adContainer) adContainer.style.display = 'flex';
@@ -1492,10 +1537,6 @@ function renderSettingsMenu() {
         </div>
     </div>`;
     
-    const unreadCount = getUnreadCount();
-    const badgeHtml = unreadCount > 0 ? `<div style="position:absolute; top:12px; right:12px; width:12px; height:12px; background:#ffca28; border:2px solid #6c8ca3; border-radius:50%;"></div>` : '';
-    const mailSvg = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
-    
     const btnS = `text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
     <div class="panel-content" style="position: relative;">
@@ -1512,21 +1553,25 @@ function renderSettingsMenu() {
             <button onclick="renderGroupSettings()" style="${btnS}">
                 お互いの記録が1つの地図に
             </button>
+            <button onclick="renderContactSettings()" style="${btnS}">
+                お問い合わせ
+            </button>
             <button onclick="renderAccountSettings()" style="${btnS}">
                 アカウント
             </button>
         </div>
-        <button onclick="renderAdminMessages()" title="お知らせ"
-            style="position:fixed; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10000;">
-            ${mailSvg}
-            ${badgeHtml}
-        </button>
     </div>`;
     
-    panel.innerHTML = headerHtml + contentHtml;
+    let floatingBtnHtml = `
+        <button id="admin-msg-btn" onclick="toggleAdminMessages()" title="お知らせ"
+            style="position:fixed; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10000;">
+        </button>
+    `;
+    
+    panel.innerHTML = headerHtml + contentHtml + floatingBtnHtml;
+    if(window.updateSettingsBadge) window.updateSettingsBadge();
 }
 
-// ── 新規：お知らせ（メール）画面のレンダリング ──
 function renderAdminMessages() {
     const panel = document.getElementById('settings-panel');
     panel.style.backgroundColor = '#ffffff';
@@ -1534,7 +1579,7 @@ function renderAdminMessages() {
     let headerHtml = `
     <div class="panel-header">
         <div class="panel-header-title-row">
-            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <button onclick="toggleAdminMessages()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
             <h2 style="margin: 0; font-size: 1.4rem; color: #333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">お知らせ</h2>
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
         </div>
@@ -1543,7 +1588,7 @@ function renderAdminMessages() {
     const readIds = getReadMessages();
     const hasUnread = ADMIN_MESSAGES.some(m => !readIds.includes(m.id));
 
-    let contentHtml = `<div class="panel-content"><div style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">`;
+    let contentHtml = `<div class="panel-content" style="position: relative;"><div style="display:flex; flex-direction:column; gap:12px; margin-top:16px; padding-bottom: 80px;">`;
 
     if (hasUnread) {
         contentHtml += `
@@ -1572,7 +1617,15 @@ function renderAdminMessages() {
     });
 
     contentHtml += `</div></div>`;
-    panel.innerHTML = headerHtml + contentHtml;
+    
+    let floatingBtnHtml = `
+        <button id="admin-msg-btn" onclick="toggleAdminMessages()" title="お知らせ"
+            style="position:fixed; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10000;">
+        </button>
+    `;
+    
+    panel.innerHTML = headerHtml + contentHtml + floatingBtnHtml;
+    if(window.updateSettingsBadge) window.updateSettingsBadge();
 }
 
 window.toggleMessageDetail = function(id) {
@@ -2873,26 +2926,6 @@ async function fetchMemories(redraw = true) {
         updateMapColors();
         updateCounter();
     } catch (e) { console.error("データ取得エラー", e); }
-}
-
-// （削除機能は一括削除に統合されたため、この単体関数はUIからは呼ばれませんが一応残しています）
-async function deletePhoto(urlOrId) {
-    showLoading(); 
-    if (typeof urlOrId === 'string' && !urlOrId.startsWith('http')) {
-        await deletePhotoFromIDB(urlOrId);
-    }
-    const payload = { action: "delete_photo", prefecture: selectedPref, photo_url: urlOrId };
-    try {
-        await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
-        await fetchMemories(false);
-        renderRightPanel();
-        updateMapColors();
-        updateCounter();
-    } catch(e) { 
-        console.error("削除エラー", e); 
-    } finally {
-        hideLoading();
-    }
 }
 
 function updateMapColors() {
