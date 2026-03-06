@@ -1,4 +1,20 @@
 // =============================================
+// CSS Keyframes Injection (アニメーション用)
+// =============================================
+if (!document.getElementById('ashiato-dynamic-styles')) {
+    const style = document.createElement('style');
+    style.id = 'ashiato-dynamic-styles';
+    style.innerHTML = `
+        @keyframes date-btn-pulse {
+            0% { transform: scale(1); box-shadow: 0 4px 12px rgba(108,140,163,0.4); }
+            50% { transform: scale(1.03); box-shadow: 0 6px 16px rgba(108,140,163,0.6); }
+            100% { transform: scale(1); box-shadow: 0 4px 12px rgba(108,140,163,0.4); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// =============================================
 // Supabase Auth 設定
 // ※ご自身のSupabase URL と anon key に書き換えてください
 // =============================================
@@ -282,7 +298,7 @@ function initPhotoDragSort() {
         }, { passive: true });
     });
 
-    // ── iPhoneライクな選択操作（panel-contentレベルで管理）──
+    // ── iPhoneライクなスワイプ選択操作（panel-contentレベルで管理）──
     const panelContent = document.querySelector('#right-panel .panel-content');
     if (!panelContent || panelContent._selectReady) return;
     panelContent._selectReady = true;
@@ -339,15 +355,6 @@ function initPhotoDragSort() {
         slideTouched = new Set();
         selectStarted = false;
     }, { passive: true });
-
-    // PC用マウスクリックで選択
-    panelContent.addEventListener('click', (e) => {
-        if (!bulkSelectMode) return;
-        const item = e.target.closest('.photo-grid-item, #thumb-wrap');
-        if (!item) return;
-        const u = item.getAttribute('data-url');
-        if (u) togglePhotoSelect(u);
-    });
 }
 
 function getDropTarget(clientX, clientY, exclude) {
@@ -1195,9 +1202,6 @@ function renderSettingsMenu() {
             <button onclick="renderShareSettings()" style="${btnS}">
                 あしあとを共有
             </button>
-            <button onclick="renderDataSettings()" style="${btnS}">
-                データの引き継ぎ（エクスポート/インポート）
-            </button>
             <button onclick="renderGroupSettings()" style="${btnS}">
                 お互いの記録が1つの地図に
             </button>
@@ -1301,6 +1305,10 @@ function renderAccountSettings() {
                 <span style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:4px;">ログイン中のアカウント</span>
                 <span style="font-weight:bold; color:#444;">${email}</span>
             </div>
+
+            <button onclick="renderDataSettings()" style="${btnStyle}">
+                データの引き継ぎ
+            </button>
 
             <button onclick="closeSettings(); localStorage.removeItem('tutorialDone'); showInstallSlides();" style="${btnStyle}">
                 チュートリアル
@@ -1786,7 +1794,7 @@ function renderDataSettings() {
     let headerHtml = `
     <div class="panel-header">
         <div class="panel-header-title-row">
-            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <button onclick="renderAccountSettings()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
             <h2 style="margin: 0; font-size: 1.3rem; color: #333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">データの引き継ぎ</h2>
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
         </div>
