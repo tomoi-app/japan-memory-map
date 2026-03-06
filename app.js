@@ -2013,7 +2013,6 @@ function renderRightPanel() {
 
         // 写真のドラッグ＆ドロップ（長押しで開始）・選択モード
         initPhotoDragSort();
-        });
 
         if (featureShowDate) {
             const fromInput = document.getElementById('input-date-from');
