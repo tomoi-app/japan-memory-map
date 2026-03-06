@@ -174,9 +174,8 @@ function initPhotoDragSort() {
 
         el.addEventListener('touchstart', (e) => {
             if (bulkSelectMode) {
-                e.stopPropagation();
-                // 最初にタッチした写真の現在状態でスライド全体の方向を決める
-                selectDirection = !bulkSelectedUrls.has(url); // true=選択, false=解除
+                // stopPropagationしない（スクロールを妨げない）
+                selectDirection = !bulkSelectedUrls.has(url);
                 slideTouched = new Set([url]);
                 togglePhotoSelect(url, selectDirection);
                 return;
@@ -1218,7 +1217,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.0.2</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.0.3</p>
         </div>
     </div>`;
 
@@ -2382,35 +2381,30 @@ function openSliderAt(url, photos) {
         modal._swipeReady = true;
         let touchStartX = 0;
         let touchStartY = 0;
-        let isDragging = false;
+        let swipeDir = null; // 'horizontal' or 'vertical'
 
         modal.addEventListener('touchstart', e => {
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-            isDragging = false;
+            swipeDir = null;
         }, { passive: true });
 
         modal.addEventListener('touchmove', e => {
             const dx = e.touches[0].clientX - touchStartX;
             const dy = e.touches[0].clientY - touchStartY;
-            if (!isDragging && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
-                isDragging = true;
+            const img = document.getElementById('slide-image');
+
+            // 方向が決まっていない場合は判定
+            if (!swipeDir) {
+                if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+                    swipeDir = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
+                }
             }
-            if (isDragging) {
-                const img = document.getElementById('slide-image');
+
+            if (swipeDir === 'horizontal') {
                 img.style.transform = `translateX(${dx}px)`;
                 img.style.opacity = `${1 - Math.abs(dx) / 400}`;
-            }
-        }, { passive: true });
-
-        modal.addEventListener('touchmove', e => {
-            const dx = e.touches[0].clientX - touchStartX;
-            const dy = e.touches[0].clientY - touchStartY;
-            if (!isDragging && Math.abs(dy) > Math.abs(dx) && dy > 8) {
-                isDragging = true;
-            }
-            if (isDragging && dy > 0) {
-                const img = document.getElementById('slide-image');
+            } else if (swipeDir === 'vertical' && dy > 0) {
                 img.style.transform = `translateY(${dy}px) scale(${1 - dy/800})`;
                 img.style.opacity = `${1 - dy/300}`;
                 modal.style.background = `rgba(0,0,0,${0.9 - dy/400})`;
@@ -2424,7 +2418,7 @@ function openSliderAt(url, photos) {
             img.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
 
             // 下スワイプで閉じる
-            if (dy > 80 && dy > Math.abs(dx)) {
+            if (swipeDir === 'vertical' && dy > 80) {
                 img.style.transform = 'translateY(100vh)';
                 img.style.opacity = '0';
                 modal.style.transition = 'background 0.25s ease';
@@ -2437,12 +2431,12 @@ function openSliderAt(url, photos) {
                     modal.style.transition = '';
                     modal.style.background = '';
                 }, 250);
-                isDragging = false;
+                swipeDir = null;
                 return;
             }
 
             // 横スワイプで写真切り替え
-            if (!isDragging && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+            if (swipeDir === 'horizontal' && Math.abs(dx) > 60) {
                 const direction = dx < 0 ? 1 : -1;
                 const canMove = direction === 1
                     ? slideIndex < currentPhotos.length - 1
