@@ -2092,7 +2092,7 @@ function renderRightPanel() {
                 const escapedThumb = thumbUrl.replace(/'/g, "\'");
                 contentHtml += `
                 <div id="thumb-wrap" data-url="${thumbUrl}" style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
-                    onclick="handlePhotoClick(event, '${escapedThumb}', ${escapedPhotos})"
+                    onclick="if(bulkSelectMode){ togglePhotoSelect('${escapedThumb}'); } else { handlePhotoClick(event, '${escapedThumb}', ${escapedPhotos}); }"
                     oncontextmenu="event.preventDefault();">
                     <img src="${thumbUrl}" style="width:100%; height:280px; object-fit:cover; display:block;" loading="lazy">
                     <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
@@ -2108,7 +2108,7 @@ function renderRightPanel() {
                     const escapedUrl = url.replace(/'/g, "\'");
                     const deleteBtn = '';
                     contentHtml += `<div class="photo-grid-item" data-url="${url}"
-                        onclick="handlePhotoClick(event, '${escapedUrl}', ${escapedPhotos})"
+                        onclick="if(bulkSelectMode){ togglePhotoSelect('${escapedUrl}'); } else { handlePhotoClick(event, '${escapedUrl}', ${escapedPhotos}); }"
                         oncontextmenu="event.preventDefault();">
                         <img src="${url}" loading="lazy">
                         <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
