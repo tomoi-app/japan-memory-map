@@ -2418,8 +2418,8 @@ function showUpdatePopup() {
     popup.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">アプリがアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;">・写真の操作感を向上しました。<br>・✓ボタンから写真を選択して削除できるようになりました。<br>・アプリの維持・向上のため広告を導入しました。</p>
+            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_1.1.0にアップデートされました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・写真の操作感を向上しました。<br>・✓ボタンから写真を選択して削除できるようになりました。<br>・アプリの維持・向上のため広告を導入しました。</p>
         </div>
     `;
     document.body.appendChild(popup);
