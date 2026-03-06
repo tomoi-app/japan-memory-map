@@ -354,14 +354,13 @@ function enterBulkSelectMode() {
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
-    // 写真を小さく・3列に・両端余白を広く
+    // 写真を小さく・3列に・右側にボタンと重ならないよう余白
     const grid = document.querySelector('.photo-grid');
     if (grid) {
         grid.style.transition = 'all 0.25s ease';
         grid.style.gridTemplateColumns = '1fr 1fr 1fr';
         grid.style.gap = '6px';
-        grid.style.padding = '0 120px 0 20px';
-
+        grid.style.marginRight = '75px';
     }
     document.querySelectorAll('.photo-grid-item img').forEach(img => {
         img.style.transition = 'height 0.25s ease';
@@ -374,7 +373,8 @@ function enterBulkSelectMode() {
     }
     const thumbWrap = document.getElementById('thumb-wrap');
     if (thumbWrap) {
-        thumbWrap.style.margin = '0 120px 0 20px';
+        thumbWrap.style.transition = 'all 0.25s ease';
+        thumbWrap.style.marginRight = '75px';
     }
 }
 
@@ -396,7 +396,7 @@ function cancelBulkSelect() {
     if (grid) {
         grid.style.gridTemplateColumns = '1fr 1fr';
         grid.style.gap = '12px';
-        grid.style.padding = '';
+        grid.style.marginRight = '';
     }
     document.querySelectorAll('.photo-grid-item img').forEach(img => {
         img.style.transition = 'height 0.25s ease';
@@ -408,7 +408,9 @@ function cancelBulkSelect() {
         thumb.style.height = '280px';
     }
     const thumbWrap = document.getElementById('thumb-wrap');
-    if (thumbWrap) thumbWrap.style.margin = '';
+    if (thumbWrap) {
+        thumbWrap.style.marginRight = '';
+    }
 }
 
 function togglePhotoSelect(url, forceState) {
@@ -1298,7 +1300,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.0.3</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.1.0</p>
         </div>
     </div>`;
 
@@ -2407,8 +2409,8 @@ function updateMapColors() {
 }
 
 function showUpdatePopup() {
-    if (localStorage.getItem('updateNotified_v2')) return;
-    localStorage.setItem('updateNotified_v2', '1');
+    if (localStorage.getItem('updateNotified_v1.1.0')) return;
+    localStorage.setItem('updateNotified_v1.1.0', '1');
 
     const popup = document.createElement('div');
     popup.id = 'update-popup';
@@ -2417,7 +2419,7 @@ function showUpdatePopup() {
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
             <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">アプリがアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;">・カレンダー機能が向上されました。<br>・ドメインtomoi-app.comを入手しセキュリティが強化されました。<br>・お問い合わせ機能が向上されました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;">・写真の操作感を向上しました。<br>・✓ボタンから写真を選択して削除できるようになりました。<br>・アプリの維持・向上のため広告を導入しました。</p>
         </div>
     `;
     document.body.appendChild(popup);
