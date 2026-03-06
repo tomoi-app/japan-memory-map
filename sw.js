@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ashiato-cache-v1';
+const CACHE_NAME = 'ashiato-cache-v3';
 
 // キャッシュする静的ファイルのリスト
 const urlsToCache = [
@@ -81,8 +81,18 @@ self.addEventListener('fetch', (event) => {
                 if (response) {
                     return response;
                 }
-                // なければネットワークから取得
-                return fetch(event.request);
+                
+                // キャッシュがなければネットワークから取得
+                return fetch(event.request).then((networkResponse) => {
+                    // 取得した新しいデータをキャッシュに保存
+                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    }
+                    return networkResponse;
+                });
             })
     );
 });

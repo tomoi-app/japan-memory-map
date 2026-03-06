@@ -88,6 +88,61 @@ async function getAllPhotosFromIDB() {
 }
 
 // =============================================
+// お知らせ（メール）設定
+// =============================================
+const ADMIN_MESSAGES = [
+    {
+        id: 'v2.0.1',
+        date: '2026.03.06',
+        title: '🎉 version_2.0.1 アップデート',
+        content: '・設定画面の左下に「お知らせ機能」を追加しました。\n・写真の保存中も画面操作ができるように、画面下部に進行状況バーを表示するように改善しました。\n・保存処理をバックグラウンド化し、より安定して複数の写真を保存できるようにしました。'
+    },
+    {
+        id: 'v2.0.0',
+        date: '2026.03.06',
+        title: '🎉 version_2.0.0 アップデート',
+        content: '・写真の保存先を端末（IndexedDB）に変更し、プライバシーと表示速度を大幅に向上させました。\n・1都道府県につき100枚までとしていた写真の保存上限を完全に解除しました。\n・設定画面から「データの引き継ぎ」ができるようになりました。機種変更時などにご利用ください。\n・共有機能で「閲覧時間」「サムネイルの有無」「日付の有無」を細かく設定できるようになりました。'
+    },
+    {
+        id: 'v1.1.0',
+        date: '2026.02.20',
+        title: '✨ version_1.1.0 アップデート',
+        content: '・写真の操作感を向上しました。\n・✓ボタンから写真を選択して一括削除できるようになりました。\n・アプリの維持・向上のため広告を導入しました。'
+    },
+    {
+        id: 'welcome',
+        date: '2025.10.01',
+        title: '✉️ あしあとへようこそ！',
+        content: 'あしあとをご利用いただきありがとうございます。\nこの画面では運営からのアップデート情報やお知らせをお届けします。\n日本全国、あなただけの思い出を地図に記録していきましょう！'
+    }
+];
+
+function getReadMessages() {
+    try {
+        return JSON.parse(localStorage.getItem('readAdminMessages') || '[]');
+    } catch(e) { return []; }
+}
+
+function getUnreadCount() {
+    const readIds = getReadMessages();
+    return ADMIN_MESSAGES.filter(m => !readIds.includes(m.id)).length;
+}
+
+function markAsRead(id) {
+    const readIds = getReadMessages();
+    if (!readIds.includes(id)) {
+        readIds.push(id);
+        localStorage.setItem('readAdminMessages', JSON.stringify(readIds));
+    }
+}
+
+function markAllAsRead() {
+    const allIds = ADMIN_MESSAGES.map(m => m.id);
+    localStorage.setItem('readAdminMessages', JSON.stringify(allIds));
+    renderAdminMessages(); 
+}
+
+// =============================================
 // 地図カラーテーマ設定
 // =============================================
 const MAP_THEMES = {
@@ -333,7 +388,6 @@ function initPhotoDragSort() {
             e.preventDefault(); // スワイプ選択中はスクロールを止める
             const u = item.getAttribute('data-url');
             if (u && !slideTouched.has(u)) {
-                // 最初の要素もスワイプ開始時に一緒にトグルする
                 if (initialTouchUrl && u !== initialTouchUrl) {
                     togglePhotoSelect(initialTouchUrl, selectDirection);
                     slideTouched.add(initialTouchUrl);
@@ -541,7 +595,7 @@ function showAuthPrivacyPopup() {
             <div style="overflow-y:auto;padding:20px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:0.88rem;color:#555;line-height:1.85;">
                 <p>あしあと（以下「本サービス」）は、運営者 ともい（以下「運営者」）が提供する旅の記録アプリです。本ポリシーでは、ユーザーの個人情報の取り扱いについて説明します。</p>
                 <p style="font-weight:bold;color:#444;margin-top:18px;">■ 収集する情報</p>
-                <p>・メールアドレス（アカウント登録・認証のため）<br>・写真（端末のIndexedDBに保存され、軽量なサムネイルのみがクラウドに保存されます）<br>・都道府県・日付・メモ（旅の記録データ）<br>・テーマ設定（端末内にのみ保存）</p>
+                <p>・メールアドレス（アカウント登録・認証のため）<br>・都道府県・日付・メモ（旅の記録データ）<br>・写真データ<br><span style="font-size:0.82rem;color:#777;display:block;margin-top:4px;padding:8px 10px;background:#f4f7f6;border-radius:6px;line-height:1.6;">※プライバシー保護のため、写真はクラウドには保存されず、ご利用の端末内（ブラウザのIndexedDB）に直接保存されます。（共有機能の表示用にのみ、軽量なサムネイル画像がクラウドに保管されます）</span>・テーマ設定（端末内にのみ保存）</p>
                 <p style="font-weight:bold;color:#444;margin-top:18px;">■ 情報の利用目的</p>
                 <p>・サービスの提供および機能の維持<br>・ユーザー認証とアカウント管理<br>・旅の記録データの保存と表示</p>
                 <p style="font-weight:bold;color:#444;margin-top:18px;">■ 第三者提供</p>
@@ -763,7 +817,11 @@ function startApp(session) {
 
     initApp();
     updateUIVisibility();
-    showUpdatePopup();
+    
+    // チュートリアルが完了している場合のみ起動時にポップアップを出す
+    if (localStorage.getItem('tutorialDone')) {
+        showUpdatePopup();
+    }
 }
 
 async function logout() {
@@ -1077,7 +1135,19 @@ function initApp() {
         settingsBtnEl.title = "設定";
         document.querySelector('.main-layout').appendChild(settingsBtnEl);
     }
-    settingsBtnEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#555"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>`;
+    
+    function updateSettingsBadge() {
+        if (getUnreadCount() > 0) {
+            settingsBtnEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#555"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg><div style="position:absolute; top:4px; right:4px; width:10px; height:10px; background:#ffca28; border-radius:50%; border:2px solid white;"></div>`;
+        } else {
+            settingsBtnEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#555"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>`;
+        }
+    }
+    
+    // 定期的にバッジを更新するためのメソッドをグローバルに
+    window.updateSettingsBadge = updateSettingsBadge;
+    updateSettingsBadge();
+
     settingsBtnEl.onclick = () => {
         if (settingsOpen) {
             closeSettings();
@@ -1103,6 +1173,52 @@ function showLoading() {
 function hideLoading() {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) overlay.classList.add('hidden');
+}
+
+// =============================================
+// 写真保存用のバックグラウンドプログレス機能
+// =============================================
+function initProgressToast() {
+    if (!document.getElementById('save-progress-toast')) {
+        const toast = document.createElement('div');
+        toast.id = 'save-progress-toast';
+        toast.style.cssText = 'position:fixed; bottom:-100px; left:50%; transform:translateX(-50%); width:90%; max-width:350px; background:#fff; border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,0.15); padding:18px 22px; z-index:99999; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display:flex; flex-direction:column; gap:12px; pointer-events:none;';
+        toast.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:1rem; color:#444; font-weight:bold; font-family:inherit;">
+                <span id="save-progress-label">写真を保存中...</span>
+                <span id="save-progress-text" style="color:#6c8ca3; font-size:0.95rem;">0 / 0</span>
+            </div>
+            <div style="width:100%; height:8px; background:#eef2f5; border-radius:4px; overflow:hidden; position:relative;">
+                <div id="save-progress-bar" style="width:0%; height:100%; background:#6c8ca3; transition:width 0.2s ease-out; border-radius:4px;"></div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+    }
+}
+
+function showSaveProgress(total) {
+    initProgressToast();
+    const toast = document.getElementById('save-progress-toast');
+    document.getElementById('save-progress-label').textContent = '写真を保存中...';
+    document.getElementById('save-progress-text').textContent = `0 / ${total}`;
+    document.getElementById('save-progress-bar').style.width = '0%';
+    toast.style.bottom = '30px';
+}
+
+function updateSaveProgress(current, total, label = null) {
+    const toast = document.getElementById('save-progress-toast');
+    if (!toast) return;
+    if (label) document.getElementById('save-progress-label').textContent = label;
+    document.getElementById('save-progress-text').textContent = `${current} / ${total}`;
+    const percent = Math.floor((current / total) * 100);
+    document.getElementById('save-progress-bar').style.width = `${percent}%`;
+}
+
+function hideSaveProgress() {
+    const toast = document.getElementById('save-progress-toast');
+    if (toast) {
+        toast.style.bottom = '-100px';
+    }
 }
 
 function openPanel() {
@@ -1187,6 +1303,7 @@ function closeSettings() {
     const adContainer = document.getElementById('ad-container');
     if (adContainer) adContainer.style.display = 'flex';
     updateUIVisibility();
+    if(window.updateSettingsBadge) window.updateSettingsBadge();
 }
 
 function renderSettingsMenu() {
@@ -1201,6 +1318,10 @@ function renderSettingsMenu() {
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
         </div>
     </div>`;
+    
+    const unreadCount = getUnreadCount();
+    const badgeHtml = unreadCount > 0 ? `<div style="position:absolute; top:12px; right:12px; width:12px; height:12px; background:#ffca28; border:2px solid #6c8ca3; border-radius:50%;"></div>` : '';
+    const mailSvg = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
     
     const btnS = `text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
@@ -1218,20 +1339,90 @@ function renderSettingsMenu() {
             <button onclick="renderGroupSettings()" style="${btnS}">
                 お互いの記録が1つの地図に
             </button>
+            <button onclick="renderContactSettings()" style="${btnS}">
+                お問い合わせ
+            </button>
             <button onclick="renderAccountSettings()" style="${btnS}">
                 アカウント
             </button>
         </div>
-        <button onclick="renderContactSettings()" title="お問い合わせ"
+        <button onclick="renderAdminMessages()" title="お知らせ"
             style="position:absolute; bottom:25px; left:25px; width:56px; height:56px; border-radius:50%; background:#6c8ca3; color:white; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
+            ${mailSvg}
+            ${badgeHtml}
         </button>
     </div>`;
     
     panel.innerHTML = headerHtml + contentHtml;
 }
+
+// ── 新規：お知らせ（メール）画面のレンダリング ──
+function renderAdminMessages() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.backgroundColor = '#ffffff';
+
+    let headerHtml = `
+    <div class="panel-header">
+        <div class="panel-header-title-row">
+            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
+            <h2 style="margin: 0; font-size: 1.4rem; color: #333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">お知らせ</h2>
+            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
+        </div>
+    </div>`;
+
+    const readIds = getReadMessages();
+    const hasUnread = ADMIN_MESSAGES.some(m => !readIds.includes(m.id));
+
+    let contentHtml = `<div class="panel-content"><div style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">`;
+
+    if (hasUnread) {
+        contentHtml += `
+        <div style="display:flex; justify-content:flex-end; margin-bottom:4px;">
+            <button onclick="markAllAsRead()" style="background:none; border:none; color:#6c8ca3; font-size:0.9rem; cursor:pointer; font-weight:bold; font-family:inherit;">すべて既読にする</button>
+        </div>`;
+    }
+
+    ADMIN_MESSAGES.forEach(msg => {
+        const isRead = readIds.includes(msg.id);
+        const badge = isRead ? '' : `<div style="width:8px; height:8px; background:#ffca28; border-radius:50%; flex-shrink:0; margin-top:6px;"></div>`;
+        const titleWeight = isRead ? 'normal' : 'bold';
+        const titleColor = isRead ? '#666' : '#333';
+
+        contentHtml += `
+        <div onclick="window.toggleMessageDetail('${msg.id}')" style="background:#f4f7f6; border-radius:12px; padding:16px; cursor:pointer; transition:background 0.2s;">
+            <div style="display:flex; gap:12px; align-items:flex-start;">
+                ${badge}
+                <div style="flex:1;">
+                    <div style="font-size:0.8rem; color:#aaa; margin-bottom:4px;">${msg.date}</div>
+                    <div style="font-size:1rem; color:${titleColor}; font-weight:${titleWeight}; line-height:1.4;">${msg.title}</div>
+                    <div id="msg-detail-${msg.id}" style="display:none; margin-top:12px; font-size:0.9rem; color:#555; line-height:1.7; white-space:pre-wrap; border-top:1px dashed #ddd; padding-top:12px;">${msg.content}</div>
+                </div>
+            </div>
+        </div>`;
+    });
+
+    contentHtml += `</div></div>`;
+    panel.innerHTML = headerHtml + contentHtml;
+}
+
+window.toggleMessageDetail = function(id) {
+    const detailEl = document.getElementById(`msg-detail-${id}`);
+    if (detailEl) {
+        if (detailEl.style.display === 'none') {
+            detailEl.style.display = 'block';
+            markAsRead(id);
+            const badge = detailEl.parentElement.previousElementSibling;
+            if (badge && badge.tagName.toLowerCase() === 'div' && badge.style.backgroundColor === 'rgb(255, 202, 40)') {
+                badge.style.display = 'none';
+            }
+            detailEl.parentElement.querySelector('div:nth-child(2)').style.fontWeight = 'normal';
+            detailEl.parentElement.querySelector('div:nth-child(2)').style.color = '#666';
+            if(window.updateSettingsBadge) window.updateSettingsBadge();
+        } else {
+            detailEl.style.display = 'none';
+        }
+    }
+};
 
 async function deleteAccount() {
     const first = confirm("アカウントを削除しますか？\nすべてのデータも完全に削除されます。\nこの操作は取り消せません。");
@@ -1346,7 +1537,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.0.0</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.0.1</p>
         </div>
     </div>`;
 
@@ -1483,11 +1674,11 @@ function renderShareSettings() {
                 <label style="font-size:0.95rem; font-weight:bold; color:#444; margin-top:8px;">共有する内容</label>
                 <label style="display:flex; align-items:center; gap:10px; font-size:0.95rem; color:#555; cursor:pointer;">
                     <input type="checkbox" id="share-show-thumb" checked style="width:18px; height:18px; accent-color:#6c8ca3; cursor:pointer;">
-                    写真（サムネイル）を含める
+                    サムネイル
                 </label>
                 <label style="display:flex; align-items:center; gap:10px; font-size:0.95rem; color:#555; cursor:pointer;">
                     <input type="checkbox" id="share-show-date" checked style="width:18px; height:18px; accent-color:#6c8ca3; cursor:pointer;">
-                    期間（日付）を含める
+                    日付
                 </label>
                 
                 <button onclick="generateShareLink()" style="margin-top:10px; padding:12px; background:#6c8ca3; color:white; border:none; border-radius:8px; font-size:1rem; font-weight:bold; cursor:pointer;">URLを生成</button>
@@ -1880,7 +2071,7 @@ async function exportData() {
     try {
         const idbPhotos = await getAllPhotosFromIDB();
         const exportObj = {
-            version: "2.0.0",
+            version: "2.0.1",
             memories: memoriesData,
             photos: idbPhotos
         };
@@ -2323,6 +2514,9 @@ function compressImageDual(file) {
     });
 }
 
+// ── バックグラウンド処理用のキュー ──
+let globalSaveQueue = Promise.resolve();
+
 async function saveDateManual() {
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
@@ -2340,67 +2534,80 @@ async function saveDateManual() {
             [fromVal, toVal] = [toVal, fromVal];
         }
     }
-
-    const statusEl = document.getElementById('autosave-status');
-    if (statusEl) statusEl.innerText = '保存中...';
-    await saveMemoryData();
+    triggerAutoSave();
 }
 
 function triggerAutoSave() {
     const statusEl = document.getElementById('autosave-status');
     if (statusEl) statusEl.innerText = '保存中...';
     clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(async () => { await saveMemoryData(); }, 800);
-}
-
-async function saveMemoryData() {
-    const fromEl = document.getElementById('input-date-from');
-    const toEl = document.getElementById('input-date-to');
+    
     const photoInputEl = document.getElementById('input-photos');
     const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
+    if (photoInputEl) photoInputEl.value = ''; // ファイル入力の即時リセット
 
+    const targetPref = selectedPref;
+    const fromEl = document.getElementById('input-date-from');
+    const toEl = document.getElementById('input-date-to');
+    const memoValue = document.getElementById('input-memo')?.value || '';
+    
+    let fromVal = fromEl ? toSlashDate(fromEl.value) : undefined;
+    let toVal = toEl ? toSlashDate(toEl.value) : undefined;
+
+    autoSaveTimer = setTimeout(() => { 
+        globalSaveQueue = globalSaveQueue.then(() => 
+            performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
+        ).catch(e => console.error(e));
+    }, 800);
+}
+
+async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
+    if (!targetPref) return;
+
+    const existingData = memoriesData.find(m => m.prefecture === targetPref) || {};
+    
     let dateValue;
-    if (fromEl) {
-        const fromVal = toSlashDate(fromEl.value);
-        const toVal = toEl ? toSlashDate(toEl.value) : '';
+    if (fromVal !== undefined) {
         dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
     } else {
-        const existingData = memoriesData.find(m => m.prefecture === selectedPref);
-        dateValue = existingData?.date || '';
+        dateValue = existingData.date || '';
     }
-    
+
     const statusEl = document.getElementById('autosave-status');
-    
-    if (files.length > 0) {
-        if (statusEl) statusEl.innerText = '保存中...';
-        showLoading();
+    const isHeavyTask = files.length > 0;
+
+    if (isHeavyTask) {
+        showSaveProgress(files.length);
+    } else if (statusEl && selectedPref === targetPref) {
+        statusEl.innerText = '保存中...';
     }
 
     try {
         let existingUrls = [];
-        const existingData = memoriesData.find(m => m.prefecture === selectedPref);
-        if (existingData && existingData.photo_urls) {
+        if (existingData.photo_urls) {
             try { existingUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
         let newUrls = [];
-        if (files.length > 0) {
-            // 上限を解除し、選択された全ての画像を保存
-            for (const file of files) {
+        if (isHeavyTask) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 const { highResData, thumbData } = await compressImageDual(file);
                 const photoId = crypto.randomUUID();
                 
                 await savePhotoToIDB(photoId, highResData);
                 newUrls.push({ id: photoId, thumb: thumbData });
+                
+                updateSaveProgress(i + 1, files.length);
             }
+            updateSaveProgress(files.length, files.length, "クラウドと同期中...");
         }
 
         const allUrls = [...existingUrls, ...newUrls];
 
-        const memoValue = document.getElementById('input-memo')?.value || '';
         const payload = {
             action: "save_memory",
-            prefecture: selectedPref,
+            prefecture: targetPref,
             date: dateValue,
             existing_urls: allUrls,
             new_photos: [],
@@ -2410,28 +2617,39 @@ async function saveMemoryData() {
         const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
         
         if (res.ok) {
-            dateEditingMode = false;
             await fetchMemories(false);
-            renderRightPanel();
+            
+            if (panelOpen && selectedPref === targetPref) {
+                renderRightPanel();
+            }
             updateMapColors();
             updateCounter();
-            if (statusEl) {
+
+            if (statusEl && selectedPref === targetPref) {
                 statusEl.innerText = '保存完了';
-                setTimeout(() => { if (statusEl) statusEl.innerText = ''; }, 2000);
+                setTimeout(() => { 
+                    const el = document.getElementById('autosave-status');
+                    if (el) el.innerText = ''; 
+                }, 2000);
+            }
+            
+            if (isHeavyTask) {
+                updateSaveProgress(files.length, files.length, "保存完了！");
+                setTimeout(() => { hideSaveProgress(); }, 1500);
             }
         } else {
             const errData = await res.json().catch(() => ({}));
             const errMsg = errData.error || '保存に失敗しました';
-            if (statusEl) statusEl.innerText = `⚠ ${errMsg}`;
+            if (statusEl && selectedPref === targetPref) statusEl.innerText = `⚠ ${errMsg}`;
+            if (isHeavyTask) hideSaveProgress();
         }
     } catch(e) { 
         console.error("Save Error", e); 
-        if (statusEl) {
+        if (statusEl && selectedPref === targetPref) {
             statusEl.style.color = '#d32f2f';
-            statusEl.innerText = '⚠ 保存に失敗しました。再度お試しください。';
+            statusEl.innerText = '⚠ 保存に失敗しました。';
         }
-    } finally {
-        hideLoading(); 
+        if (isHeavyTask) hideSaveProgress();
     }
 }
 
@@ -2504,8 +2722,8 @@ function updateMapColors() {
 }
 
 function showUpdatePopup() {
-    if (localStorage.getItem('updateNotified_v2.0.0')) return;
-    localStorage.setItem('updateNotified_v2.0.0', '1');
+    if (localStorage.getItem('updateNotified_v2.0.1')) return;
+    localStorage.setItem('updateNotified_v2.0.1', '1');
 
     const popup = document.createElement('div');
     popup.id = 'update-popup';
@@ -2513,8 +2731,8 @@ function showUpdatePopup() {
     popup.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.0にアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・写真の保存先を端末に変更し、プライバシーと表示速度を向上させました。<br>・設定画面に機種変更時などに使える「データの引き継ぎ」機能を追加しました。</p>
+            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.0.1にアップデートされました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・設定画面の左下に「お知らせ機能」を追加しました。<br>・写真の保存中も画面操作ができるように、画面下部に進行状況バーを表示するように改善しました。</p>
         </div>
     `;
     document.body.appendChild(popup);
@@ -2794,6 +3012,7 @@ function showTutorialStep() {
 
     if (tutorialStep >= TUTORIAL_STEPS.length) {
         localStorage.setItem('tutorialDone', '1');
+        showUpdatePopup(); // チュートリアル完了直後にポップアップ表示
         return;
     }
 
@@ -2886,6 +3105,7 @@ function skipTutorial() {
     const el = document.getElementById('tutorial-overlay');
     if (el) el.remove();
     localStorage.setItem('tutorialDone', '1');
+    showUpdatePopup(); // チュートリアルスキップ直後にポップアップ表示
 }
 
 function checkAndStartTutorial() {
