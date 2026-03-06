@@ -169,8 +169,9 @@ function initPhotoDragSort() {
         let startX = 0, startY = 0;
 
         el.addEventListener('touchstart', (e) => {
-            // 選択モード中はスライド選択
+            // 選択モード中はタッチ開始時に選択/解除
             if (bulkSelectMode) {
+                e.stopPropagation();
                 togglePhotoSelect(url);
                 return;
             }
@@ -191,14 +192,14 @@ function initPhotoDragSort() {
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
-            // 選択モード中はスライドで連続選択
+            // 選択モード中はスライドで連続選択・解除（スクロールも許可）
             if (bulkSelectMode) {
                 const touch = e.touches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                const item = target && target.closest('.photo-grid-item, #thumb-wrap');
+                const item = target && (target.closest ? target.closest('.photo-grid-item') || (target.id === 'thumb-wrap' ? target : null) : null);
                 if (item) {
                     const u = item.getAttribute('data-url');
-                    if (u && !bulkSelectedUrls.has(u)) togglePhotoSelect(u);
+                    if (u) togglePhotoSelect(u);
                 }
                 return;
             }
@@ -299,9 +300,7 @@ function enterBulkSelectMode() {
     bulkSelectedUrls = new Set();
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
-    // ボタンをごみ箱アイコンに切り替え
-    const icon = document.getElementById('select-btn-icon');
-    if (icon) icon.innerHTML = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>';
+    // ゴミ箱はまだ表示しない（1枚以上選択後に切り替わる）
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
 }
 
@@ -321,11 +320,18 @@ function cancelBulkSelect() {
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = '');
 }
 
-function togglePhotoSelect(url) {
-    if (bulkSelectedUrls.has(url)) {
+function togglePhotoSelect(url, forceState) {
+    // forceState: true=選択, false=解除, undefined=トグル
+    if (forceState === true) {
+        bulkSelectedUrls.add(url);
+    } else if (forceState === false) {
         bulkSelectedUrls.delete(url);
     } else {
-        bulkSelectedUrls.add(url);
+        if (bulkSelectedUrls.has(url)) {
+            bulkSelectedUrls.delete(url);
+        } else {
+            bulkSelectedUrls.add(url);
+        }
     }
     // 対応するDOMのチェックマークを更新
     document.querySelectorAll('[data-url]').forEach(el => {
@@ -339,6 +345,15 @@ function togglePhotoSelect(url) {
     });
     const countEl = document.getElementById('bulk-select-count');
     if (countEl) countEl.textContent = `${bulkSelectedUrls.size}枚選択中`;
+    // 1枚以上選択でゴミ箱アイコン、0枚で✓アイコン
+    const icon = document.getElementById('select-btn-icon');
+    if (icon) {
+        if (bulkSelectedUrls.size > 0) {
+            icon.innerHTML = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>';
+        } else {
+            icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+        }
+    }
 }
 
 async function deleteBulkSelected() {
@@ -1192,7 +1207,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.0.1</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.0.2</p>
         </div>
     </div>`;
 
@@ -2362,13 +2377,46 @@ function openSliderAt(url, photos) {
             }
         }, { passive: true });
 
+        modal.addEventListener('touchmove', e => {
+            const dx = e.touches[0].clientX - touchStartX;
+            const dy = e.touches[0].clientY - touchStartY;
+            if (!isDragging && Math.abs(dy) > Math.abs(dx) && dy > 8) {
+                isDragging = true;
+            }
+            if (isDragging && dy > 0) {
+                const img = document.getElementById('slide-image');
+                img.style.transform = `translateY(${dy}px) scale(${1 - dy/800})`;
+                img.style.opacity = `${1 - dy/300}`;
+                modal.style.background = `rgba(0,0,0,${0.9 - dy/400})`;
+            }
+        }, { passive: true });
+
         modal.addEventListener('touchend', e => {
             const dx = e.changedTouches[0].clientX - touchStartX;
             const dy = e.changedTouches[0].clientY - touchStartY;
             const img = document.getElementById('slide-image');
             img.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
 
-            if (isDragging && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+            // 下スワイプで閉じる
+            if (dy > 80 && dy > Math.abs(dx)) {
+                img.style.transform = 'translateY(100vh)';
+                img.style.opacity = '0';
+                modal.style.transition = 'background 0.25s ease';
+                modal.style.background = 'rgba(0,0,0,0)';
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    img.style.transition = '';
+                    img.style.transform = '';
+                    img.style.opacity = '';
+                    modal.style.transition = '';
+                    modal.style.background = '';
+                }, 250);
+                isDragging = false;
+                return;
+            }
+
+            // 横スワイプで写真切り替え
+            if (!isDragging && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
                 const direction = dx < 0 ? 1 : -1;
                 const canMove = direction === 1
                     ? slideIndex < currentPhotos.length - 1
@@ -2397,6 +2445,7 @@ function openSliderAt(url, photos) {
             } else {
                 img.style.transform = 'translateX(0)';
                 img.style.opacity = '1';
+                modal.style.background = '';
             }
             setTimeout(() => { img.style.transition = ''; }, 300);
             isDragging = false;

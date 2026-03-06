@@ -218,6 +218,17 @@ body, html {
     max-height: calc(100vh - 160px);
     object-fit: contain;
     border-radius: 8px;
+    display: block;
+    margin: 0 auto;
+}
+
+.modal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
 }
 
 .slide-controls {
@@ -351,12 +362,6 @@ body, html {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 20px;
-}
-
-@keyframes date-btn-pulse {
-    0%   { transform: scale(1);    box-shadow: 0 4px 12px rgba(108,140,163,0.4); }
-    50%  { transform: scale(1.03); box-shadow: 0 6px 18px rgba(108,140,163,0.6); }
-    100% { transform: scale(1);    box-shadow: 0 4px 12px rgba(108,140,163,0.4); }
 }
 
 @keyframes spin {
