@@ -1077,6 +1077,11 @@ function hideLoading() {
 function openPanel() {
     panelOpen = true;
     document.getElementById('right-panel').classList.add('open');
+    
+    // 広告を隠す
+    const adContainer = document.getElementById('ad-container');
+    if (adContainer) adContainer.style.display = 'none';
+    
     updateUIVisibility();
 }
 
@@ -1124,6 +1129,11 @@ function closePanel() {
     panelOpen = false;
     selectedPref = null;
     document.getElementById('right-panel').classList.remove('open');
+    
+    // 広告を再表示
+    const adContainer = document.getElementById('ad-container');
+    if (adContainer) adContainer.style.display = 'flex';
+    
     updateUIVisibility();
     updateMapColors();
     updateCounter();
@@ -1143,6 +1153,11 @@ function backToList() {
 function openSettings() {
     settingsOpen = true;
     document.getElementById('settings-panel').classList.add('open');
+    
+    // 広告を隠す
+    const adContainer = document.getElementById('ad-container');
+    if (adContainer) adContainer.style.display = 'none';
+    
     updateUIVisibility();
     renderSettingsMenu();
 }
@@ -1150,6 +1165,11 @@ function openSettings() {
 function closeSettings() {
     settingsOpen = false;
     document.getElementById('settings-panel').classList.remove('open');
+    
+    // 広告を再表示
+    const adContainer = document.getElementById('ad-container');
+    if (adContainer) adContainer.style.display = 'flex';
+    
     updateUIVisibility();
 }
 
