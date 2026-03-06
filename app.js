@@ -342,7 +342,14 @@ function enterBulkSelectMode() {
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
-    // 写真を小さくしてグリッド外のスクロールエリアを広くする
+    // 写真を小さく・3列に・スクロール無効
+    const grid = document.querySelector('.photo-grid');
+    if (grid) {
+        grid.style.transition = 'all 0.25s ease';
+        grid.style.gridTemplateColumns = '1fr 1fr 1fr';
+        grid.style.gap = '6px';
+        grid.style.touchAction = 'none';
+    }
     document.querySelectorAll('.photo-grid-item img').forEach(img => {
         img.style.transition = 'height 0.25s ease';
         img.style.height = '80px';
@@ -350,8 +357,10 @@ function enterBulkSelectMode() {
     const thumb = document.querySelector('#thumb-wrap img');
     if (thumb) {
         thumb.style.transition = 'height 0.25s ease';
-        thumb.style.height = '140px';
+        thumb.style.height = '120px';
     }
+    const thumbWrap = document.getElementById('thumb-wrap');
+    if (thumbWrap) thumbWrap.style.touchAction = 'none';
 }
 
 function cancelBulkSelect() {
@@ -367,7 +376,13 @@ function cancelBulkSelect() {
     const icon = document.getElementById('select-btn-icon');
     if (icon) icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = '');
-    // 写真を元のサイズに戻す
+    // 写真を元のサイズ・2列に戻す・スクロール有効
+    const grid = document.querySelector('.photo-grid');
+    if (grid) {
+        grid.style.gridTemplateColumns = '1fr 1fr';
+        grid.style.gap = '12px';
+        grid.style.touchAction = '';
+    }
     document.querySelectorAll('.photo-grid-item img').forEach(img => {
         img.style.transition = 'height 0.25s ease';
         img.style.height = '140px';
@@ -377,6 +392,8 @@ function cancelBulkSelect() {
         thumb.style.transition = 'height 0.25s ease';
         thumb.style.height = '280px';
     }
+    const thumbWrap = document.getElementById('thumb-wrap');
+    if (thumbWrap) thumbWrap.style.touchAction = '';
 }
 
 function togglePhotoSelect(url, forceState) {
