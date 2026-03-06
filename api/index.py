@@ -66,7 +66,6 @@ class handler(BaseHTTPRequestHandler):
                     if not hmac.compare_digest(signature, expected_sig):
                         raise Exception("Invalid signature")
 
-                    # 共有リンク閲覧者はログインしていないため、特別にサービスキー(svc_key)でRLSを突破する
                     share_url = f"{supabase_url}/rest/v1/memories?user_id=eq.{share_user_id}&select=*"
                     s_req = urllib.request.Request(share_url)
                     s_req.add_header("apikey", supabase_svc_key)
@@ -120,7 +119,7 @@ class handler(BaseHTTPRequestHandler):
         if method == "GET":
             req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&select=*")
             req.add_header("apikey", supabase_key)
-            req.add_header("Authorization", f"Bearer {user_token}") # ユーザー本人のトークンを使用
+            req.add_header("Authorization", f"Bearer {user_token}")
             with urllib.request.urlopen(req, timeout=10) as response:
                 data = response.read()
             self.send_response(200)
@@ -162,7 +161,7 @@ class handler(BaseHTTPRequestHandler):
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
             req = urllib.request.Request(url)
             req.add_header("apikey", supabase_key)
-            req.add_header("Authorization", f"Bearer {user_token}") # ユーザー本人のトークンを使用
+            req.add_header("Authorization", f"Bearer {user_token}")
 
             with urllib.request.urlopen(req, timeout=10) as res:
                 existing = json.loads(res.read())
@@ -208,7 +207,7 @@ class handler(BaseHTTPRequestHandler):
                 )
 
             db_req.add_header("apikey", supabase_key)
-            db_req.add_header("Authorization", f"Bearer {user_token}") # ユーザー本人のトークンを使用
+            db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
             db_req.add_header("Prefer", "return=representation")
 
@@ -287,8 +286,7 @@ class handler(BaseHTTPRequestHandler):
 
         elif action == "delete_photo":
             pref = payload.get("prefecture", "")
-            url_to_delete = payload.get("photo_url", "")
-            filename = url_to_delete.split('/')[-1]
+            identifier = payload.get("photo_url", "") # 以前はURL、今後はIDを受け取る
 
             safe_pref = urllib.parse.quote(pref)
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
@@ -309,20 +307,30 @@ class handler(BaseHTTPRequestHandler):
             except:
                 pass
 
-            if url_to_delete in photo_urls:
-                photo_urls.remove(url_to_delete)
+            # 文字列（旧URL）と辞書（新仕様）の両方に対応した削除
+            new_urls = []
+            for item in photo_urls:
+                if isinstance(item, str):
+                    if item != identifier:
+                        new_urls.append(item)
+                elif isinstance(item, dict):
+                    if item.get("id") != identifier:
+                        new_urls.append(item)
 
-            del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
-            del_req = urllib.request.Request(del_url, method="DELETE")
-            del_req.add_header("apikey", supabase_key)
-            del_req.add_header("Authorization", f"Bearer {user_token}")
-            try:
-                with urllib.request.urlopen(del_req, timeout=10):
+            # 古いURL形式の場合のみStorageから削除を試みる
+            if isinstance(identifier, str) and str(identifier).startswith("http"):
+                filename = identifier.split('/')[-1]
+                del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                del_req = urllib.request.Request(del_url, method="DELETE")
+                del_req.add_header("apikey", supabase_key)
+                del_req.add_header("Authorization", f"Bearer {user_token}")
+                try:
+                    with urllib.request.urlopen(del_req, timeout=10):
+                        pass
+                except:
                     pass
-            except:
-                pass
 
-            db_payload = {"photo_urls": json.dumps(photo_urls)}
+            db_payload = {"photo_urls": json.dumps(new_urls)}
             db_req = urllib.request.Request(
                 f"{supabase_url}/rest/v1/memories?id=eq.{row_id}",
                 data=json.dumps(db_payload).encode('utf-8'),
