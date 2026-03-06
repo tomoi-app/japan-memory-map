@@ -164,58 +164,65 @@ function initPhotoDragSort() {
         const url = el.getAttribute('data-url');
         if (!url) return;
 
-        // タッチ長押しでドラッグ開始
         let pressTimer = null;
         let isDragging = false;
         let startX = 0, startY = 0;
 
         el.addEventListener('touchstart', (e) => {
+            // 選択モード中はスライド選択
+            if (bulkSelectMode) {
+                togglePhotoSelect(url);
+                return;
+            }
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
             pressTimer = setTimeout(() => {
                 isDragging = true;
                 dragSrc = el;
                 el.style.opacity = '0.4';
-
-                // ゴースト作成
                 const rect = el.getBoundingClientRect();
                 ghostOffsetX = e.touches[0].clientX - rect.left;
                 ghostOffsetY = e.touches[0].clientY - rect.top;
                 dragGhost = el.cloneNode(true);
                 dragGhost.style.cssText = `position:fixed; top:${rect.top}px; left:${rect.left}px; width:${rect.width}px; height:${rect.height}px; opacity:0.85; pointer-events:none; z-index:9999; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.3); transform:scale(1.05); transition:none;`;
                 document.body.appendChild(dragGhost);
-
                 navigator.vibrate && navigator.vibrate(30);
             }, 400);
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
+            // 選択モード中はスライドで連続選択
+            if (bulkSelectMode) {
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                const item = target && target.closest('.photo-grid-item, #thumb-wrap');
+                if (item) {
+                    const u = item.getAttribute('data-url');
+                    if (u && !bulkSelectedUrls.has(u)) togglePhotoSelect(u);
+                }
+                return;
+            }
             const dx = Math.abs(e.touches[0].clientX - startX);
             const dy = Math.abs(e.touches[0].clientY - startY);
-            if (!isDragging && (dx > 8 || dy > 8)) {
-                clearTimeout(pressTimer);
-            }
+            if (!isDragging && (dx > 8 || dy > 8)) clearTimeout(pressTimer);
             if (!isDragging || !dragGhost) return;
             e.preventDefault();
-
             const touch = e.touches[0];
             dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
             dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
-
-            // ホバー先を検出してハイライト
             document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
             if (target) target.style.outline = '2px solid #6c8ca3';
         }, { passive: false });
 
         el.addEventListener('touchend', async (e) => {
+            if (bulkSelectMode) return;
             clearTimeout(pressTimer);
             if (!isDragging) return;
             isDragging = false;
             el.style.opacity = '';
             if (dragGhost) { dragGhost.remove(); dragGhost = null; }
             document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => t.style.outline = '');
-
             const touch = e.changedTouches[0];
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
             if (target && target !== dragSrc) {
@@ -225,6 +232,7 @@ function initPhotoDragSort() {
         }, { passive: true });
 
         el.addEventListener('touchcancel', () => {
+            if (bulkSelectMode) return;
             clearTimeout(pressTimer);
             isDragging = false;
             el.style.opacity = '';
@@ -278,12 +286,22 @@ async function reorderPhotos(srcUrl, targetUrl) {
     }
 }
 
+function toggleSelectOrDelete() {
+    if (bulkSelectMode) {
+        deleteBulkSelected();
+    } else {
+        enterBulkSelectMode();
+    }
+}
+
 function enterBulkSelectMode() {
     bulkSelectMode = true;
     bulkSelectedUrls = new Set();
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
-    // 既存の✕ボタンを非表示
+    // ボタンをごみ箱アイコンに切り替え
+    const icon = document.getElementById('select-btn-icon');
+    if (icon) icon.innerHTML = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
 }
 
@@ -292,13 +310,14 @@ function cancelBulkSelect() {
     bulkSelectedUrls = new Set();
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'none';
-    // チェックマークを非表示
     document.querySelectorAll('.photo-check, #thumb-check').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(el => {
         el.style.outline = '';
         el.classList.remove('photo-selected');
     });
-    // ✕ボタンを再表示
+    // ボタンを✓アイコンに戻す
+    const icon = document.getElementById('select-btn-icon');
+    if (icon) icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = '');
 }
 
@@ -1173,7 +1192,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.0.0</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_1.0.1</p>
         </div>
     </div>`;
 
@@ -1959,7 +1978,7 @@ function renderRightPanel() {
             // サムネイル：先頭1枚を大きく表示
             if (featureShowThumbnail) {
                 const thumbUrl = photos[0];
-                const thumbDeleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${thumbUrl}')" style="top:10px; right:10px; width:32px; height:32px; font-size:15px;">✕</button>`;
+                const thumbDeleteBtn = '';
                 const escapedThumb = thumbUrl.replace(/'/g, "\'");
                 contentHtml += `
                 <div id="thumb-wrap" data-url="${thumbUrl}" style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
@@ -1977,7 +1996,7 @@ function renderRightPanel() {
                 contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
                 gridPhotos.forEach((url, idx) => {
                     const escapedUrl = url.replace(/'/g, "\'");
-                    const deleteBtn = isShareMode ? '' : `<button class="photo-delete-btn" onclick="event.stopPropagation(); deletePhoto('${escapedUrl}')">✕</button>`;
+                    const deleteBtn = '';
                     contentHtml += `<div class="photo-grid-item" data-url="${url}"
                         onclick="handlePhotoClick(event, '${escapedUrl}', ${escapedPhotos})"
                         oncontextmenu="event.preventDefault();">
@@ -1997,9 +2016,9 @@ function renderRightPanel() {
             <label for="input-photos" class="add-photo-fab" style="background:${color};" title="写真を追加">
                 <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </label>
-            <button onclick="enterBulkSelectMode()" id="select-mode-btn" title="写真を選択"
-                style="position:absolute; bottom:90px; right:25px; width:44px; height:44px; border-radius:50%; background:white; border:none; box-shadow:0 2px 8px rgba(0,0,0,0.15); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="1.5" fill="#555"/><circle cx="15" cy="7" r="1.5" fill="#555"/><rect x="3" y="3" width="18" height="18" rx="3"/><polyline points="9,13 11,15 15,11"/></svg>
+            <button onclick="toggleSelectOrDelete()" id="select-mode-btn" title="写真を選択"
+                style="position:absolute; bottom:90px; right:25px; width:56px; height:56px; border-radius:50%; background:${color}; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
+                <svg id="select-btn-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </button>
             <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">`;
         }
