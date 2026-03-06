@@ -167,12 +167,18 @@ function initPhotoDragSort() {
         let pressTimer = null;
         let isDragging = false;
         let startX = 0, startY = 0;
+        // 選択モード用：touchstartで決めた選択方向（true=選択, false=解除）
+        let selectDirection = null;
+        // スライド中にすでに処理した写真URLのセット
+        let slideTouched = new Set();
 
         el.addEventListener('touchstart', (e) => {
-            // 選択モード中はタッチ開始時に選択/解除
             if (bulkSelectMode) {
                 e.stopPropagation();
-                togglePhotoSelect(url);
+                // 最初にタッチした写真の現在状態でスライド全体の方向を決める
+                selectDirection = !bulkSelectedUrls.has(url); // true=選択, false=解除
+                slideTouched = new Set([url]);
+                togglePhotoSelect(url, selectDirection);
                 return;
             }
             startX = e.touches[0].clientX;
@@ -192,14 +198,17 @@ function initPhotoDragSort() {
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
-            // 選択モード中はスライドで連続選択・解除（スクロールも許可）
             if (bulkSelectMode) {
                 const touch = e.touches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
                 const item = target && (target.closest ? target.closest('.photo-grid-item') || (target.id === 'thumb-wrap' ? target : null) : null);
                 if (item) {
                     const u = item.getAttribute('data-url');
-                    if (u) togglePhotoSelect(u);
+                    // まだ処理していない写真だけ、最初に決めた方向で選択/解除
+                    if (u && !slideTouched.has(u)) {
+                        slideTouched.add(u);
+                        togglePhotoSelect(u, selectDirection);
+                    }
                 }
                 return;
             }
@@ -217,7 +226,11 @@ function initPhotoDragSort() {
         }, { passive: false });
 
         el.addEventListener('touchend', async (e) => {
-            if (bulkSelectMode) return;
+            if (bulkSelectMode) {
+                selectDirection = null;
+                slideTouched = new Set();
+                return;
+            }
             clearTimeout(pressTimer);
             if (!isDragging) return;
             isDragging = false;
@@ -314,7 +327,6 @@ function cancelBulkSelect() {
         el.style.outline = '';
         el.classList.remove('photo-selected');
     });
-    // ボタンを✓アイコンに戻す
     const icon = document.getElementById('select-btn-icon');
     if (icon) icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
     document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = '');
@@ -1024,8 +1036,7 @@ function cleanupEmptyDate() {
 }
 
 function closePanel() {
-    bulkSelectMode = false;
-    bulkSelectedUrls = new Set();
+    cancelBulkSelect();
     clearTimeout(autoSaveTimer);
     cleanupEmptyDate();
     dateEditingMode = false;
@@ -1685,7 +1696,8 @@ async function submitContact() {
 
         if (res.ok) {
             successEl.textContent = 'お問い合わせありがとうございます。';
-            document.getElementById('contact-name').value = '';
+            const nameEl = document.getElementById('contact-name');
+            if (nameEl) nameEl.value = '';
             document.getElementById('contact-body').value = '';
             document.getElementById('contact-reply').checked = false;
             document.getElementById('contact-email-wrap').style.display = 'none';
@@ -2047,6 +2059,20 @@ function renderRightPanel() {
 
         // 写真のドラッグ＆ドロップ（長押しで開始）・選択モード
         initPhotoDragSort();
+
+        // 写真以外をタップしたら選択モード解除
+        const panelContent = document.querySelector('#right-panel .panel-content');
+        if (panelContent) {
+            panelContent.addEventListener('touchstart', (e) => {
+                if (!bulkSelectMode) return;
+                const isPhoto = e.target.closest('.photo-grid-item, #thumb-wrap');
+                const isSelectBtn = e.target.closest('#select-mode-btn');
+                const isBulkBar = e.target.closest('#bulk-delete-bar');
+                if (!isPhoto && !isSelectBtn && !isBulkBar) {
+                    cancelBulkSelect();
+                }
+            }, { passive: true });
+        }
 
         if (featureShowDate) {
             const fromInput = document.getElementById('input-date-from');
