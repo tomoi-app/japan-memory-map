@@ -109,10 +109,10 @@ async function getAllPhotosFromIDB() {
 // =============================================
 const ADMIN_MESSAGES = [
   {
-        id: 'v2.2.0',
+        id: 'v2.2.1',
         date: '2026.03.07',
-        title: 'version_2.2.0アップデート',
-        content: '・同じ都道府県に複数の思い出を追加できるようになりました。\n・削除ボタンのバグを解消しました。'
+        title: 'version_2.2.1アップデート',
+        content: '・→ボタンから思い出を追加できるようになりました。\n・ダウンロードボタンから写真を保存できるようになりました。'
     }, 
     {
         id: 'v2.1.3',
@@ -1955,7 +1955,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.2.0</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.2.1</p>
         </div>
     </div>`;
 
@@ -2489,7 +2489,7 @@ async function exportData() {
     try {
         const idbPhotos = await getAllPhotosFromIDB();
         const exportObj = {
-            version: "2.2.0",
+            version: "2.2.1",
             memories: memoriesData,
             photos: idbPhotos
         };
@@ -2729,8 +2729,16 @@ function renderRightPanel() {
             return;
         }
 
-        // 選択中の都道府県のエントリを全取得（home以外）
-        const allEntries = memoriesData.filter(m => m.prefecture === selectedPref && !m.is_home);
+        // 選択中の都道府県のエントリを全取得（home以外）、日付順にソート
+        const allEntries = memoriesData
+            .filter(m => m.prefecture === selectedPref && !m.is_home)
+            .sort((a, b) => {
+                // 日付未設定は末尾へ
+                if (!a.date && !b.date) return 0;
+                if (!a.date) return 1;
+                if (!b.date) return -1;
+                return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+            });
 
         // selectedEntryIdが未設定 or 存在しない場合は最後のエントリ（最新）を選択
         if (!selectedEntryId || !allEntries.find(m => String(m.id) === String(selectedEntryId))) {
