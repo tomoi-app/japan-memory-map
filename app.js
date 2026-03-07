@@ -113,13 +113,13 @@ const ADMIN_MESSAGES = [
         id: 'v2.3.0',
         date: '2026.03.07',
         title: 'version_2.3.0アップデート',
-        content: '・ログインなしでゲストとして試せるようになりました。登録後にデータを引き継げます。\n・一覧に地域制覇バッジを追加しました。\n・設定から地図を画像保存できるようになりました。'
+        content: '・ログインなしでゲストとして試せるようになりました。登録後にデータを引き継げます。\n・一覧に地域制覇バッジを追加しました。\n・あしあと共有機能を向上しました。'
     },
   {
         id: 'v2.3.0',
         date: '2026.03.07',
         title: 'version_2.3.0 アップデート',
-        content: '・ゲストモードを追加しました。登録なしで試せます。\n・地域制覇バッジを追加しました。\n・シェア機能から塗りつぶした地図を画像保存できるようになりました。'
+        content: '・ゲストモードを追加しました。登録なしで試せます。\n・地域制覇バッジを追加しました。\n・あしあと共有機能を向上しました。'
     }, 
     {
         id: 'v2.1.3',
@@ -3628,7 +3628,7 @@ function showUpdatePopup() {
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
             <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.3.0にアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・ゲストとして試せるようになりました。<br>・一覧に地域制覇バッジを追加しました。<br>・設定から地図を画像保存できるようになりました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・ゲストとして試せるようになりました。<br>・一覧に地域制覇バッジを追加しました。<br>・あしあと共有機能を向上しました。</p>
         </div>
     `;
     document.body.appendChild(popup);
