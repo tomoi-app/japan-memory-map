@@ -120,7 +120,6 @@ const ADMIN_MESSAGES = [
         title: 'version_2.1.3 アップデート',
         content: '・写真を端末に保存できるようになりました。\n・写真の削除処理ました。\n・写真の選択方法を改善し、スワイプでなぞるだけで連続して選択・解除できるようにしました。'
     },
-    ,
     {
         id: 'v2.0.0',
         date: '2026.03.06',
@@ -817,6 +816,19 @@ async function deleteBulkSelected() {
         }
         
         await fetchMemories(false);
+        
+        // 写真0枚でエントリ削除した場合、残りエントリがなければ一覧に戻る
+        if (photosToSave.length === 0) {
+            const remaining = memoriesData.filter(m => m.prefecture === targetPref && !m.is_home);
+            if (remaining.length === 0) {
+                backToList();
+            } else {
+                renderRightPanel();
+            }
+        } else {
+            renderRightPanel();
+        }
+        
         updateSaveProgress(deleteCount, deleteCount, '完了！');
         setTimeout(() => hideSaveProgress(), 1500);
     }).catch(e => {
@@ -1541,12 +1553,16 @@ function enterDateEditMode() {
     renderRightPanel();
 }
 
+function clearDateEditMode() {
+    dateEditingMode = false;
+}
+
 async function clearDateAndSave() {
     if (!selectedPref) return;
     dateEditingMode = false;
     const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
     if (data) data.date = '';
-    const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [] };
+    const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [], entry_id: (data && data.id) || undefined };
     await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
     await fetchMemories(false);
     renderRightPanel();
@@ -1562,7 +1578,7 @@ function cleanupEmptyDate() {
         try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
         if (data.date && photoCount === 0) {
             data.date = "";
-            const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [] };
+            const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [], entry_id: data.id || undefined };
             apiFetch({ method: 'POST', body: JSON.stringify(payload) })
                 .then(() => fetchMemories(false));
         }
@@ -2693,7 +2709,7 @@ function renderRightPanel() {
             const navItems = allEntries.map((m, i) => {
                 const isActive = m.id === selectedEntryId;
                 const escapedId = m.id.replace(/"/g, '&quot;');
-                return `<button onclick="window.selectedEntryId='${escapedId}'; window.dateEditingMode=false; renderRightPanel();"
+                return `<button onclick="window.selectedEntryId='${escapedId}'; clearDateEditMode(); renderRightPanel();"
                     style="padding:5px 12px; border:none; border-radius:20px; font-size:0.8rem; font-family:inherit; cursor:pointer;
                     background:${isActive ? color : '#eee'}; color:${isActive ? 'white' : '#888'}; font-weight:${isActive ? 'bold' : 'normal'};">
                     ${m.date ? escapeHTML(formatDate(m.date)) : '日付未設定'}
@@ -2830,7 +2846,6 @@ function renderRightPanel() {
             contentHtml += `
             <p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>
             <div style="margin-top:24px; padding:16px; background:#f8f9fa; border-radius:12px; border:1px solid #eee;">
-                <p style="font-size:13px; font-weight:bold; color:#888; margin:0 0 8px 0;">🏨 ホテルの予約をここから</p>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                     <a href="https://px.a8.net/svt/ejp?a8mat=4AZA43+8645MA+14CS+63WO2" rel="nofollow"
                         style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#6c8ca3; text-decoration:none; line-height:1.5;">
@@ -2842,13 +2857,12 @@ function renderRightPanel() {
                         旅行なら楽天トラベル
                     </a>
                     <img border="0" width="1" height="1" src="https://www16.a8.net/0.gif?a8mat=4AZA43+9PHGVM+2HOM+6KESY" alt="">
+                    <a href="https://px.a8.net/svt/ejp?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" rel="nofollow"
+                        style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#1a73e8; text-decoration:none; line-height:1.5;">
+                        国内格安航空券・LCCの比較・予約なら【トラベリスト】
+                    </a>
+                    <img border="0" width="1" height="1" src="https://www10.a8.net/0.gif?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" alt="">
                 </div>
-                <p style="font-size:13px; font-weight:bold; color:#888; margin:14px 0 8px 0;">✈️ 飛行機予約はここから</p>
-                <a href="https://px.a8.net/svt/ejp?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" rel="nofollow"
-                    style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#1a73e8; text-decoration:none; line-height:1.5;">
-                    国内格安航空券・LCCの比較・予約なら【トラベリスト】
-                </a>
-                <img border="0" width="1" height="1" src="https://www10.a8.net/0.gif?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" alt="">
             </div>`;
         }
         
@@ -3014,7 +3028,7 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
     const targetEntryId = selectedEntryId;
     const existingData = (targetEntryId
         ? memoriesData.find(m => m.id === targetEntryId)
-        : memoriesData.find(m => m.prefecture === targetPref)) || {};
+        : memoriesData.find(m => m.prefecture === targetPref)) || { prefecture: targetPref };
     
     let dateValue;
     if (fromVal !== undefined) {
