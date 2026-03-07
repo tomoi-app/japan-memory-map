@@ -514,7 +514,7 @@ function getDropTarget(clientX, clientY, exclude) {
 }
 
 async function reorderPhotos(srcId, targetId) {
-    const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
+    const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
     if (!data) return;
     let photos = JSON.parse(data.photo_urls || '[]');
     
@@ -555,7 +555,7 @@ function toggleSelectOrDelete() {
 }
 
 function selectAllPhotos() {
-    const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
+    const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
     if (!data) return;
     let photos = JSON.parse(data.photo_urls || '[]');
     
@@ -594,7 +594,7 @@ function selectAllPhotos() {
     
     const selectAllBtn = document.getElementById('select-all-btn');
     if (selectAllBtn) {
-        const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
+        const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
         const photosCount = data ? JSON.parse(data.photo_urls || '[]').length : 0;
         selectAllBtn.textContent = (photosCount > 0 && bulkSelectedUrls.size === photosCount) ? 'すべて解除' : 'すべて選択';
     }
@@ -701,7 +701,7 @@ function togglePhotoSelect(url, forceState = null) {
     
     const selectAllBtn = document.getElementById('select-all-btn');
     if (selectAllBtn) {
-        const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
+        const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
         const photosCount = data ? JSON.parse(data.photo_urls || '[]').length : 0;
         selectAllBtn.textContent = (photosCount > 0 && bulkSelectedUrls.size === photosCount) ? 'すべて解除' : 'すべて選択';
     }
@@ -767,7 +767,7 @@ async function deleteBulkSelected() {
     const deleteCount = urlsToDelete.length;
     const targetPref = selectedPref;
     
-    const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === targetPref);
+    const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === targetPref);
     let photosToSave = [];
     if (data) {
         let photos = JSON.parse(data.photo_urls || '[]');
@@ -1570,7 +1570,7 @@ function clearDateEditMode() {
 async function clearDateAndSave() {
     if (!selectedPref) return;
     dateEditingMode = false;
-    const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
+    const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
     if (data) data.date = '';
     const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [], entry_id: (data && data.id) || undefined };
     await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
@@ -1582,7 +1582,7 @@ async function clearDateAndSave() {
 
 function cleanupEmptyDate() {
     if (selectedPref && !homePrefectures.includes(selectedPref)) {
-        const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
+        const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
         if (!data) return;
         let photoCount = 0;
         try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
@@ -1631,11 +1631,11 @@ async function addNewEntry() {
             const newEntry = Array.isArray(result) ? result[0] : result;
             await fetchMemories(false);
             if (newEntry && newEntry.id) {
-                selectedEntryId = newEntry.id;
+                selectedEntryId = String(newEntry.id);
             } else {
                 // IDが取れなかった場合は最新エントリを選択
                 const entries = memoriesData.filter(m => m.prefecture === selectedPref && !m.is_home);
-                selectedEntryId = entries.length > 0 ? entries[entries.length - 1].id : null;
+                selectedEntryId = entries.length > 0 ? String(entries[entries.length - 1].id) : null;
             }
             dateEditingMode = true; // 日付入力モードで開く
             renderRightPanel();
@@ -2701,28 +2701,28 @@ function renderRightPanel() {
         const allEntries = memoriesData.filter(m => m.prefecture === selectedPref && !m.is_home);
 
         // selectedEntryIdが未設定 or 存在しない場合は最後のエントリ（最新）を選択
-        if (!selectedEntryId || !allEntries.find(m => m.id === selectedEntryId)) {
-            selectedEntryId = allEntries.length > 0 ? allEntries[allEntries.length - 1].id : null;
+        if (!selectedEntryId || !allEntries.find(m => String(m.id) === String(selectedEntryId))) {
+            selectedEntryId = allEntries.length > 0 ? String(allEntries[allEntries.length - 1].id) : null;
         }
 
-        const data = allEntries.find(m => m.id === selectedEntryId) || { date: '', photo_urls: '[]', memo: '' };
+        const data = allEntries.find(m => String(m.id) === String(selectedEntryId)) || { date: '', photo_urls: '[]', memo: '' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
         const hasWarning = photos.length > 0 && !data.date;
         // 写真・日付が両方揃っている場合のみ→ボタンを表示
         const canAddEntry = photos.length > 0 && !!data.date;
         // 複数タブがある場合、現在のインデックスを取得
-        const currentIdx = allEntries.findIndex(m => m.id === selectedEntryId);
+        const currentIdx = allEntries.findIndex(m => String(m.id) === String(selectedEntryId));
         const hasNextTab = allEntries.length > 1 && currentIdx < allEntries.length - 1;
-        const nextEntryId = hasNextTab ? allEntries[currentIdx + 1].id : null;
+        const nextEntryId = hasNextTab ? String(allEntries[currentIdx + 1].id) : null;
 
         let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
 
         // 複数エントリがある場合：ナビゲーター表示
         if (!isShareMode && allEntries.length > 1) {
             const navItems = allEntries.map((m, i) => {
-                const isActive = m.id === selectedEntryId;
-                const escapedId = m.id.replace(/"/g, '&quot;');
+                const isActive = String(m.id) === String(selectedEntryId);
+                const escapedId = String(m.id).replace(/"/g, '&quot;');
                 return `<button onclick="setSelectedEntryId('${escapedId}'); clearDateEditMode(); renderRightPanel();"
                     style="padding:5px 12px; border:none; border-radius:20px; font-size:0.8rem; font-family:inherit; cursor:pointer;
                     background:${isActive ? color : '#eee'}; color:${isActive ? 'white' : '#888'}; font-weight:${isActive ? 'bold' : 'normal'};">
@@ -3048,7 +3048,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
     if (!targetPref) return;
 
     const existingData = (targetEntryId
-        ? memoriesData.find(m => m.id === targetEntryId)
+        ? memoriesData.find(m => String(m.id) === String(targetEntryId))
         : memoriesData.find(m => m.prefecture === targetPref)) || { prefecture: targetPref };
     
     let dateValue;
