@@ -545,7 +545,11 @@ async function reorderPhotos(srcId, targetId) {
 
 function toggleSelectOrDelete() {
     if (bulkSelectMode) {
-        cancelBulkSelect();
+        if (bulkSelectedUrls.size > 0) {
+            deleteBulkSelected();
+        } else {
+            cancelBulkSelect();
+        }
     } else {
         enterBulkSelectMode();
     }
@@ -2505,11 +2509,14 @@ function updateUIVisibility() {
     const counter = document.getElementById('pref-counter');
     const menuBtn = document.getElementById('menu-btn');
     const settingsBtn = document.getElementById('settings-btn');
-    
+    const adminIcon = document.getElementById('admin-icon');
+
     if (panelOpen || settingsOpen) {
         counter.classList.add('hidden-ui');
+        if (adminIcon) adminIcon.style.display = 'none';
     } else {
         counter.classList.remove('hidden-ui');
+        if (adminIcon) adminIcon.style.display = 'block';
     }
 
     if (panelOpen && selectedPref !== null) {
@@ -2677,7 +2684,7 @@ function renderRightPanel() {
                 return `<button onclick="selectedEntryId='${m.id}'; dateEditingMode=false; renderRightPanel();"
                     style="padding:5px 12px; border:none; border-radius:20px; font-size:0.8rem; font-family:inherit; cursor:pointer;
                     background:${isActive ? color : '#eee'}; color:${isActive ? 'white' : '#888'}; font-weight:${isActive ? 'bold' : 'normal'};">
-                    ${i + 1}回目${m.date ? '<br><span style="font-size:0.75em;">' + escapeHTML(formatDate(m.date)) + '</span>' : ''}
+                    ${m.date ? escapeHTML(formatDate(m.date)) : '日付未設定'}
                 </button>`;
             }).join('');
             contentHtml += `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; padding:10px 12px; background:#f8f9fa; border-radius:10px;">${navItems}</div>`;
@@ -2752,7 +2759,6 @@ function renderRightPanel() {
                         <div style="display:flex; gap:8px;">
                             <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#ddd; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
                             <button id="select-all-btn" onclick="selectAllPhotos()" style="padding:6px 14px; border:none; border-radius:8px; background:#6c8ca3; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">すべて選択</button>
-                            <button onclick="deleteBulkSelected()" style="padding:6px 14px; border:none; border-radius:8px; background:#d32f2f; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">削除</button>
                         </div>
                     </div>`;
                 }
@@ -2812,7 +2818,6 @@ function renderRightPanel() {
             contentHtml += `
             <p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>
             <div style="margin-top:24px; padding:16px; background:#f8f9fa; border-radius:12px; border:1px solid #eee;">
-                <p style="text-align:center; font-size:11px; color:#ccc; margin:0 0 10px 0; letter-spacing:1px;">PR</p>
                 <p style="font-size:13px; font-weight:bold; color:#888; margin:0 0 8px 0;">🏨 ホテルの予約をここから</p>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                     <a href="https://px.a8.net/svt/ejp?a8mat=4AZA43+8645MA+14CS+63WO2" rel="nofollow"
