@@ -42,6 +42,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentToken = null;
 let currentAuthTab = 'login';
+let isGuestMode = false;
 
 // =============================================
 // IndexedDB 設定
@@ -1009,6 +1010,8 @@ async function handleAuth() {
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (session) {
                     localStorage.removeItem('tutorialDone');
+                    await migrateGuestData(); // ゲストデータをSupabaseへ移行
+                    isGuestMode = false;
                     await startApp(session);
                     showInstallSlides();
                 }
@@ -1049,6 +1052,104 @@ function showPasswordRecoveryScreen() {
     settingsOpen = true;
     document.getElementById('settings-panel') && document.getElementById('settings-panel').classList.add('open');
     renderChangePassword();
+}
+
+// =============================================
+// ゲストモード
+// =============================================
+async function startGuestMode() {
+    isGuestMode = true;
+    applyTheme(currentTheme);
+    panelOpen = false;
+    settingsOpen = false;
+    selectedPref = null;
+    dateEditingMode = false;
+    memoriesData = [];
+    homePrefectures = [];
+
+    if (map) {
+        try { map.remove(); } catch(e) {}
+        map = null;
+        geoJsonLayer = null;
+        initialBounds = null;
+    }
+
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+    const rightPanel = document.getElementById('right-panel');
+    const settingsPanel = document.getElementById('settings-panel');
+    if (rightPanel) rightPanel.classList.remove('open');
+    if (settingsPanel) settingsPanel.classList.remove('open');
+
+    await initApp();
+    updateUIVisibility();
+
+    // ゲスト用バナーを地図上に表示
+    showGuestBanner();
+}
+
+function showGuestBanner() {
+    const existing = document.getElementById('guest-banner');
+    if (existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.id = 'guest-banner';
+    banner.style.cssText = `
+        position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+        background: rgba(108,140,163,0.95); color: white;
+        padding: 10px 20px; border-radius: 20px; font-size: 0.88rem;
+        z-index: 3000; cursor: pointer; text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2); white-space: nowrap;
+        font-family: 'Zen Kaku Gothic New', sans-serif; font-weight: 500;
+    `;
+    banner.innerHTML = '\u30b2\u30b9\u30c8\u30e2\u30fc\u30c9\u4e2d &nbsp;&#8250;&nbsp; <u>\u30a2\u30ab\u30a6\u30f3\u30c8\u767b\u9332\u3067\u30c7\u30fc\u30bf\u3092\u5f15\u304d\u7d99\u304e</u>';
+    banner.onclick = () => exitGuestMode();
+    document.body.appendChild(banner);
+}
+
+function exitGuestMode() {
+    // ゲストデータがあれば登録を促す
+    const hasData = memoriesData.length > 0;
+    if (hasData) {
+        const ok = confirm('\u30a2\u30ab\u30a6\u30f3\u30c8\u3092\u767b\u9332\u3059\u308b\u3068\u3001\u4eca\u307e\u3067\u306e\u8a18\u9332\u3092\u5f15\u304d\u7d99\u304e\u307e\u3059\u3002\u767b\u9332\u753b\u9762\u3078\u79fb\u52d5\u3057\u307e\u3059\u304b\uff1f');
+        if (!ok) return;
+    }
+    isGuestMode = false;
+    if (map) {
+        try { map.remove(); } catch(e) {}
+        map = null; geoJsonLayer = null; initialBounds = null;
+    }
+    memoriesData = [];
+    homePrefectures = [];
+    const banner = document.getElementById('guest-banner');
+    if (banner) banner.remove();
+    document.getElementById('app-screen').classList.add('hidden');
+    document.getElementById('auth-screen').classList.remove('hidden');
+    switchToSignup();
+}
+
+// 新規登録完了後にゲストデータをSupabaseへ移行
+async function migrateGuestData() {
+    const raw = localStorage.getItem('guestMemories');
+    if (!raw) return;
+    let guestData;
+    try { guestData = JSON.parse(raw); } catch(e) { return; }
+    if (!guestData || guestData.length === 0) return;
+
+    const entries = guestData.filter(m => !m.is_home);
+    for (const entry of entries) {
+        try {
+            const payload = {
+                action: 'save_memory',
+                prefecture: entry.prefecture,
+                date: entry.date || '',
+                existing_urls: JSON.parse(entry.photo_urls || '[]'),
+                new_photos: [],
+                memo: entry.memo || ''
+            };
+            await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
+        } catch(e) { console.error('migrate error', e); }
+    }
+    localStorage.removeItem('guestMemories');
 }
 
 async function startApp(session) {
@@ -1292,10 +1393,14 @@ function cleanupEmptyEntry(id) {
         // メモリから削除
         memoriesData = memoriesData.filter(m => String(m.id) !== String(id));
         // バックグラウンドでDBから削除
-        apiFetch({ method: 'POST', body: JSON.stringify({
-            action: 'delete_entry',
-            entry_id: id
-        })}).catch(e => console.error('cleanup entry error', e));
+        if (isGuestMode) {
+            localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
+        } else {
+            apiFetch({ method: 'POST', body: JSON.stringify({
+                action: 'delete_entry',
+                entry_id: id
+            })}).catch(e => console.error('cleanup entry error', e));
+        }
     }
 }
 
@@ -1947,6 +2052,11 @@ function renderAccountSettings() {
                 プライバシーポリシー
             </button>
 
+            ${isGuestMode ? `
+            <button onclick="exitGuestMode()" style="${btnStyle}">
+                アカウント登録してデータを引き継ぐ
+            </button>
+            ` : `
             <button onclick="deleteAccount()" style="${dangerBtnStyle}">
                 アカウントを削除
             </button>
@@ -1954,6 +2064,7 @@ function renderAccountSettings() {
             <button onclick="logout()" style="${btnStyle.replace('#444', '#777')}">
                 ログアウト
             </button>
+            `}
 
             <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.2.1</p>
         </div>
@@ -3320,6 +3431,22 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             entry_id: targetEntryId || undefined
         };
         
+        if (isGuestMode) {
+            // ゲストモード: localStorageに保存
+            const idx = memoriesData.findIndex(m =>
+                targetEntryId ? String(m.id) === String(targetEntryId) : m.prefecture === targetPref && !m.is_home
+            );
+            const now = new Date().toISOString();
+            if (idx >= 0) {
+                memoriesData[idx] = { ...memoriesData[idx], ...payload, photo_urls: JSON.stringify(allUrls), date: dateValue, memo: memoValue };
+            } else {
+                memoriesData.push({ id: 'guest_' + now, prefecture: targetPref, date: dateValue, memo: memoValue, photo_urls: JSON.stringify(allUrls), is_home: false });
+            }
+            localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
+            if (isHeavyTask && selectedPref === targetPref) renderRightPanel();
+            updateMapColors();
+            updateCounter();
+        } else {
         const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
         
         if (res.ok) {
@@ -3352,6 +3479,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             if (statusEl && selectedPref === targetPref) statusEl.innerText = `⚠ ${errMsg}`;
             if (isHeavyTask) hideSaveProgress();
         }
+        } // end isGuestMode else
     } catch(e) { 
         console.error("Save Error", e); 
         if (statusEl && selectedPref === targetPref) {
@@ -3364,11 +3492,15 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
 
 async function fetchMemories(redraw = true) {
     try {
-        const res = await apiFetch({ method: 'GET', url: '/api?t=' + new Date().getTime() });
-        const rawData = await res.json();
-        
-        // 重複排除せず全エントリを保持（同一都道府県の複数旅行に対応）
-        memoriesData = rawData;
+        if (isGuestMode) {
+            // ゲストモード: localStorageから読み込み
+            const raw = localStorage.getItem('guestMemories');
+            memoriesData = raw ? JSON.parse(raw) : [];
+        } else {
+            const res = await apiFetch({ method: 'GET', url: '/api?t=' + new Date().getTime() });
+            const rawData = await res.json();
+            memoriesData = rawData;
+        }
 
         homePrefectures = memoriesData
             .filter(m => m.is_home === true)

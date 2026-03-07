@@ -57,6 +57,30 @@
             <p class="auth-signup-link">アカウントの新規作成は<a href="#" onclick="switchToSignup(); return false;">こちら</a></p>
             <p class="auth-signup-link" id="forgot-pw-link"><a href="#" onclick="switchToReset(); return false;">パスワードをお忘れの方はこちら</a></p>
 
+            <div style="display:flex; align-items:center; gap:10px; margin: 4px 0;">
+                <div style="flex:1; height:1px; background:#eee;"></div>
+                <span style="font-size:0.8rem; color:#ccc;">または</span>
+                <div style="flex:1; height:1px; background:#eee;"></div>
+            </div>
+
+            <button onclick="startGuestMode()" style="
+                padding: 13px;
+                background: white;
+                color: #6c8ca3;
+                border: 1.5px solid #d0dce6;
+                border-radius: 10px;
+                font-size: 0.95rem;
+                font-weight: bold;
+                font-family: inherit;
+                cursor: pointer;
+                transition: background 0.2s;
+            " onmouseover="this.style.background='#f4f8fb'" onmouseout="this.style.background='white'">
+                ゲストとして試す
+            </button>
+            <p style="text-align:center; font-size:0.78rem; color:#bbb; margin: -4px 0 0 0;">
+                登録なしで試せます。後からデータを引き継げます。
+            </p>
+
             <div id="privacy-agree-wrap" style="display:none; align-items:flex-start; gap:10px; padding:4px 0;">
                 <input type="checkbox" id="privacy-agree-check"
                     onchange="document.getElementById('auth-submit-btn').disabled = !this.checked;"
