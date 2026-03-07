@@ -793,16 +793,27 @@ async function deleteBulkSelected() {
             updateSaveProgress(count, deleteCount, '削除中...');
         }
         
-        // 削除後にSupabaseのDBを一括更新
+        // 削除後にSupabaseのDBを更新
         if (data) {
-            await apiFetch({ method: 'POST', body: JSON.stringify({
-                action: 'save_memory',
-                prefecture: targetPref,
-                date: data.date || '',
-                memo: data.memo || '',
-                existing_urls: photosToSave,
-                entry_id: data.id || undefined
-            })});
+            if (photosToSave.length === 0) {
+                // 写真が0枚になったらエントリ自体を削除
+                await apiFetch({ method: 'POST', body: JSON.stringify({
+                    action: 'delete_entry',
+                    entry_id: data.id
+                })});
+                // memoriesDataからも除去
+                memoriesData = memoriesData.filter(m => m.id !== data.id);
+                selectedEntryId = null;
+            } else {
+                await apiFetch({ method: 'POST', body: JSON.stringify({
+                    action: 'save_memory',
+                    prefecture: targetPref,
+                    date: data.date || '',
+                    memo: data.memo || '',
+                    existing_urls: photosToSave,
+                    entry_id: data.id || undefined
+                })});
+            }
         }
         
         await fetchMemories(false);
@@ -2591,7 +2602,7 @@ function renderRightPanel() {
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
-            contentHtml += `<button class="pref-btn" onclick="selectedPref='${escapeHTML(pref)}'; openPanel(); renderRightPanel();"
+            contentHtml += `<button class="pref-btn" onclick="window.selectedPref='${escapeHTML(pref)}'; openPanel(); renderRightPanel();"
                 style="border-left: 6px solid ${getCurrentColors()[pref]}; background: #fffdf5;">
                 <span style="font-weight:bold; color:#444;">${escapeHTML(pref)}</span>
             </button>`;
@@ -2624,7 +2635,7 @@ function renderRightPanel() {
                 // 最新エントリの日付を表示
                 const latestEntry = entries[entries.length - 1];
                 const entryCountLabel = entries.length > 1 ? `<span style="font-size:0.78em; background:${color}33; color:${color}; padding:2px 7px; border-radius:10px; margin-left:6px; font-weight:bold;">${entries.length}回</span>` : '';
-                contentHtml += `<button class="pref-btn" onclick="selectedPref='${escapeHTML(pref)}'; selectedEntryId=null; openPanel(); renderRightPanel();"
+                contentHtml += `<button class="pref-btn" onclick="window.selectedPref='${escapeHTML(pref)}'; window.selectedEntryId=null; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
                         ${escapeHTML(pref)}${entryCountLabel}${needsData ? '<span class="status-dot"></span>' : ''}
@@ -2681,7 +2692,8 @@ function renderRightPanel() {
         if (!isShareMode && allEntries.length > 1) {
             const navItems = allEntries.map((m, i) => {
                 const isActive = m.id === selectedEntryId;
-                return `<button onclick="selectedEntryId='${m.id}'; dateEditingMode=false; renderRightPanel();"
+                const escapedId = m.id.replace(/"/g, '&quot;');
+                return `<button onclick="window.selectedEntryId='${escapedId}'; window.dateEditingMode=false; renderRightPanel();"
                     style="padding:5px 12px; border:none; border-radius:20px; font-size:0.8rem; font-family:inherit; cursor:pointer;
                     background:${isActive ? color : '#eee'}; color:${isActive ? 'white' : '#888'}; font-weight:${isActive ? 'bold' : 'normal'};">
                     ${m.date ? escapeHTML(formatDate(m.date)) : '日付未設定'}
