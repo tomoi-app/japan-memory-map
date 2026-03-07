@@ -2919,6 +2919,66 @@ function formatDate(dateStr) {
     return to ? `${from} - ${to}` : from;
 }
 
+// =============================================
+// 地域制覇バッジ
+// =============================================
+const REGION_BADGES = [
+    { name: '北海道', prefs: ['北海道'] },
+    { name: '東北', prefs: ['青森県','岩手県','宮城県','秋田県','山形県','福島県'] },
+    { name: '関東', prefs: ['茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県'] },
+    { name: '中部', prefs: ['新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県'] },
+    { name: '近畿', prefs: ['三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県'] },
+    { name: '中国', prefs: ['鳥取県','島根県','岡山県','広島県','山口県'] },
+    { name: '四国', prefs: ['徳島県','香川県','愛媛県','高知県'] },
+    { name: '九州', prefs: ['福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県'] },
+    { name: '沖縄', prefs: ['沖縄県'] },
+];
+
+function getVisitedPrefs() {
+    const visited = new Set();
+    memoriesData.forEach(m => {
+        if (homePrefectures.includes(m.prefecture)) {
+            visited.add(m.prefecture);
+            return;
+        }
+        const photos = JSON.parse(m.photo_urls || '[]');
+        if (photos.length > 0) visited.add(m.prefecture);
+    });
+    homePrefectures.forEach(p => visited.add(p));
+    return visited;
+}
+
+function renderRegionBadges() {
+    const visited = getVisitedPrefs();
+    let html = `<div style="padding: 0 0 20px 0;">
+        <p style="font-size:0.82rem; color:#aaa; margin: 0 0 12px 0; font-weight:500; letter-spacing:1px;">地域制覇バッジ</p>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">`;
+
+    REGION_BADGES.forEach(region => {
+        const total = region.prefs.length;
+        const done = region.prefs.filter(p => visited.has(p)).length;
+        const cleared = done === total;
+        const pct = Math.round(done / total * 100);
+
+        html += `<div style="
+            display:flex; flex-direction:column; align-items:center;
+            background: ${cleared ? 'linear-gradient(135deg,#e8f4e8,#d0ead0)' : '#f8f9fa'};
+            border: 1.5px solid ${cleared ? '#7bc47b' : '#e8eaed'};
+            border-radius: 12px; padding: 10px 12px; min-width:72px;
+            opacity: ${done === 0 ? '0.45' : '1'};
+            transition: transform 0.15s;
+            cursor: default;
+        " title="${region.prefs.join(' / ')}">
+            <span style="font-size:0.78rem; font-weight:bold; color:${cleared ? '#3a8a3a' : '#555'};">${region.name}</span>
+            <span style="font-size:0.72rem; color:${cleared ? '#5aaa5a' : '#aaa'}; margin-top:2px;">${done}/${total}</span>
+            ${cleared ? '<span style="font-size:0.65rem; color:#5aaa5a; font-weight:bold;">制覇！</span>' : ''}
+        </div>`;
+    });
+
+    html += `</div></div>`;
+    return html;
+}
+
 function renderRightPanel() {
     // パネル描画時に選択モードを確実にリセット
     cancelBulkSelect();
@@ -2939,6 +2999,8 @@ function renderRightPanel() {
         </div>`;
 
         let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
+
+        contentHtml += renderRegionBadges();
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
