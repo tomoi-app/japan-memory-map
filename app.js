@@ -1572,8 +1572,7 @@ async function clearDateAndSave() {
     dateEditingMode = false;
     const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
     if (data) data.date = '';
-    const existingUrls = (data && data.photo_urls) ? (() => { try { return JSON.parse(data.photo_urls); } catch(e) { return []; } })() : [];
-    const payload = { action: 'save_memory', prefecture: selectedPref, date: '', existing_urls: existingUrls, entry_id: (data && data.id) || undefined };
+    const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [], entry_id: (data && data.id) || undefined };
     await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
     await fetchMemories(false);
     renderRightPanel();
@@ -1589,8 +1588,7 @@ function cleanupEmptyDate() {
         try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
         if (data.date && photoCount === 0) {
             data.date = "";
-            const existingUrls2 = (() => { try { return JSON.parse(data.photo_urls || "[]"); } catch(e) { return []; } })();
-            const payload = { action: "save_memory", prefecture: selectedPref, date: "", existing_urls: existingUrls2, entry_id: data.id || undefined };
+            const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [], entry_id: data.id || undefined };
             apiFetch({ method: 'POST', body: JSON.stringify(payload) })
                 .then(() => fetchMemories(false));
         }
@@ -3116,6 +3114,12 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
         if (res.ok) {
             await fetchMemories(false);
             
+            // 写真追加後はmemoiesDataが更新されたのでパネルを再描画する
+            // （一覧への反映・→ボタン・canAddEntry等の再計算に必要）
+            if (isHeavyTask && selectedPref === targetPref) {
+                renderRightPanel();
+            }
+
             updateMapColors();
             updateCounter();
 
