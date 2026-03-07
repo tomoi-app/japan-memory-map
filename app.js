@@ -2078,43 +2078,45 @@ function renderShareSettings() {
     <div class="panel-content">
         <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
             <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0;">
-                設定を選んでURLを生成し、あしあとを共有しよう。
+                あしあとを残した地図をSNSでシェアしよう。
             </p>
-            
-            <div style="background:#f4f7f6; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px;">
-                <label style="font-size:0.95rem; font-weight:bold; color:#444;">閲覧時間</label>
-                <select id="share-expires" style="padding:10px; border-radius:8px; border:1px solid #ccc; font-size:1rem; font-family:inherit;">
-                    <option value="3600">1時間</option>
-                    <option value="86400">24時間</option>
-                    <option value="-1">制限なし</option>
-                </select>
 
-                <label style="font-size:0.95rem; font-weight:bold; color:#444; margin-top:8px;">共有する内容</label>
-                <label style="display:flex; align-items:center; gap:10px; font-size:0.95rem; color:#555; cursor:pointer;">
-                    <input type="checkbox" id="share-show-thumb" checked style="width:18px; height:18px; accent-color:#6c8ca3; cursor:pointer;">
-                    サムネイル
-                </label>
-                <label style="display:flex; align-items:center; gap:10px; font-size:0.95rem; color:#555; cursor:pointer;">
-                    <input type="checkbox" id="share-show-date" checked style="width:18px; height:18px; accent-color:#6c8ca3; cursor:pointer;">
-                    日付
-                </label>
-                
-                <button onclick="generateShareLink()" style="margin-top:10px; padding:12px; background:#6c8ca3; color:white; border:none; border-radius:8px; font-size:1rem; font-weight:bold; cursor:pointer;">URLを生成</button>
-            </div>
-
-            <div id="share-url-display" style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#aaa; line-height:1.6;">
-                URL未生成
-            </div>
-            <button id="share-copy-btn" onclick="copyShareUrl(window._currentShareUrl)"
-                style="padding:16px; background:#eee; color:#aaa; border:none; border-radius:12px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:not-allowed; box-shadow:0 2px 8px rgba(0,0,0,0.05);" disabled>
-                URLをコピー
-            </button>
-            <div id="share-copy-msg" style="text-align:center; color:#5a8a6a; font-size:0.9rem; min-height:20px;"></div>
+            <button onclick="generateShareImage()" style="width:100%; padding:16px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1rem; font-weight:bold; font-family:inherit; cursor:pointer;">地図を保存</button>
+            <canvas id="share-canvas" style="display:none;"></canvas>
 
             <div style="border-top:1px solid #f0f0f0; padding-top:20px; margin-top:4px;">
-                <p style="font-size:0.88rem; color:#aaa; margin:0 0 12px 0;">制霸率カードをSNS用に画像保存</p>
-                <button onclick="generateShareImage()" style="width:100%; padding:16px; background:#f4f7f6; color:#6c8ca3; border:2px solid #6c8ca3; border-radius:12px; font-size:1rem; font-weight:bold; font-family:inherit; cursor:pointer;">📷 画像を生成・保存</button>
-                <canvas id="share-canvas" style="display:none;"></canvas>
+                <p style="color:#666; font-size:0.92rem; line-height:1.7; margin:0 0 12px 0;">
+                    設定を選んでURLを生成し、あしあとを共有しよう。
+                </p>
+                <div style="background:#f4f7f6; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                    <label style="font-size:0.95rem; font-weight:bold; color:#444;">閲覧時間</label>
+                    <select id="share-expires" style="padding:10px; border-radius:8px; border:1px solid #ccc; font-size:1rem; font-family:inherit;">
+                        <option value="3600">1時間</option>
+                        <option value="86400">24時間</option>
+                        <option value="-1">制限なし</option>
+                    </select>
+
+                    <label style="font-size:0.95rem; font-weight:bold; color:#444; margin-top:8px;">共有する内容</label>
+                    <label style="display:flex; align-items:center; gap:10px; font-size:0.95rem; color:#555; cursor:pointer;">
+                        <input type="checkbox" id="share-show-thumb" checked style="width:18px; height:18px; accent-color:#6c8ca3; cursor:pointer;">
+                        サムネイル
+                    </label>
+                    <label style="display:flex; align-items:center; gap:10px; font-size:0.95rem; color:#555; cursor:pointer;">
+                        <input type="checkbox" id="share-show-date" checked style="width:18px; height:18px; accent-color:#6c8ca3; cursor:pointer;">
+                        日付
+                    </label>
+                    
+                    <button onclick="generateShareLink()" style="margin-top:10px; padding:12px; background:#6c8ca3; color:white; border:none; border-radius:8px; font-size:1rem; font-weight:bold; cursor:pointer;">URLを生成</button>
+                </div>
+
+                <div id="share-url-display" style="background:#f4f7f6; border-radius:12px; padding:14px 16px; word-break:break-all; font-size:0.82rem; color:#aaa; line-height:1.6; margin-top:12px;">
+                    URL未生成
+                </div>
+                <button id="share-copy-btn" onclick="copyShareUrl(window._currentShareUrl)"
+                    style="margin-top:12px; width:100%; padding:16px; background:#eee; color:#aaa; border:none; border-radius:12px; font-size:1.05rem; font-weight:bold; font-family:inherit; cursor:not-allowed; box-shadow:0 2px 8px rgba(0,0,0,0.05);" disabled>
+                    URLをコピー
+                </button>
+                <div id="share-copy-msg" style="text-align:center; color:#5a8a6a; font-size:0.9rem; min-height:20px; margin-top:8px;"></div>
             </div>
         </div>
     </div>`;
@@ -2155,65 +2157,151 @@ window.generateShareLink = function() {
 }
 
 function generateShareImage() {
+    const btn = event.currentTarget;
+    btn.textContent = '\u8aad\u307f\u8fbc\u307f\u4e2d...';
+    btn.disabled = true;
+
+    // \u8a2a\u554f\u6e08\u307f\u90fd\u9053\u5e9c\u770c\u3068\u8272\u3092\u53d6\u5f97
     const visitedPrefs = new Set();
     memoriesData.forEach(m => {
         if (homePrefectures.includes(m.prefecture)) return;
-        const photos = JSON.parse(m.photo_urls || "[]");
+        const photos = JSON.parse(m.photo_urls || '[]');
         if (photos.length > 0) visitedPrefs.add(m.prefecture);
     });
-    const visited = visitedPrefs.size + homePrefectures.length;
-    const total = 47;
-    const percent = Math.round(visited / total * 100);
+    homePrefectures.forEach(p => visitedPrefs.add(p));
+    const visited = visitedPrefs.size;
+    const colors = getCurrentColors();
 
-    const canvas = document.getElementById('share-canvas');
-    const W = 1080, H = 1080;
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
+    // GeoJSON\u53d6\u5f97\uff08\u30ad\u30e3\u30c3\u30b7\u30e5\u6e08\u307f\u306e\u306f\u305a\uff09
+    fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
+    .then(r => r.json())
+    .then(geoData => {
+        const W = 1080, H = 1080;
+        const canvas = document.getElementById('share-canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
 
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, '#eef2f5');
-    grad.addColorStop(1, '#dce6ee');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
+        // \u80cc\u666f
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, W, H);
 
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ashiatoRoundRect(ctx, 80, 80, W - 160, H - 160, 48);
-    ctx.fill();
+        // \u5730\u56f3\u306e\u30d0\u30a6\u30f3\u30c7\u30a3\u30f3\u30b0\u30dc\u30c3\u30af\u30b9\u8a08\u7b97
+        const mapPad = 60;
+        const mapW = W - mapPad * 2;
+        const mapH = H - 160; // \u4e0b\u306b\u30c6\u30ad\u30b9\u30c8\u7528\u30b9\u30da\u30fc\u30b9
 
-    ctx.fillStyle = '#6c8ca3';
-    ctx.font = 'bold 52px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('\u3042\u3057\u3042\u3068', W / 2, 210);
+        // \u5168\u90fd\u9053\u5e9c\u770c\u306e\u5ea7\u6a19\u7bc4\u56f2\u3092\u8a08\u7b97
+        let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+        geoData.features.forEach(f => {
+            const coords = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+            coords.forEach(poly => poly[0].forEach(([lng, lat]) => {
+                if (lng < minLng) minLng = lng;
+                if (lng > maxLng) maxLng = lng;
+                if (lat < minLat) minLat = lat;
+                if (lat > maxLat) maxLat = lat;
+            }));
+        });
 
-    ctx.fillStyle = '#333';
-    ctx.font = 'bold 260px sans-serif';
-    ctx.fillText(String(visited), W / 2, 570);
+        // \u5c71\u53e3\u770c\u306a\u3069\u6d77\u5916\u9818\u571f\u3092\u9664\u5916\u3057\u3066\u672c\u5dde\u306e\u307f
+        minLng = Math.max(minLng, 122); maxLng = Math.min(maxLng, 146);
+        minLat = Math.max(minLat, 24);  maxLat = Math.min(maxLat, 46);
 
-    ctx.fillStyle = '#aaa';
-    ctx.font = 'bold 72px sans-serif';
-    ctx.fillText('/ 47\u90fd\u9053\u5e9c\u770c', W / 2, 670);
+        const lngRange = maxLng - minLng;
+        const latRange = maxLat - minLat;
+        const scaleX = mapW / lngRange;
+        const scaleY = mapH / latRange;
+        const scale = Math.min(scaleX, scaleY) * 0.95;
+        const offsetX = mapPad + (mapW - lngRange * scale) / 2;
+        const offsetY = mapPad + (mapH - latRange * scale) / 2;
 
-    ctx.fillStyle = '#6c8ca3';
-    ctx.font = 'bold 72px sans-serif';
-    ctx.fillText(percent + '% \u5236\u9738', W / 2, 790);
+        function project([lng, lat]) {
+            return [
+                offsetX + (lng - minLng) * scale,
+                offsetY + (maxLat - lat) * scale
+            ];
+        }
 
-    const barX = 160, barY = 850, barW = W - 320, barH = 28;
-    ctx.fillStyle = '#e0e8ee';
-    ashiatoRoundRect(ctx, barX, barY, barW, barH, 14);
-    ctx.fill();
-    ctx.fillStyle = '#6c8ca3';
-    ashiatoRoundRect(ctx, barX, barY, Math.max(barH, barW * visited / total), barH, 14);
-    ctx.fill();
+        function drawFeature(f) {
+            const nam = f.properties.nam_ja || f.properties.nam || '';
+            const isVisited = visitedPrefs.has(nam);
+            const fillColor = isVisited ? (colors[nam] || '#8ab4f8') : '#f0f2f4';
+            const strokeColor = '#ffffff';
 
-    ctx.fillStyle = '#bbb';
-    ctx.font = '32px sans-serif';
-    ctx.fillText('ashiato.tomoi-app.com', W / 2, 960);
+            ctx.fillStyle = fillColor;
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 1.2;
 
-    const link = document.createElement('a');
-    link.download = 'ashiato_' + visited + '_of_47.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+            const geoms = f.geometry.type === 'Polygon'
+                ? [f.geometry.coordinates]
+                : f.geometry.coordinates;
+
+            geoms.forEach(poly => {
+                // \u7d4c\u5ea6\u7bc4\u56f2\u5916\u306f\u30b9\u30ad\u30c3\u30d7
+                const [lng0] = poly[0][0];
+                if (lng0 < 120 || lng0 > 148) return;
+
+                ctx.beginPath();
+                poly[0].forEach(([lng, lat], i) => {
+                    const [x, y] = project([lng, lat]);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        // \u672a\u8a2a\u554f\u3092\u5148\u306b\u63cf\u753b\u3001\u8a2a\u554f\u6e08\u307f\u3092\u4e0a\u306b\u91cd\u306d\u308b
+        geoData.features.forEach(f => {
+            const nam = f.properties.nam_ja || f.properties.nam || '';
+            if (!visitedPrefs.has(nam)) drawFeature(f);
+        });
+        geoData.features.forEach(f => {
+            const nam = f.properties.nam_ja || f.properties.nam || '';
+            if (visitedPrefs.has(nam)) drawFeature(f);
+        });
+
+        // \u4e0b\u90e8\u30c6\u30ad\u30b9\u30c8\u30a8\u30ea\u30a2\uff08\u767d\u80cc\u666f\uff09
+        const textY = H - 120;
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fillRect(0, textY - 20, W, H - textY + 20);
+
+        // \u30a2\u30d7\u30ea\u540d
+        ctx.fillStyle = '#6c8ca3';
+        ctx.font = 'bold 38px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('\u3042\u3057\u3042\u3068', 60, textY + 30);
+
+        // \u5236\u9738\u6570
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(visited + ' / 47\u90fd\u9053\u5e9c\u770c', W - 60, textY + 30);
+
+        // \u30d7\u30ed\u30b0\u30ec\u30b9\u30d0\u30fc
+        const barX = 60, barY = textY + 52, barW = W - 120, barH = 14;
+        ctx.fillStyle = '#e0e8ee';
+        ashiatoRoundRect(ctx, barX, barY, barW, barH, 7);
+        ctx.fill();
+        ctx.fillStyle = '#6c8ca3';
+        ashiatoRoundRect(ctx, barX, barY, Math.max(barH, barW * visited / 47), barH, 7);
+        ctx.fill();
+
+        // \u30c0\u30a6\u30f3\u30ed\u30fc\u30c9
+        const link = document.createElement('a');
+        link.download = 'ashiato_' + visited + '_of_47.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        btn.textContent = '\u5730\u56f3\u3092\u4fdd\u5b58';
+        btn.disabled = false;
+    })
+    .catch(() => {
+        btn.textContent = '\u5730\u56f3\u3092\u4fdd\u5b58';
+        btn.disabled = false;
+        alert('\u753b\u50cf\u306e\u751f\u6210\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002\u518d\u5ea6\u304a\u8a66\u3057\u304f\u3060\u3055\u3044\u3002');
+    });
 }
 
 function ashiatoRoundRect(ctx, x, y, w, h, r) {
@@ -2229,6 +2317,7 @@ function ashiatoRoundRect(ctx, x, y, w, h, r) {
     ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
 }
+
 
 function copyShareUrl(url) {
     navigator.clipboard.writeText(url).then(() => {
