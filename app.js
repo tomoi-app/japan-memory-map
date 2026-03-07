@@ -2110,6 +2110,12 @@ function renderShareSettings() {
                 URLをコピー
             </button>
             <div id="share-copy-msg" style="text-align:center; color:#5a8a6a; font-size:0.9rem; min-height:20px;"></div>
+
+            <div style="border-top:1px solid #f0f0f0; padding-top:20px; margin-top:4px;">
+                <p style="font-size:0.88rem; color:#aaa; margin:0 0 12px 0;">制霸率カードをSNS用に画像保存</p>
+                <button onclick="generateShareImage()" style="width:100%; padding:16px; background:#f4f7f6; color:#6c8ca3; border:2px solid #6c8ca3; border-radius:12px; font-size:1rem; font-weight:bold; font-family:inherit; cursor:pointer;">📷 画像を生成・保存</button>
+                <canvas id="share-canvas" style="display:none;"></canvas>
+            </div>
         </div>
     </div>`;
 }
@@ -2146,6 +2152,82 @@ window.generateShareLink = function() {
     .catch(() => {
         display.textContent = 'URL生成に失敗しました。再度お試しください。';
     });
+}
+
+function generateShareImage() {
+    const visitedPrefs = new Set();
+    memoriesData.forEach(m => {
+        if (homePrefectures.includes(m.prefecture)) return;
+        const photos = JSON.parse(m.photo_urls || "[]");
+        if (photos.length > 0) visitedPrefs.add(m.prefecture);
+    });
+    const visited = visitedPrefs.size + homePrefectures.length;
+    const total = 47;
+    const percent = Math.round(visited / total * 100);
+
+    const canvas = document.getElementById('share-canvas');
+    const W = 1080, H = 1080;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#eef2f5');
+    grad.addColorStop(1, '#dce6ee');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ashiatoRoundRect(ctx, 80, 80, W - 160, H - 160, 48);
+    ctx.fill();
+
+    ctx.fillStyle = '#6c8ca3';
+    ctx.font = 'bold 52px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('\u3042\u3057\u3042\u3068', W / 2, 210);
+
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 260px sans-serif';
+    ctx.fillText(String(visited), W / 2, 570);
+
+    ctx.fillStyle = '#aaa';
+    ctx.font = 'bold 72px sans-serif';
+    ctx.fillText('/ 47\u90fd\u9053\u5e9c\u770c', W / 2, 670);
+
+    ctx.fillStyle = '#6c8ca3';
+    ctx.font = 'bold 72px sans-serif';
+    ctx.fillText(percent + '% \u5236\u9738', W / 2, 790);
+
+    const barX = 160, barY = 850, barW = W - 320, barH = 28;
+    ctx.fillStyle = '#e0e8ee';
+    ashiatoRoundRect(ctx, barX, barY, barW, barH, 14);
+    ctx.fill();
+    ctx.fillStyle = '#6c8ca3';
+    ashiatoRoundRect(ctx, barX, barY, Math.max(barH, barW * visited / total), barH, 14);
+    ctx.fill();
+
+    ctx.fillStyle = '#bbb';
+    ctx.font = '32px sans-serif';
+    ctx.fillText('ashiato.tomoi-app.com', W / 2, 960);
+
+    const link = document.createElement('a');
+    link.download = 'ashiato_' + visited + '_of_47.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+function ashiatoRoundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
 }
 
 function copyShareUrl(url) {
