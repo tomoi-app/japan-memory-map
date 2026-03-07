@@ -1572,7 +1572,8 @@ async function clearDateAndSave() {
     dateEditingMode = false;
     const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
     if (data) data.date = '';
-    const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [], entry_id: (data && data.id) || undefined };
+    const existingUrls = (data && data.photo_urls) ? (() => { try { return JSON.parse(data.photo_urls); } catch(e) { return []; } })() : [];
+    const payload = { action: 'save_memory', prefecture: selectedPref, date: '', existing_urls: existingUrls, entry_id: (data && data.id) || undefined };
     await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
     await fetchMemories(false);
     renderRightPanel();
@@ -1588,7 +1589,8 @@ function cleanupEmptyDate() {
         try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
         if (data.date && photoCount === 0) {
             data.date = "";
-            const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [], entry_id: data.id || undefined };
+            const existingUrls2 = (() => { try { return JSON.parse(data.photo_urls || "[]"); } catch(e) { return []; } })();
+            const payload = { action: "save_memory", prefecture: selectedPref, date: "", existing_urls: existingUrls2, entry_id: data.id || undefined };
             apiFetch({ method: 'POST', body: JSON.stringify(payload) })
                 .then(() => fetchMemories(false));
         }
