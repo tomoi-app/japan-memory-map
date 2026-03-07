@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>あしあと</title>
+    <title>あしあと - 地図を塗りつぶしていく旅行記録アプリ</title>
+    <meta name="description" content="訪れた都道府県を地図に塗りつぶして旅行を記録するPWAアプリ。写真・日付・メモを残して、あなただけの旅の足跡を。">
     
     <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -16,16 +17,25 @@
     <meta name="apple-mobile-web-app-title" content="あしあと">
     <meta name="theme-color" content="#f5f5f7">
 
-    <meta property="og:title" content="あしあと">
-    <meta property="og:description" content="旅行の思い出をのこそう。初めての方はアカウントの新規作成をしてください。">
+    <meta property="og:title" content="あしあと - 地図を塗りつぶしていく旅行記録アプリ">
+    <meta property="og:description" content="訪れた都道府県を地図に塗りつぶして旅行を記録。写真・日付・メモを残して、あなただけの旅の足跡を。">
     <meta property="og:image" content="https://ashiato.tomoi-app.com/icon-512.png">
     <meta property="og:url" content="https://ashiato.tomoi-app.com">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="あしあと">
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="あしあと">
-    <meta name="twitter:description" content="旅行の思い出をのこそう。初めての方はアカウントの新規作成をしてください。">
+    <meta name="twitter:title" content="あしあと - 地図を塗りつぶしていく旅行記録アプリ">
+    <meta name="twitter:description" content="訪れた都道府県を地図に塗りつぶして旅行を記録。写真・日付・メモを残して、あなただけの旅の足跡を。">
     <meta name="twitter:image" content="https://ashiato.tomoi-app.com/icon-512.png">
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JX9VPB7S9N"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-JX9VPB7S9N');
+    </script>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
