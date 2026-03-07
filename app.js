@@ -108,7 +108,12 @@ async function getAllPhotosFromIDB() {
 // お知らせ（メール）設定
 // =============================================
 const ADMIN_MESSAGES = [
-   
+  {
+        id: 'v2.2.0',
+        date: '2026.03.07',
+        title: 'version_2.2.0アップデート',
+        content: '・同じ都道府県に複数の思い出を追加できるようになりました。\n・削除ボタンのバグを解消しました。'
+    }, 
     {
         id: 'v2.1.3',
         date: '2026.03.06',
@@ -510,7 +515,7 @@ function getDropTarget(clientX, clientY, exclude) {
 }
 
 async function reorderPhotos(srcId, targetId) {
-    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
     if (!data) return;
     let photos = JSON.parse(data.photo_urls || '[]');
     
@@ -531,7 +536,8 @@ async function reorderPhotos(srcId, targetId) {
             prefecture: selectedPref,
             date: data.date || '',
             memo: data.memo || '',
-            existing_urls: photos
+            existing_urls: photos,
+            entry_id: selectedEntryId || undefined
         })});
         await fetchMemories(false);
     }).catch(e => console.error('reorder error', e));
@@ -546,7 +552,7 @@ function toggleSelectOrDelete() {
 }
 
 function selectAllPhotos() {
-    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
     if (!data) return;
     let photos = JSON.parse(data.photo_urls || '[]');
     
@@ -585,7 +591,7 @@ function selectAllPhotos() {
     
     const selectAllBtn = document.getElementById('select-all-btn');
     if (selectAllBtn) {
-        const data = memoriesData.find(m => m.prefecture === selectedPref);
+        const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
         const photosCount = data ? JSON.parse(data.photo_urls || '[]').length : 0;
         selectAllBtn.textContent = (photosCount > 0 && bulkSelectedUrls.size === photosCount) ? 'すべて解除' : 'すべて選択';
     }
@@ -598,7 +604,6 @@ function enterBulkSelectMode() {
     bulkSelectedUrls = new Set();
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
-    document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = 'none');
     
     updateDownloadBtn();
 
@@ -641,7 +646,6 @@ function cancelBulkSelect() {
     });
     const icon = document.getElementById('select-btn-icon');
     if (icon) icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
-    document.querySelectorAll('.photo-delete-btn').forEach(btn => btn.style.display = '');
     const grid = document.querySelector('.photo-grid');
     if (grid) {
         grid.style.gridTemplateColumns = '1fr 1fr';
@@ -694,7 +698,7 @@ function togglePhotoSelect(url, forceState = null) {
     
     const selectAllBtn = document.getElementById('select-all-btn');
     if (selectAllBtn) {
-        const data = memoriesData.find(m => m.prefecture === selectedPref);
+        const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
         const photosCount = data ? JSON.parse(data.photo_urls || '[]').length : 0;
         selectAllBtn.textContent = (photosCount > 0 && bulkSelectedUrls.size === photosCount) ? 'すべて解除' : 'すべて選択';
     }
@@ -760,7 +764,7 @@ async function deleteBulkSelected() {
     const deleteCount = urlsToDelete.length;
     const targetPref = selectedPref;
     
-    const data = memoriesData.find(m => m.prefecture === targetPref);
+    const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === targetPref);
     let photosToSave = [];
     if (data) {
         let photos = JSON.parse(data.photo_urls || '[]');
@@ -792,7 +796,8 @@ async function deleteBulkSelected() {
                 prefecture: targetPref,
                 date: data.date || '',
                 memo: data.memo || '',
-                existing_urls: photosToSave
+                existing_urls: photosToSave,
+                entry_id: data.id || undefined
             })});
         }
         
@@ -1239,6 +1244,7 @@ async function apiFetch(options = {}) {
 let map;
 let geoJsonLayer;
 let selectedPref = null;
+let selectedEntryId = null; // 複数エントリのうち編集中のエントリID
 let memoriesData = [];
 let currentPhotos = [];
 let slideIndex = 0;
@@ -1523,7 +1529,7 @@ function enterDateEditMode() {
 async function clearDateAndSave() {
     if (!selectedPref) return;
     dateEditingMode = false;
-    const data = memoriesData.find(m => m.prefecture === selectedPref);
+    const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
     if (data) data.date = '';
     const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [] };
     await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
@@ -1535,7 +1541,7 @@ async function clearDateAndSave() {
 
 function cleanupEmptyDate() {
     if (selectedPref && !homePrefectures.includes(selectedPref)) {
-        const data = memoriesData.find(m => m.prefecture === selectedPref);
+        const data = memoriesData.find(m => m.id === selectedEntryId) || memoriesData.find(m => m.prefecture === selectedPref);
         if (!data) return;
         let photoCount = 0;
         try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
@@ -1555,6 +1561,7 @@ function closePanel() {
     dateEditingMode = false;
     panelOpen = false;
     selectedPref = null;
+    selectedEntryId = null;
     document.getElementById('right-panel').classList.remove('open');
     const adContainer = document.getElementById('ad-container');
     if (adContainer) adContainer.style.display = 'flex';
@@ -1563,12 +1570,49 @@ function closePanel() {
     updateCounter();
 }
 
+async function addNewEntry() {
+    if (!selectedPref) return;
+    // 新しい空エントリをDBに作成
+    const payload = {
+        action: "save_memory",
+        prefecture: selectedPref,
+        date: "",
+        existing_urls: [],
+        memo: "",
+        entry_id: null // nullを渡すと新規INSERT
+    };
+    showLoading('追加中...');
+    try {
+        const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
+        if (res.ok) {
+            const result = await res.json();
+            // 返ってきた新しいエントリのIDを選択
+            const newEntry = Array.isArray(result) ? result[0] : result;
+            await fetchMemories(false);
+            if (newEntry && newEntry.id) {
+                selectedEntryId = newEntry.id;
+            } else {
+                // IDが取れなかった場合は最新エントリを選択
+                const entries = memoriesData.filter(m => m.prefecture === selectedPref && !m.is_home);
+                selectedEntryId = entries.length > 0 ? entries[entries.length - 1].id : null;
+            }
+            dateEditingMode = true; // 日付入力モードで開く
+            renderRightPanel();
+        }
+    } catch(e) {
+        console.error('addNewEntry error', e);
+    } finally {
+        hideLoading();
+    }
+}
+
 function backToList() {
     cancelBulkSelect();
     clearTimeout(autoSaveTimer);
     cleanupEmptyDate();
     dateEditingMode = false;
     selectedPref = null;
+    selectedEntryId = null;
     renderRightPanel();
     updateMapColors();
     updateCounter();
@@ -1840,7 +1884,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.1.4</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.2.0</p>
         </div>
     </div>`;
 
@@ -2374,7 +2418,7 @@ async function exportData() {
     try {
         const idbPhotos = await getAllPhotosFromIDB();
         const exportObj = {
-            version: "2.1.4",
+            version: "2.2.0",
             memories: memoriesData,
             photos: idbPhotos
         };
@@ -2484,12 +2528,14 @@ function updateUIVisibility() {
 }
 
 function updateCounter() {
-    const activeMemories = memoriesData.filter(m => {
-        if (homePrefectures.includes(m.prefecture)) return false;
+    // 都道府県単位でvisited判定（複数エントリがあっても1カウント）
+    const visitedPrefs = new Set();
+    memoriesData.forEach(m => {
+        if (homePrefectures.includes(m.prefecture)) return;
         const photos = JSON.parse(m.photo_urls || "[]");
-        return photos.length > 0;
+        if (photos.length > 0) visitedPrefs.add(m.prefecture);
     });
-    const totalVisited = activeMemories.length + homePrefectures.length;
+    const totalVisited = visitedPrefs.size + homePrefectures.length;
     document.getElementById('pref-counter').innerText = `${totalVisited} / 47`;
 
     const hasWarning = memoriesData.some(m => {
@@ -2553,18 +2599,30 @@ function renderRightPanel() {
         if (activeMemories.length === 0 && homePrefectures.length === 0) {
             contentHtml += `<p style="color:#888; text-align:center; margin-top:40px;">地図から都道府県を選んで<br>思い出を追加しましょう</p>`;
         } else {
-            const sortedMemories = [...activeMemories].sort((a, b) => prefOrder.indexOf(a.prefecture) - prefOrder.indexOf(b.prefecture));
+            // 都道府県ごとにエントリをグループ化
+            const prefGroups = {};
+            activeMemories.forEach(m => {
+                if (!prefGroups[m.prefecture]) prefGroups[m.prefecture] = [];
+                prefGroups[m.prefecture].push(m);
+            });
+            const sortedPrefs = Object.keys(prefGroups).sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
             
-            sortedMemories.forEach(m => {
-                const photos = JSON.parse(m.photo_urls || "[]");
-                const color = getCurrentColors()[m.prefecture] || '#aaa';
-                const needsData = photos.length > 0 && !m.date;
-                contentHtml += `<button class="pref-btn" onclick="selectedPref='${escapeHTML(m.prefecture)}'; openPanel(); renderRightPanel();"
+            sortedPrefs.forEach(pref => {
+                const entries = prefGroups[pref];
+                const color = getCurrentColors()[pref] || '#aaa';
+                const needsData = entries.some(m => {
+                    const photos = JSON.parse(m.photo_urls || "[]");
+                    return photos.length > 0 && !m.date;
+                });
+                // 最新エントリの日付を表示
+                const latestEntry = entries[entries.length - 1];
+                const entryCountLabel = entries.length > 1 ? `<span style="font-size:0.78em; background:${color}33; color:${color}; padding:2px 7px; border-radius:10px; margin-left:6px; font-weight:bold;">${entries.length}回</span>` : '';
+                contentHtml += `<button class="pref-btn" onclick="selectedPref='${escapeHTML(pref)}'; selectedEntryId=null; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
-                        ${escapeHTML(m.prefecture)}${needsData ? '<span class="status-dot"></span>' : ''}
+                        ${escapeHTML(pref)}${entryCountLabel}${needsData ? '<span class="status-dot"></span>' : ''}
                     </span>
-                    <span style="color:#999; font-size:0.85em;">${escapeHTML(formatDate(m.date))}</span>
+                    <span style="color:#999; font-size:0.85em;">${escapeHTML(formatDate(latestEntry.date))}</span>
                 </button>`;
             });
         }
@@ -2595,12 +2653,35 @@ function renderRightPanel() {
             return;
         }
 
-        const data = memoriesData.find(m => m.prefecture === selectedPref) || { date: '', photo_urls: '[]' };
+        // 選択中の都道府県のエントリを全取得（home以外）
+        const allEntries = memoriesData.filter(m => m.prefecture === selectedPref && !m.is_home);
+
+        // selectedEntryIdが未設定 or 存在しない場合は最後のエントリ（最新）を選択
+        if (!selectedEntryId || !allEntries.find(m => m.id === selectedEntryId)) {
+            selectedEntryId = allEntries.length > 0 ? allEntries[allEntries.length - 1].id : null;
+        }
+
+        const data = allEntries.find(m => m.id === selectedEntryId) || { date: '', photo_urls: '[]', memo: '' };
         let photos = [];
         try { photos = JSON.parse(data.photo_urls); } catch(e){}
         const hasWarning = photos.length > 0 && !data.date;
+        // 写真・日付が両方揃っている場合のみ→ボタンを表示
+        const canAddEntry = photos.length > 0 && !!data.date;
 
         let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
+
+        // 複数エントリがある場合：ナビゲーター表示
+        if (!isShareMode && allEntries.length > 1) {
+            const navItems = allEntries.map((m, i) => {
+                const isActive = m.id === selectedEntryId;
+                return `<button onclick="selectedEntryId='${m.id}'; dateEditingMode=false; renderRightPanel();"
+                    style="padding:5px 12px; border:none; border-radius:20px; font-size:0.8rem; font-family:inherit; cursor:pointer;
+                    background:${isActive ? color : '#eee'}; color:${isActive ? 'white' : '#888'}; font-weight:${isActive ? 'bold' : 'normal'};">
+                    ${i + 1}回目${m.date ? '<br><span style="font-size:0.75em;">' + escapeHTML(formatDate(m.date)) + '</span>' : ''}
+                </button>`;
+            }).join('');
+            contentHtml += `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; padding:10px 12px; background:#f8f9fa; border-radius:10px;">${navItems}</div>`;
+        }
             
         if (!isShareMode) {
             if (hasWarning) {
@@ -2728,7 +2809,30 @@ function renderRightPanel() {
                 }
             }
         } else if (!isShareMode) {
-            contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>`;
+            contentHtml += `
+            <p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>
+            <div style="margin-top:24px; padding:16px; background:#f8f9fa; border-radius:12px; border:1px solid #eee;">
+                <p style="text-align:center; font-size:11px; color:#ccc; margin:0 0 10px 0; letter-spacing:1px;">PR</p>
+                <p style="font-size:13px; font-weight:bold; color:#888; margin:0 0 8px 0;">🏨 ホテルの予約をここから</p>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <a href="https://px.a8.net/svt/ejp?a8mat=4AZA43+8645MA+14CS+63WO2" rel="nofollow"
+                        style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#6c8ca3; text-decoration:none; line-height:1.5;">
+                        【じゃらん】有名温泉から穴場まで温泉旅館・ホテル5,000件以上が予約OK!
+                    </a>
+                    <img border="0" width="1" height="1" src="https://www11.a8.net/0.gif?a8mat=4AZA43+8645MA+14CS+63WO2" alt="">
+                    <a href="https://rpx.a8.net/svt/ejp?a8mat=4AZA43+9PHGVM+2HOM+6KESY&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0eb4779e.5d30c5ba.0eb4779f.b871e4e3%2Fa26030686430_4AZA43_9PHGVM_2HOM_6KESY%3Fpc%3Dhttp%253A%252F%252Ftravel.rakuten.co.jp%252F%26m%3Dhttp%253A%252F%252Ftravel.rakuten.co.jp%252F" rel="nofollow"
+                        style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#bf0000; text-decoration:none; line-height:1.5;">
+                        旅行なら楽天トラベル
+                    </a>
+                    <img border="0" width="1" height="1" src="https://www16.a8.net/0.gif?a8mat=4AZA43+9PHGVM+2HOM+6KESY" alt="">
+                </div>
+                <p style="font-size:13px; font-weight:bold; color:#888; margin:14px 0 8px 0;">✈️ 飛行機予約はここから</p>
+                <a href="https://px.a8.net/svt/ejp?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" rel="nofollow"
+                    style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#1a73e8; text-decoration:none; line-height:1.5;">
+                    国内格安航空券・LCCの比較・予約なら【トラベリスト】
+                </a>
+                <img border="0" width="1" height="1" src="https://www10.a8.net/0.gif?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" alt="">
+            </div>`;
         }
         
         if (!isShareMode) {
@@ -2746,6 +2850,11 @@ function renderRightPanel() {
                 style="position:absolute; bottom:90px; right:25px; width:56px; height:56px; border-radius:50%; background:${color}; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
                 <svg id="select-btn-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </button>
+            ${canAddEntry ? `
+            <button onclick="addNewEntry()" title="新しい旅行記録を追加"
+                style="position:absolute; bottom:155px; right:25px; width:56px; height:56px; border-radius:50%; background:${color}; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
+            </button>` : ''}
             <input type="file" id="input-photos" multiple accept="image/*" style="display:none;">`;
         }
         contentHtml += `</div>`;
@@ -2885,7 +2994,10 @@ function triggerAutoSave() {
 async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
     if (!targetPref) return;
 
-    const existingData = memoriesData.find(m => m.prefecture === targetPref) || {};
+    const targetEntryId = selectedEntryId;
+    const existingData = (targetEntryId
+        ? memoriesData.find(m => m.id === targetEntryId)
+        : memoriesData.find(m => m.prefecture === targetPref)) || {};
     
     let dateValue;
     if (fromVal !== undefined) {
@@ -2941,7 +3053,8 @@ async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
             date: dateValue,
             existing_urls: allUrls,
             new_photos: [],
-            memo: memoValue
+            memo: memoValue,
+            entry_id: targetEntryId || undefined
         };
         
         const res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
@@ -2985,19 +3098,8 @@ async function fetchMemories(redraw = true) {
         const res = await apiFetch({ method: 'GET', url: '/api?t=' + new Date().getTime() });
         const rawData = await res.json();
         
-        const uniqueData = {};
-        rawData.forEach(item => {
-            if (!uniqueData[item.prefecture]) {
-                uniqueData[item.prefecture] = item;
-            } else {
-                const existingPhotos = JSON.parse(uniqueData[item.prefecture].photo_urls || "[]");
-                const newPhotos = JSON.parse(item.photo_urls || "[]");
-                if ((!uniqueData[item.prefecture].date && !existingPhotos.length) && (item.date || newPhotos.length)) {
-                    uniqueData[item.prefecture] = item;
-                }
-            }
-        });
-        memoriesData = Object.values(uniqueData);
+        // 重複排除せず全エントリを保持（同一都道府県の複数旅行に対応）
+        memoriesData = rawData;
 
         homePrefectures = memoriesData
             .filter(m => m.is_home === true)
@@ -3013,12 +3115,14 @@ function updateMapColors() {
     if (!geoJsonLayer) return;
     geoJsonLayer.eachLayer(layer => {
         const pref = layer.feature.properties.nam_ja;
-        const memory = memoriesData.find(m => m.prefecture === pref);
+        const entries = memoriesData.filter(m => m.prefecture === pref);
         const isHome = homePrefectures.includes(pref);
         let isVisited = isHome;
-        if (!isVisited && memory) {
-            const photos = JSON.parse(memory.photo_urls || "[]");
-            if (photos.length > 0) isVisited = true;
+        if (!isVisited) {
+            isVisited = entries.some(m => {
+                const photos = JSON.parse(m.photo_urls || "[]");
+                return photos.length > 0;
+            });
         }
         layer.setStyle({
             fillColor: isVisited ? (getCurrentColors()[pref] || '#8ab4f8') : '#f4f7f6',
