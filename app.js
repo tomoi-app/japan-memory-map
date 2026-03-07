@@ -817,12 +817,15 @@ async function deleteBulkSelected() {
         
         await fetchMemories(false);
         
-        // 写真0枚でエントリ削除した場合、残りエントリがなければ一覧に戻る
+        // 写真0枚でエントリ削除した場合の後処理
         if (photosToSave.length === 0) {
             const remaining = memoriesData.filter(m => m.prefecture === targetPref && !m.is_home);
             if (remaining.length === 0) {
+                // 記録が全て消えたら一覧に戻る
                 backToList();
             } else {
+                // 残りエントリの先頭を選択してパネルを再描画
+                selectedEntryId = remaining[0].id;
                 renderRightPanel();
             }
         } else {
@@ -2618,7 +2621,7 @@ function renderRightPanel() {
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
-            contentHtml += `<button class="pref-btn" onclick="window.selectedPref='${escapeHTML(pref)}'; openPanel(); renderRightPanel();"
+            contentHtml += `<button class="pref-btn" onclick="window.selectedPref='${escapeHTML(pref)}'; renderRightPanel();"
                 style="border-left: 6px solid ${getCurrentColors()[pref]}; background: #fffdf5;">
                 <span style="font-weight:bold; color:#444;">${escapeHTML(pref)}</span>
             </button>`;
@@ -2651,7 +2654,7 @@ function renderRightPanel() {
                 // 最新エントリの日付を表示
                 const latestEntry = entries[entries.length - 1];
                 const entryCountLabel = entries.length > 1 ? `<span style="font-size:0.78em; background:${color}33; color:${color}; padding:2px 7px; border-radius:10px; margin-left:6px; font-weight:bold;">${entries.length}回</span>` : '';
-                contentHtml += `<button class="pref-btn" onclick="window.selectedPref='${escapeHTML(pref)}'; window.selectedEntryId=null; openPanel(); renderRightPanel();"
+                contentHtml += `<button class="pref-btn" onclick="window.selectedPref='${escapeHTML(pref)}'; window.selectedEntryId=null; renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
                         ${escapeHTML(pref)}${entryCountLabel}${needsData ? '<span class="status-dot"></span>' : ''}
@@ -2846,6 +2849,8 @@ function renderRightPanel() {
             contentHtml += `
             <p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">右下の「＋」ボタンから写真を追加できます</p>
             <div style="margin-top:24px; padding:16px; background:#f8f9fa; border-radius:12px; border:1px solid #eee;">
+                <p style="font-size:11px; font-weight:bold; color:#bbb; margin:0 0 8px 0; letter-spacing:1px;">PR</p>
+                <p style="font-size:13px; font-weight:bold; color:#888; margin:0 0 8px 0;">ホテルの予約をここから</p>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                     <a href="https://px.a8.net/svt/ejp?a8mat=4AZA43+8645MA+14CS+63WO2" rel="nofollow"
                         style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#6c8ca3; text-decoration:none; line-height:1.5;">
@@ -2857,12 +2862,13 @@ function renderRightPanel() {
                         旅行なら楽天トラベル
                     </a>
                     <img border="0" width="1" height="1" src="https://www16.a8.net/0.gif?a8mat=4AZA43+9PHGVM+2HOM+6KESY" alt="">
-                    <a href="https://px.a8.net/svt/ejp?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" rel="nofollow"
-                        style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#1a73e8; text-decoration:none; line-height:1.5;">
-                        国内格安航空券・LCCの比較・予約なら【トラベリスト】
-                    </a>
-                    <img border="0" width="1" height="1" src="https://www10.a8.net/0.gif?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" alt="">
                 </div>
+                <p style="font-size:13px; font-weight:bold; color:#888; margin:14px 0 8px 0;">飛行機予約はここから</p>
+                <a href="https://px.a8.net/svt/ejp?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" rel="nofollow"
+                    style="display:block; padding:10px 14px; background:white; border-radius:8px; border:1px solid #e0e0e0; font-size:12px; color:#1a73e8; text-decoration:none; line-height:1.5;">
+                    国内格安航空券・LCCの比較・予約なら【トラベリスト】
+                </a>
+                <img border="0" width="1" height="1" src="https://www10.a8.net/0.gif?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" alt="">
             </div>`;
         }
         
