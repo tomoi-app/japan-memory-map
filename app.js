@@ -112,7 +112,7 @@ const ADMIN_MESSAGES = [
         id: 'v2.2.1',
         date: '2026.03.07',
         title: 'version_2.2.1アップデート',
-        content: '・タブが日付順に自動で並ぶようになりました。'
+        content: '・→ボタンから思い出を追加できるようになりました。\n・写真を保存できるようになりました。'
     }, 
     {
         id: 'v2.1.3',
@@ -3242,7 +3242,7 @@ function showUpdatePopup() {
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
             <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.2.1にアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・タブが日付順に自動で並ぶようになりました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・→ボタンから思い出を追加できるようになりました。<br>・写真を保存できるようになりました。</p>
         </div>
     `;
     document.body.appendChild(popup);
