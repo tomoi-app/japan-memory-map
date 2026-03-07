@@ -1275,6 +1275,10 @@ let map;
 let geoJsonLayer;
 let selectedPref = null;
 let selectedEntryId = null; // 複数エントリのうち編集中のエントリID
+
+// inline onclick から呼べるグローバルsetter
+function setSelectedPref(v) { selectedPref = v; }
+function setSelectedEntryId(v) { selectedEntryId = (v === 'null' || v === '') ? null : v; }
 let memoriesData = [];
 let currentPhotos = [];
 let slideIndex = 0;
@@ -1368,14 +1372,17 @@ async function initApp() {
             }
             return;
         }
+        // パネルや設定が開いている時はダブルタップ判定をしない
+        if (panelOpen || settingsOpen) {
+            lastTouchTime = 0;
+            return;
+        }
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTouchTime;
         if (tapLength > 0 && tapLength < 400) {
             if (initialBounds) {
                 map.flyToBounds(initialBounds, { duration: 0.6 });
             }
-            if (panelOpen) closePanel();
-            if (settingsOpen) closeSettings();
         }
         lastTouchTime = currentTime;
     });
@@ -2621,7 +2628,7 @@ function renderRightPanel() {
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
-            contentHtml += `<button class="pref-btn" onclick="window.selectedPref='${escapeHTML(pref)}'; renderRightPanel();"
+            contentHtml += `<button class="pref-btn" onclick="setSelectedPref('${escapeHTML(pref)}'); renderRightPanel();"
                 style="border-left: 6px solid ${getCurrentColors()[pref]}; background: #fffdf5;">
                 <span style="font-weight:bold; color:#444;">${escapeHTML(pref)}</span>
             </button>`;
@@ -2654,7 +2661,7 @@ function renderRightPanel() {
                 // 最新エントリの日付を表示
                 const latestEntry = entries[entries.length - 1];
                 const entryCountLabel = entries.length > 1 ? `<span style="font-size:0.78em; background:${color}33; color:${color}; padding:2px 7px; border-radius:10px; margin-left:6px; font-weight:bold;">${entries.length}回</span>` : '';
-                contentHtml += `<button class="pref-btn" onclick="window.selectedPref='${escapeHTML(pref)}'; window.selectedEntryId=null; renderRightPanel();"
+                contentHtml += `<button class="pref-btn" onclick="setSelectedPref('${escapeHTML(pref)}'); setSelectedEntryId('null'); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
                         ${escapeHTML(pref)}${entryCountLabel}${needsData ? '<span class="status-dot"></span>' : ''}
@@ -2704,6 +2711,10 @@ function renderRightPanel() {
         const hasWarning = photos.length > 0 && !data.date;
         // 写真・日付が両方揃っている場合のみ→ボタンを表示
         const canAddEntry = photos.length > 0 && !!data.date;
+        // 複数タブがある場合、現在のインデックスを取得
+        const currentIdx = allEntries.findIndex(m => m.id === selectedEntryId);
+        const hasNextTab = allEntries.length > 1 && currentIdx < allEntries.length - 1;
+        const nextEntryId = hasNextTab ? allEntries[currentIdx + 1].id : null;
 
         let contentHtml = `<div class="panel-content" style="padding-top:20px;">`;
 
@@ -2712,7 +2723,7 @@ function renderRightPanel() {
             const navItems = allEntries.map((m, i) => {
                 const isActive = m.id === selectedEntryId;
                 const escapedId = m.id.replace(/"/g, '&quot;');
-                return `<button onclick="window.selectedEntryId='${escapedId}'; clearDateEditMode(); renderRightPanel();"
+                return `<button onclick="setSelectedEntryId('${escapedId}'); clearDateEditMode(); renderRightPanel();"
                     style="padding:5px 12px; border:none; border-radius:20px; font-size:0.8rem; font-family:inherit; cursor:pointer;
                     background:${isActive ? color : '#eee'}; color:${isActive ? 'white' : '#888'}; font-weight:${isActive ? 'bold' : 'normal'};">
                     ${m.date ? escapeHTML(formatDate(m.date)) : '日付未設定'}
@@ -2887,7 +2898,11 @@ function renderRightPanel() {
                 style="position:absolute; bottom:90px; right:25px; width:56px; height:56px; border-radius:50%; background:${color}; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
                 <svg id="select-btn-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </button>
-            ${canAddEntry ? `
+            ${hasNextTab ? `
+            <button onclick="setSelectedEntryId('${nextEntryId}'); clearDateEditMode(); renderRightPanel();" title="次の旅行記録へ"
+                style="position:absolute; bottom:155px; right:25px; width:56px; height:56px; border-radius:50%; background:${color}; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
+            </button>` : canAddEntry ? `
             <button onclick="addNewEntry()" title="新しい旅行記録を追加"
                 style="position:absolute; bottom:155px; right:25px; width:56px; height:56px; border-radius:50%; background:${color}; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000;">
                 <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
@@ -3003,6 +3018,7 @@ function triggerAutoSave() {
     const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
     
     const targetPref = selectedPref;
+    const targetEntryId = selectedEntryId; // この時点のIDをキャプチャ
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
     const memoValue = document.getElementById('input-memo')?.value || '';
@@ -3016,22 +3032,21 @@ function triggerAutoSave() {
         setTimeout(() => {
             if (photoInputEl) photoInputEl.value = '';
             globalSaveQueue = globalSaveQueue.then(() => 
-                performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
+                performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, files)
             ).catch(e => console.error(e));
         }, 300);
     } else {
         autoSaveTimer = setTimeout(() => { 
             globalSaveQueue = globalSaveQueue.then(() => 
-                performQueuedSave(targetPref, fromVal, toVal, memoValue, files)
+                performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, files)
             ).catch(e => console.error(e));
         }, 800);
     }
 }
 
-async function performQueuedSave(targetPref, fromVal, toVal, memoValue, files) {
+async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, files) {
     if (!targetPref) return;
 
-    const targetEntryId = selectedEntryId;
     const existingData = (targetEntryId
         ? memoriesData.find(m => m.id === targetEntryId)
         : memoriesData.find(m => m.prefecture === targetPref)) || { prefecture: targetPref };
