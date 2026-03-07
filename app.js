@@ -110,10 +110,16 @@ async function getAllPhotosFromIDB() {
 // =============================================
 const ADMIN_MESSAGES = [
   {
-        id: 'v2.2.1',
+        id: 'v2.3.0',
         date: '2026.03.07',
-        title: 'version_2.2.1アップデート',
-        content: '・→ボタンから思い出を追加できるようになりました。\n・写真を保存できるようになりました。'
+        title: 'version_2.3.0アップデート',
+        content: '・ログインなしでゲストとして試せるようになりました。登録後にデータを引き継げます。\n・一覧に地域制覇バッジを追加しました。\n・設定から地図を画像保存できるようになりました。'
+    },
+  {
+        id: 'v2.3.0',
+        date: '2026.03.07',
+        title: 'version_2.3.0 アップデート',
+        content: '・ゲストモードを追加しました。登録なしで試せます。\n・地域制覇バッジを追加しました。\n・シェア機能から塗りつぶした地図を画像保存できるようになりました。'
     }, 
     {
         id: 'v2.1.3',
@@ -1094,7 +1100,7 @@ function showGuestBanner() {
     const banner = document.createElement('div');
     banner.id = 'guest-banner';
     banner.style.cssText = `
-        position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+        position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
         background: rgba(108,140,163,0.95); color: white;
         padding: 10px 20px; border-radius: 20px; font-size: 0.88rem;
         z-index: 3000; cursor: pointer; text-align: center;
@@ -2066,7 +2072,7 @@ function renderAccountSettings() {
             </button>
             `}
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.2.1</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.3.0</p>
         </div>
     </div>`;
 
@@ -2284,6 +2290,10 @@ function generateShareImage() {
     const colors = getCurrentColors();
 
     // GeoJSON\u53d6\u5f97\uff08\u30ad\u30e3\u30c3\u30b7\u30e5\u6e08\u307f\u306e\u306f\u305a\uff09
+    // テーマのアクセントカラーを取得
+    const themePreview = (MAP_THEMES[currentTheme] || MAP_THEMES.default).preview;
+    const accentColor = themePreview[0] || '#6c8ca3';
+
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
     .then(r => r.json())
     .then(geoData => {
@@ -2293,8 +2303,19 @@ function generateShareImage() {
         canvas.height = H;
         const ctx = canvas.getContext('2d');
 
-        // \u80cc\u666f
-        ctx.fillStyle = '#ffffff';
+        // テーマに合わせた背景・未訪問色を設定
+        const themeKey = currentTheme || 'default';
+        const themeBgMap = {
+            default: { bg: '#ffffff', unvisited: '#f0f2f4' },
+            warm:    { bg: '#fff8f5', unvisited: '#f5ede8' },
+            cool:    { bg: '#f5f8ff', unvisited: '#e8eef5' },
+            forest:  { bg: '#f5fff5', unvisited: '#eaf3ea' },
+            mono:    { bg: '#f8f8f8', unvisited: '#e8e8e8' },
+        };
+        const themeStyle = themeBgMap[themeKey] || themeBgMap.default;
+
+        // 背景
+        ctx.fillStyle = themeStyle.bg;
         ctx.fillRect(0, 0, W, H);
 
         // \u5730\u56f3\u306e\u30d0\u30a6\u30f3\u30c7\u30a3\u30f3\u30b0\u30dc\u30c3\u30af\u30b9\u8a08\u7b97
@@ -2336,7 +2357,7 @@ function generateShareImage() {
         function drawFeature(f) {
             const nam = f.properties.nam_ja || f.properties.nam || '';
             const isVisited = visitedPrefs.has(nam);
-            const fillColor = isVisited ? (colors[nam] || '#8ab4f8') : '#f0f2f4';
+            const fillColor = isVisited ? (colors[nam] || '#8ab4f8') : themeStyle.unvisited;
             const strokeColor = '#ffffff';
 
             ctx.fillStyle = fillColor;
@@ -2375,11 +2396,11 @@ function generateShareImage() {
 
         // \u4e0b\u90e8\u30c6\u30ad\u30b9\u30c8\u30a8\u30ea\u30a2\uff08\u767d\u80cc\u666f\uff09
         const textY = H - 120;
-        ctx.fillStyle = '#f8f9fa';
+        ctx.fillStyle = themeStyle.bg;
         ctx.fillRect(0, textY - 20, W, H - textY + 20);
 
         // \u30a2\u30d7\u30ea\u540d
-        ctx.fillStyle = '#6c8ca3';
+        ctx.fillStyle = accentColor;
         ctx.font = 'bold 38px sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText('\u3042\u3057\u3042\u3068', 60, textY + 30);
@@ -2395,7 +2416,7 @@ function generateShareImage() {
         ctx.fillStyle = '#e0e8ee';
         ashiatoRoundRect(ctx, barX, barY, barW, barH, 7);
         ctx.fill();
-        ctx.fillStyle = '#6c8ca3';
+        ctx.fillStyle = accentColor;
         ashiatoRoundRect(ctx, barX, barY, Math.max(barH, barW * visited / 47), barH, 7);
         ctx.fill();
 
@@ -2771,7 +2792,7 @@ async function exportData() {
     try {
         const idbPhotos = await getAllPhotosFromIDB();
         const exportObj = {
-            version: "2.2.1",
+            version: "2.3.0",
             memories: memoriesData,
             photos: idbPhotos
         };
@@ -3597,8 +3618,8 @@ function updateMapColors() {
 }
 
 function showUpdatePopup() {
-    if (localStorage.getItem('updateNotified_v2.2.1')) return;
-    localStorage.setItem('updateNotified_v2.2.1', '1');
+    if (localStorage.getItem('updateNotified_v2.3.0')) return;
+    localStorage.setItem('updateNotified_v2.3.0', '1');
 
     const popup = document.createElement('div');
     popup.id = 'update-popup';
@@ -3606,8 +3627,8 @@ function showUpdatePopup() {
     popup.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
-            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.2.1にアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・→ボタンから思い出を追加できるようになりました。<br>・写真を保存できるようになりました。</p>
+            <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.3.0にアップデートされました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・ゲストとして試せるようになりました。<br>・一覧に地域制覇バッジを追加しました。<br>・設定から地図を画像保存できるようになりました。</p>
         </div>
     `;
     document.body.appendChild(popup);
