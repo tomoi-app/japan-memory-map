@@ -15,6 +15,23 @@ if (!document.getElementById('ashiato-dynamic-styles')) {
 }
 
 // =============================================
+// セキュリティ対策（XSS防止用のエスケープ関数）
+// =============================================
+function escapeHTML(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/[&<>"']/g, function(match) {
+        const escape = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        };
+        return escape[match];
+    });
+}
+
+// =============================================
 // Supabase Auth 設定
 // ※ご自身のSupabase URL と anon key に書き換えてください
 // =============================================
@@ -91,6 +108,12 @@ async function getAllPhotosFromIDB() {
 // お知らせ（メール）設定
 // =============================================
 const ADMIN_MESSAGES = [
+    {
+        id: 'v2.1.4',
+        date: '2026.03.07',
+        title: 'version_2.1.4 セキュリティアップデート',
+        content: '・より安全にアプリをご利用いただけるよう、セキュリティ（XSS対策）を強化しました。'
+    },
     {
         id: 'v2.1.3',
         date: '2026.03.06',
@@ -235,7 +258,7 @@ const MAP_THEMES = {
             '石川県':'#84be7a','福井県':'#80bc7a','山梨県':'#7cba78','長野県':'#78b878',
             '岐阜県':'#76b678','静岡県':'#78b878','愛知県':'#7aba78','三重県':'#7cbc7a',
             '滋賀県':'#7eba7a','京都府':'#80bc7a','大阪府':'#82be7c','兵庫県':'#84c07c',
-            '奈良県':'#86c27e','和歌山県':'#88c47e','鳥取県':'#88c47e','島根県':'#86c27c',
+            '奈良県':'#86c27e','和去山県':'#88c47e','鳥取県':'#88c47e','島根県':'#86c27c',
             '岡山県':'#84c07c','広島県':'#82be7a','山口県':'#80bc7a','徳島県':'#7eba7a',
             '香川県':'#7cb878','愛媛県':'#7ab678','高知県':'#78b478','福岡県':'#76b276',
             '佐賀県':'#74b076','長崎県':'#72ae76','熊本県':'#70ac74','大分県':'#6eaa74',
@@ -526,11 +549,7 @@ async function reorderPhotos(srcId, targetId) {
 
 function toggleSelectOrDelete() {
     if (bulkSelectMode) {
-        if (bulkSelectedUrls.size === 0) {
-            cancelBulkSelect();
-        } else {
-            deleteBulkSelected();
-        }
+        cancelBulkSelect();
     } else {
         enterBulkSelectMode();
     }
@@ -576,7 +595,9 @@ function selectAllPhotos() {
     
     const selectAllBtn = document.getElementById('select-all-btn');
     if (selectAllBtn) {
-        selectAllBtn.textContent = bulkSelectedUrls.size === photos.length && photos.length > 0 ? 'すべて解除' : 'すべて選択';
+        const data = memoriesData.find(m => m.prefecture === selectedPref);
+        const photosCount = data ? JSON.parse(data.photo_urls || '[]').length : 0;
+        selectAllBtn.textContent = (photosCount > 0 && bulkSelectedUrls.size === photosCount) ? 'すべて解除' : 'すべて選択';
     }
 
     updateDownloadBtn();
@@ -670,10 +691,8 @@ function togglePhotoSelect(url, forceState = null) {
             el.style.outline = isSelected ? '3px solid #d32f2f' : '';
         }
     });
-    
     const countEl = document.getElementById('bulk-select-count');
     if (countEl) countEl.textContent = `${bulkSelectedUrls.size}枚選択中`;
-    
     const icon = document.getElementById('select-btn-icon');
     if (icon) {
         if (bulkSelectedUrls.size > 0) {
@@ -1385,7 +1404,6 @@ async function initApp() {
         }
     }
     
-    window.updateSettingsBadge = updateSettingsBadge;
     updateSettingsBadge();
 
     settingsBtnEl.onclick = () => {
@@ -1409,7 +1427,7 @@ function showLoading(msg = null) {
     let overlay = document.getElementById('loading-overlay');
     
     if (overlay) {
-        // HTMLに直書きされているかもしれない不要なテキストノードを消去
+        // HTMLに直書きされている不要な「処理中」テキストなどを完全に消去する
         Array.from(overlay.childNodes).forEach(node => {
             if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim().length > 0) {
                 node.nodeValue = '';
@@ -1673,9 +1691,9 @@ function renderAdminMessages() {
             <div style="display:flex; gap:12px; align-items:flex-start;">
                 ${badge}
                 <div style="flex:1;">
-                    <div style="font-size:0.8rem; color:#aaa; margin-bottom:4px;">${msg.date}</div>
-                    <div style="font-size:1rem; color:${titleColor}; font-weight:${titleWeight}; line-height:1.4;">${msg.title}</div>
-                    <div id="msg-detail-${msg.id}" style="display:none; margin-top:12px; font-size:0.9rem; color:#555; line-height:1.7; white-space:pre-wrap; border-top:1px dashed #ddd; padding-top:12px;">${msg.content}</div>
+                    <div style="font-size:0.8rem; color:#aaa; margin-bottom:4px;">${escapeHTML(msg.date)}</div>
+                    <div style="font-size:1rem; color:${titleColor}; font-weight:${titleWeight}; line-height:1.4;">${escapeHTML(msg.title)}</div>
+                    <div id="msg-detail-${msg.id}" style="display:none; margin-top:12px; font-size:0.9rem; color:#555; line-height:1.7; white-space:pre-wrap; border-top:1px dashed #ddd; padding-top:12px;">${escapeHTML(msg.content)}</div>
                 </div>
             </div>
         </div>`;
@@ -1796,7 +1814,7 @@ function renderAccountSettings() {
         </div>
     </div>`;
 
-    const email = currentUser ? currentUser.email : '';
+    const email = currentUser ? escapeHTML(currentUser.email) : '';
     const btnStyle = 'text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width:100%;';
     const dangerBtnStyle = 'text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#d32f2f; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width:100%;';
 
@@ -1832,7 +1850,7 @@ function renderAccountSettings() {
                 ログアウト
             </button>
 
-            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.1.3</p>
+            <p style="text-align:center; color:#ccc; font-size:0.8rem; margin:8px 0 0 0;">version_2.1.4</p>
         </div>
     </div>`;
 
@@ -2254,7 +2272,7 @@ async function submitContact() {
 function renderHomeSettings() {
     const panel = document.getElementById('settings-panel');
     const prefOrder = Object.keys(MAP_THEMES.default.colors);
-    let options = prefOrder.map(p => `<option value="${p}">${p}</option>`).join('');
+    let options = prefOrder.map(p => `<option value="${escapeHTML(p)}">${escapeHTML(p)}</option>`).join('');
 
     let headerHtml = `
     <div class="panel-header">
@@ -2322,8 +2340,8 @@ function renderHomeList() {
 
     list.innerHTML = sortedHomes.map(pref => `
         <div style="display:flex; justify-content:space-between; align-items:center; background:#f4f7f6; padding:12px 15px; border-radius:8px;">
-            <span style="font-weight:bold; color:#444; font-size:1.1rem;">${pref}</span>
-            <button onclick="removeHomePrefecture('${pref}')" style="background:rgba(0,0,0,0.1); border:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#555; cursor:pointer; font-size:14px;">✕</button>
+            <span style="font-weight:bold; color:#444; font-size:1.1rem;">${escapeHTML(pref)}</span>
+            <button onclick="removeHomePrefecture('${escapeHTML(pref)}')" style="background:rgba(0,0,0,0.1); border:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#555; cursor:pointer; font-size:14px;">✕</button>
         </div>
     `).join('');
 }
@@ -2366,7 +2384,7 @@ async function exportData() {
     try {
         const idbPhotos = await getAllPhotosFromIDB();
         const exportObj = {
-            version: "2.1.3",
+            version: "2.1.4",
             memories: memoriesData,
             photos: idbPhotos
         };
@@ -2530,9 +2548,9 @@ function renderRightPanel() {
 
         const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
         sortedHomes.forEach(pref => {
-            contentHtml += `<button class="pref-btn" onclick="selectedPref='${pref}'; openPanel(); renderRightPanel();"
+            contentHtml += `<button class="pref-btn" onclick="selectedPref='${escapeHTML(pref)}'; openPanel(); renderRightPanel();"
                 style="border-left: 6px solid ${getCurrentColors()[pref]}; background: #fffdf5;">
-                <span style="font-weight:bold; color:#444;">${pref}</span>
+                <span style="font-weight:bold; color:#444;">${escapeHTML(pref)}</span>
             </button>`;
         });
 
@@ -2551,12 +2569,12 @@ function renderRightPanel() {
                 const photos = JSON.parse(m.photo_urls || "[]");
                 const color = getCurrentColors()[m.prefecture] || '#aaa';
                 const needsData = photos.length > 0 && !m.date;
-                contentHtml += `<button class="pref-btn" onclick="selectedPref='${m.prefecture}'; openPanel(); renderRightPanel();"
+                contentHtml += `<button class="pref-btn" onclick="selectedPref='${escapeHTML(m.prefecture)}'; openPanel(); renderRightPanel();"
                     style="border-left: 6px solid ${color};">
                     <span style="display:flex; align-items:center; font-weight:bold; color:#444;">
-                        ${m.prefecture}${needsData ? '<span class="status-dot"></span>' : ''}
+                        ${escapeHTML(m.prefecture)}${needsData ? '<span class="status-dot"></span>' : ''}
                     </span>
-                    <span style="color:#999; font-size:0.85em;">${formatDate(m.date)}</span>
+                    <span style="color:#999; font-size:0.85em;">${escapeHTML(formatDate(m.date))}</span>
                 </button>`;
             });
         }
@@ -2570,7 +2588,7 @@ function renderRightPanel() {
         <div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom: 15px;">
             <div class="panel-header-title-row">
                 <button onclick="backToList();" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-                <h2 style="margin: 0; font-size: 1.8rem; color: #333; position:absolute; left:50%; transform:translateX(-50%); letter-spacing:2px;">${selectedPref}</h2>
+                <h2 style="margin: 0; font-size: 1.8rem; color: #333; position:absolute; left:50%; transform:translateX(-50%); letter-spacing:2px;">${escapeHTML(selectedPref)}</h2>
                 <button class="panel-close-btn" onclick="closePanel()" style="position:relative; right:0; z-index:2;">✕</button>
             </div>
         </div>`;
@@ -2613,7 +2631,7 @@ function renderRightPanel() {
                             <div style="background:${color}66; border-radius:8px; padding:5px 6px; display:flex; align-items:center; justify-content:center;">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                             </div>
-                            <span style="font-size:15px; font-weight:700; color:rgba(0,0,0,0.58); letter-spacing:0.8px;">${formatDate(data.date)}</span>
+                            <span style="font-size:15px; font-weight:700; color:rgba(0,0,0,0.58); letter-spacing:0.8px;">${escapeHTML(formatDate(data.date))}</span>
                         </div>
                         <div style="background:${color}44; border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; color:rgba(0,0,0,0.4); letter-spacing:0.5px;">変更</div>
                     </div>`;
@@ -2621,9 +2639,9 @@ function renderRightPanel() {
                     contentHtml += `
                     <div style="display:flex; flex-direction:column; gap:8px;">
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <input type="date" id="input-date-from" value="${getDateFrom(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
+                            <input type="date" id="input-date-from" value="${escapeHTML(getDateFrom(data.date))}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                             <span style="color:#aaa;">-</span>
-                            <input type="date" id="input-date-to" value="${getDateTo(data.date)}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
+                            <input type="date" id="input-date-to" value="${escapeHTML(getDateTo(data.date))}" style="flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; font-size:14px; background:#fafafa; color:#555;">
                         </div>
                         <button id="date-save-btn" onclick="saveDateManual()" style="width:100%; padding:10px; background:#ddd; color:#aaa; border:none; border-radius:8px; font-size:14px; font-weight:bold; font-family:inherit; cursor:not-allowed; transition: background 0.3s, transform 0.15s, box-shadow 0.3s;">保存</button>
                     </div>`;
@@ -2632,18 +2650,18 @@ function renderRightPanel() {
             contentHtml += `<p id="autosave-status" style="color:#888; text-align:center; font-size:12px; min-height:18px; margin:8px 0 0 0;"></p>`;
             if (featureShowMemo) {
                 contentHtml += `<textarea id="input-memo" placeholder="旅の思い出をメモ..." rows="4"
-                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px; font-family:inherit; background:#fafafa; color:#444; resize:none; box-sizing:border-box; margin-top:4px;">${data.memo || ''}</textarea>`;
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px; font-family:inherit; background:#fafafa; color:#444; resize:none; box-sizing:border-box; margin-top:4px;">${escapeHTML(data.memo || '')}</textarea>`;
             }
         } else {
             if (data.date) {
                 if (shareSettings.show_date) {
-                    contentHtml += `<p style="text-align:center; color:#888; font-size:0.9rem; margin:8px 0;">${formatDate(data.date)}</p>`;
+                    contentHtml += `<p style="text-align:center; color:#888; font-size:0.9rem; margin:8px 0;">${escapeHTML(formatDate(data.date))}</p>`;
                 } else {
                     contentHtml += `<p style="text-align:center; color:#bbb; font-size:0.9rem; margin:8px 0;">（期間は非公開）</p>`;
                 }
             }
             if (data.memo) {
-                contentHtml += `<p style="padding:10px 14px; background:#fafafa; border-radius:8px; font-size:0.9rem; color:#555; line-height:1.7; white-space:pre-wrap; margin-top:8px;">${data.memo}</p>`;
+                contentHtml += `<p style="padding:10px 14px; background:#fafafa; border-radius:8px; font-size:0.9rem; color:#555; line-height:1.7; white-space:pre-wrap; margin-top:8px;">${escapeHTML(data.memo)}</p>`;
             }
         }
 
@@ -2663,6 +2681,7 @@ function renderRightPanel() {
                         <div style="display:flex; gap:8px;">
                             <button onclick="cancelBulkSelect()" style="padding:6px 14px; border:none; border-radius:8px; background:#ddd; color:#666; font-family:inherit; font-size:0.85rem; cursor:pointer;">キャンセル</button>
                             <button id="select-all-btn" onclick="selectAllPhotos()" style="padding:6px 14px; border:none; border-radius:8px; background:#6c8ca3; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">すべて選択</button>
+                            <button onclick="deleteBulkSelected()" style="padding:6px 14px; border:none; border-radius:8px; background:#d32f2f; color:white; font-family:inherit; font-size:0.85rem; font-weight:bold; cursor:pointer;">削除</button>
                         </div>
                     </div>`;
                 }
