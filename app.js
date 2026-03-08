@@ -2272,7 +2272,6 @@ function generateShareImage() {
     btn.textContent = '\u8aad\u307f\u8fbc\u307f\u4e2d...';
     btn.disabled = true;
 
-    // 訪問済み都道府県と色を取得
     const visitedPrefs = new Set();
     memoriesData.forEach(m => {
         if (homePrefectures.includes(m.prefecture)) return;
@@ -2283,11 +2282,8 @@ function generateShareImage() {
     const visited = visitedPrefs.size;
     const colors = getCurrentColors();
 
-    // テーマのアクセントカラーを取得
     const themePreview = (MAP_THEMES[currentTheme] || MAP_THEMES.default).preview;
     const accentColor = themePreview[0] || '#6c8ca3';
-
-    // テーマに合わせた背景・未訪問色
     const themeKey = currentTheme || 'default';
     const themeBgMap = {
         default: { bg: '#ffffff', unvisited: '#f0f2f4' },
@@ -2307,11 +2303,10 @@ function generateShareImage() {
         canvas.height = H;
         const ctx = canvas.getContext('2d');
 
-        // 背景
         ctx.fillStyle = themeStyle.bg;
         ctx.fillRect(0, 0, W, H);
 
-        // 座標範囲（初期画面と同じ：本州中心、外国領土除外）
+        // GeoJSONの実際の範囲を計算（本州のみ）
         let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
         geoData.features.forEach(f => {
             const coords = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
@@ -2324,15 +2319,25 @@ function generateShareImage() {
             }));
         });
 
-        // 地図エリア（下部テキスト用に余白調整）
-        const pad = 60;
-        const mapW = W - pad * 2;
-        const mapH = H - pad * 2 - 80; // 下部80pxをテキスト用に確保
         const lngRange = maxLng - minLng;
         const latRange = maxLat - minLat;
-        const scale = Math.min(mapW / lngRange, mapH / latRange) * 0.95;
-        const offsetX = pad + (mapW - lngRange * scale) / 2;
-        const offsetY = pad + (mapH - latRange * scale) / 2;
+
+        // アプリの初期表示を再現:
+        // fitBounds({ paddingTopLeft:[0,80] }) = 上に80px分狭い
+        // 縦横比を保ったまま、縦方向を基準にスケール決定
+        const drawW = W;
+        const drawH = H - 160; // 下部160px = テキストエリア
+
+        // アスペクト比を保ったまま両方向でfitするscale
+        const scaleX = drawW / lngRange;
+        const scaleY = drawH / latRange;
+        const scale = Math.min(scaleX, scaleY);
+
+        // 中央揃え → 少し左にオフセット（アプリ画面はパネル分右が詰まるため）
+        const mapRenderW = lngRange * scale;
+        const mapRenderH = latRange * scale;
+        const offsetX = (drawW - mapRenderW) / 2 - 40; // 40px左に
+        const offsetY = 40; // 上余白
 
         function project([lng, lat]) {
             return [
@@ -2368,7 +2373,6 @@ function generateShareImage() {
             });
         }
 
-        // 未訪問を先に描画、訪問済みを上に重ねる
         geoData.features.forEach(f => {
             const nam = f.properties.nam_ja || f.properties.nam || '';
             if (!visitedPrefs.has(nam)) drawFeature(f);
@@ -2378,25 +2382,29 @@ function generateShareImage() {
             if (visitedPrefs.has(nam)) drawFeature(f);
         });
 
+        // 下部テキストエリア背景
+        const textY = H - 140;
+        ctx.fillStyle = themeStyle.bg;
+        ctx.fillRect(0, textY, W, H - textY);
+
         // 「あしあと」左下
         ctx.fillStyle = accentColor;
         ctx.font = 'bold 52px sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText('あしあと', pad, H - pad + 8);
+        ctx.fillText('\u3042\u3057\u3042\u3068', 60, textY + 60);
 
         // 「○/47」右下
         ctx.fillStyle = '#333';
         ctx.font = 'bold 52px sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText(visited + ' / 47', W - pad, H - pad + 8);
+        ctx.fillText(visited + ' / 47', W - 60, textY + 60);
 
-        // URL右下（さらに下）
-        ctx.fillStyle = 'rgba(180,180,180,0.85)';
+        // URL
+        ctx.fillStyle = 'rgba(180,180,180,0.9)';
         ctx.font = '26px sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText('ashiato.tomoi-app.com', W - pad, H - pad + 44);
+        ctx.fillText('ashiato.tomoi-app.com', W - 60, textY + 100);
 
-        // ダウンロード
         const link = document.createElement('a');
         link.download = 'ashiato_' + visited + '_of_47.png';
         link.href = canvas.toDataURL('image/png');
