@@ -113,7 +113,7 @@ const ADMIN_MESSAGES = [
         id: 'v2.3.0',
         date: '2026.03.07',
         title: 'version_2.3.0 アップデート',
-        content: '・ゲストモードを追加しました。登録なしで試せます。\n・地域制覇バッジを追加しました。\n・あしあと共有機能を向上しました。'
+        content: '・ゲストモードを追加しました。登録なしで試せます。\n・地域ごとの制覇状況を一覧で確認できるようになりました。\n・あしあと共有機能を向上しました。'
     }, 
     {
         id: 'v2.1.3',
@@ -2272,7 +2272,7 @@ function generateShareImage() {
     btn.textContent = '\u8aad\u307f\u8fbc\u307f\u4e2d...';
     btn.disabled = true;
 
-    // \u8a2a\u554f\u6e08\u307f\u90fd\u9053\u5e9c\u770c\u3068\u8272\u3092\u53d6\u5f97
+    // 訪問済み都道府県と色を取得
     const visitedPrefs = new Set();
     memoriesData.forEach(m => {
         if (homePrefectures.includes(m.prefecture)) return;
@@ -2283,10 +2283,20 @@ function generateShareImage() {
     const visited = visitedPrefs.size;
     const colors = getCurrentColors();
 
-    // GeoJSON\u53d6\u5f97\uff08\u30ad\u30e3\u30c3\u30b7\u30e5\u6e08\u307f\u306e\u306f\u305a\uff09
     // テーマのアクセントカラーを取得
     const themePreview = (MAP_THEMES[currentTheme] || MAP_THEMES.default).preview;
     const accentColor = themePreview[0] || '#6c8ca3';
+
+    // テーマに合わせた背景・未訪問色
+    const themeKey = currentTheme || 'default';
+    const themeBgMap = {
+        default: { bg: '#ffffff', unvisited: '#f0f2f4' },
+        warm:    { bg: '#fff8f5', unvisited: '#f5ede8' },
+        cool:    { bg: '#f5f8ff', unvisited: '#e8eef5' },
+        forest:  { bg: '#f5fff5', unvisited: '#eaf3ea' },
+        mono:    { bg: '#f8f8f8', unvisited: '#e8e8e8' },
+    };
+    const themeStyle = themeBgMap[themeKey] || themeBgMap.default;
 
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
     .then(r => r.json())
@@ -2297,31 +2307,16 @@ function generateShareImage() {
         canvas.height = H;
         const ctx = canvas.getContext('2d');
 
-        // テーマに合わせた背景・未訪問色を設定
-        const themeKey = currentTheme || 'default';
-        const themeBgMap = {
-            default: { bg: '#ffffff', unvisited: '#f0f2f4' },
-            warm:    { bg: '#fff8f5', unvisited: '#f5ede8' },
-            cool:    { bg: '#f5f8ff', unvisited: '#e8eef5' },
-            forest:  { bg: '#f5fff5', unvisited: '#eaf3ea' },
-            mono:    { bg: '#f8f8f8', unvisited: '#e8e8e8' },
-        };
-        const themeStyle = themeBgMap[themeKey] || themeBgMap.default;
-
         // 背景
         ctx.fillStyle = themeStyle.bg;
         ctx.fillRect(0, 0, W, H);
 
-        // \u5730\u56f3\u306e\u30d0\u30a6\u30f3\u30c7\u30a3\u30f3\u30b0\u30dc\u30c3\u30af\u30b9\u8a08\u7b97
-        const mapPad = 60;
-        const mapW = W - mapPad * 2;
-        const mapH = H - 160; // \u4e0b\u306b\u30c6\u30ad\u30b9\u30c8\u7528\u30b9\u30da\u30fc\u30b9
-
-        // \u5168\u90fd\u9053\u5e9c\u770c\u306e\u5ea7\u6a19\u7bc4\u56f2\u3092\u8a08\u7b97
+        // 座標範囲（初期画面と同じ：本州中心、外国領土除外）
         let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
         geoData.features.forEach(f => {
             const coords = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
             coords.forEach(poly => poly[0].forEach(([lng, lat]) => {
+                if (lng < 122 || lng > 146 || lat < 24 || lat > 46) return;
                 if (lng < minLng) minLng = lng;
                 if (lng > maxLng) maxLng = lng;
                 if (lat < minLat) minLat = lat;
@@ -2329,17 +2324,15 @@ function generateShareImage() {
             }));
         });
 
-        // \u5c71\u53e3\u770c\u306a\u3069\u6d77\u5916\u9818\u571f\u3092\u9664\u5916\u3057\u3066\u672c\u5dde\u306e\u307f
-        minLng = Math.max(minLng, 122); maxLng = Math.min(maxLng, 146);
-        minLat = Math.max(minLat, 24);  maxLat = Math.min(maxLat, 46);
-
+        // 地図エリア（下部テキスト用に余白調整）
+        const pad = 60;
+        const mapW = W - pad * 2;
+        const mapH = H - pad * 2 - 80; // 下部80pxをテキスト用に確保
         const lngRange = maxLng - minLng;
         const latRange = maxLat - minLat;
-        const scaleX = mapW / lngRange;
-        const scaleY = mapH / latRange;
-        const scale = Math.min(scaleX, scaleY) * 0.95;
-        const offsetX = mapPad + (mapW - lngRange * scale) / 2;
-        const offsetY = mapPad + (mapH - latRange * scale) / 2;
+        const scale = Math.min(mapW / lngRange, mapH / latRange) * 0.95;
+        const offsetX = pad + (mapW - lngRange * scale) / 2;
+        const offsetY = pad + (mapH - latRange * scale) / 2;
 
         function project([lng, lat]) {
             return [
@@ -2351,22 +2344,19 @@ function generateShareImage() {
         function drawFeature(f) {
             const nam = f.properties.nam_ja || f.properties.nam || '';
             const isVisited = visitedPrefs.has(nam);
-            const fillColor = isVisited ? (colors[nam] || '#8ab4f8') : themeStyle.unvisited;
-            const strokeColor = '#ffffff';
+            const fillColor = isVisited ? (colors[nam] || accentColor) : themeStyle.unvisited;
 
             ctx.fillStyle = fillColor;
-            ctx.strokeStyle = strokeColor;
-            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = themeStyle.bg;
+            ctx.lineWidth = 1.0;
 
             const geoms = f.geometry.type === 'Polygon'
                 ? [f.geometry.coordinates]
                 : f.geometry.coordinates;
 
             geoms.forEach(poly => {
-                // \u7d4c\u5ea6\u7bc4\u56f2\u5916\u306f\u30b9\u30ad\u30c3\u30d7
                 const [lng0] = poly[0][0];
                 if (lng0 < 120 || lng0 > 148) return;
-
                 ctx.beginPath();
                 poly[0].forEach(([lng, lat], i) => {
                     const [x, y] = project([lng, lat]);
@@ -2378,7 +2368,7 @@ function generateShareImage() {
             });
         }
 
-        // \u672a\u8a2a\u554f\u3092\u5148\u306b\u63cf\u753b\u3001\u8a2a\u554f\u6e08\u307f\u3092\u4e0a\u306b\u91cd\u306d\u308b
+        // 未訪問を先に描画、訪問済みを上に重ねる
         geoData.features.forEach(f => {
             const nam = f.properties.nam_ja || f.properties.nam || '';
             if (!visitedPrefs.has(nam)) drawFeature(f);
@@ -2388,33 +2378,25 @@ function generateShareImage() {
             if (visitedPrefs.has(nam)) drawFeature(f);
         });
 
-        // \u4e0b\u90e8\u30c6\u30ad\u30b9\u30c8\u30a8\u30ea\u30a2\uff08\u767d\u80cc\u666f\uff09
-        const textY = H - 120;
-        ctx.fillStyle = themeStyle.bg;
-        ctx.fillRect(0, textY - 20, W, H - textY + 20);
-
-        // \u30a2\u30d7\u30ea\u540d
+        // 「あしあと」左下
         ctx.fillStyle = accentColor;
-        ctx.font = 'bold 38px sans-serif';
+        ctx.font = 'bold 52px sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText('\u3042\u3057\u3042\u3068', 60, textY + 30);
+        ctx.fillText('あしあと', pad, H - pad + 8);
 
-        // \u5236\u9738\u6570
+        // 「○/47」右下
         ctx.fillStyle = '#333';
-        ctx.font = 'bold 48px sans-serif';
+        ctx.font = 'bold 52px sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText(visited + ' / 47\u90fd\u9053\u5e9c\u770c', W - 60, textY + 30);
+        ctx.fillText(visited + ' / 47', W - pad, H - pad + 8);
 
-        // \u30d7\u30ed\u30b0\u30ec\u30b9\u30d0\u30fc
-        const barX = 60, barY = textY + 52, barW = W - 120, barH = 14;
-        ctx.fillStyle = '#e0e8ee';
-        ashiatoRoundRect(ctx, barX, barY, barW, barH, 7);
-        ctx.fill();
-        ctx.fillStyle = accentColor;
-        ashiatoRoundRect(ctx, barX, barY, Math.max(barH, barW * visited / 47), barH, 7);
-        ctx.fill();
+        // URL右下（さらに下）
+        ctx.fillStyle = 'rgba(180,180,180,0.85)';
+        ctx.font = '26px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('ashiato.tomoi-app.com', W - pad, H - pad + 44);
 
-        // \u30c0\u30a6\u30f3\u30ed\u30fc\u30c9
+        // ダウンロード
         const link = document.createElement('a');
         link.download = 'ashiato_' + visited + '_of_47.png';
         link.href = canvas.toDataURL('image/png');
@@ -2966,7 +2948,6 @@ function getVisitedPrefs() {
 function renderRegionBadges() {
     const visited = getVisitedPrefs();
     let html = `<div style="padding: 0 0 20px 0;">
-        <p style="font-size:0.82rem; color:#aaa; margin: 0 0 12px 0; font-weight:500; letter-spacing:1px;">地域制覇バッジ</p>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">`;
 
     REGION_BADGES.forEach(region => {
@@ -3622,7 +3603,7 @@ function showUpdatePopup() {
         <div style="background:white;border-radius:16px;padding:30px 24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);position:relative;">
             <button onclick="document.getElementById('update-popup').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1;">✕</button>
             <p style="margin:0 0 14px 0;font-size:1.1rem;font-weight:bold;color:#444;font-family:'Zen Kaku Gothic New',sans-serif;">version_2.3.0にアップデートされました。</p>
-            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・ゲストとして試せるようになりました。<br>・一覧に地域制覇バッジを追加しました。<br>・あしあと共有機能を向上しました。</p>
+            <p style="margin:0;font-size:0.92rem;color:#666;line-height:2;font-family:'Zen Kaku Gothic New',sans-serif;word-break:keep-all;overflow-wrap:anywhere;">・ゲストとして試せるようになりました。<br>・地域ごとの制覇状況を一覧で確認できるようになりました。<br>・あしあと共有機能を向上しました。</p>
         </div>
     `;
     document.body.appendChild(popup);
