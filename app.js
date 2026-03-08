@@ -339,7 +339,26 @@ function initPhotoDragSort() {
         const url = el.getAttribute('data-url');
         if (!url) return;
         let pressTimer = null, isDragging = false, startX = 0, startY = 0;
+        let lastTarget = null;
 
+        function cancelDrag() {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+            isDragging = false;
+            dragSrc = null;
+            lastTarget = null;
+            el.style.opacity = '1';
+            el.style.transform = '';
+            el.style.transition = '';
+            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
+                t.style.transform = '';
+                t.style.opacity = '1';
+                t.style.transition = '';
+            });
+        }
+
+        // passive:false にしてtouchstart段階からpreventDefaultを制御できるようにする
         el.addEventListener('touchstart', (e) => {
             if (bulkSelectMode) return;
             startX = e.touches[0].clientX;
@@ -347,43 +366,54 @@ function initPhotoDragSort() {
             pressTimer = setTimeout(() => {
                 isDragging = true;
                 dragSrc = el;
-                // iPhoneライクな浮き上がりアニメーション
                 el.style.opacity = '0.3';
                 el.style.transform = 'scale(0.95)';
-                el.style.transition = 'transform 0.2s, opacity 0.2s';
-                
+                el.style.transition = 'transform 0.15s, opacity 0.15s';
+
                 const rect = el.getBoundingClientRect();
                 ghostOffsetX = e.touches[0].clientX - rect.left;
                 ghostOffsetY = e.touches[0].clientY - rect.top;
                 dragGhost = el.cloneNode(true);
-                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.9;pointer-events:none;z-index:9999;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.4);transform:scale(1.08);transition:transform 0.15s ease-out;`;
+                dragGhost.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;opacity:0.92;pointer-events:none;z-index:9999;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.4);transform:scale(1.06);`;
                 document.body.appendChild(dragGhost);
-                navigator.vibrate && navigator.vibrate(30);
-            }, 300); // 長押しで浮き上がり
+                navigator.vibrate && navigator.vibrate(40);
+            }, 400); // 400msに延長してスクロールとの誤作動を減らす
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
             if (bulkSelectMode) return;
-            const dx = Math.abs(e.touches[0].clientX - startX);
-            const dy = Math.abs(e.touches[0].clientY - startY);
-            if (!isDragging && (dx > 8 || dy > 8)) clearTimeout(pressTimer);
-            if (!isDragging || !dragGhost) return;
-            e.preventDefault(); // ドラッグ中のみスクロールを止める
             const touch = e.touches[0];
+            const dx = Math.abs(touch.clientX - startX);
+            const dy = Math.abs(touch.clientY - startY);
+
+            // ドラッグ未開始で10px以上動いたらキャンセル
+            if (!isDragging) {
+                if (dx > 10 || dy > 10) clearTimeout(pressTimer);
+                return;
+            }
+
+            // ドラッグ中はスクロールを止める
+            e.preventDefault();
+
+            if (!dragGhost) return;
             dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
             dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
-            
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
-                if (t !== dragSrc) {
-                    t.style.transform = '';
-                    t.style.opacity = '1';
-                }
-            });
+
+            // ハイライト更新
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
-            if (target) {
-                target.style.transform = 'scale(0.92)';
-                target.style.opacity = '0.8';
-                target.style.transition = 'transform 0.15s ease, opacity 0.15s ease';
+            if (target !== lastTarget) {
+                // 前のターゲットのハイライトを解除
+                if (lastTarget) {
+                    lastTarget.style.transform = '';
+                    lastTarget.style.opacity = '1';
+                    lastTarget.style.transition = '';
+                }
+                lastTarget = target;
+                if (target) {
+                    target.style.transform = 'scale(0.90)';
+                    target.style.opacity = '0.7';
+                    target.style.transition = 'transform 0.12s ease, opacity 0.12s ease';
+                }
             }
         }, { passive: false });
 
@@ -391,36 +421,20 @@ function initPhotoDragSort() {
             if (bulkSelectMode) return;
             clearTimeout(pressTimer);
             if (!isDragging) return;
-            isDragging = false;
-            
-            el.style.opacity = '1';
-            el.style.transform = '';
-            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
-                t.style.transform = '';
-                t.style.opacity = '1';
-            });
-            
+
+            const savedSrc = dragSrc;
             const touch = e.changedTouches[0];
-            const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
-            if (target && target !== dragSrc) {
-                await reorderPhotos(dragSrc.getAttribute('data-url'), target.getAttribute('data-url'));
+            // ドロップ前にゴーストとハイライトをクリア
+            cancelDrag();
+
+            const target = getDropTarget(touch.clientX, touch.clientY, savedSrc);
+            if (target && target !== savedSrc) {
+                await reorderPhotos(savedSrc.getAttribute('data-url'), target.getAttribute('data-url'));
             }
-            dragSrc = null;
         }, { passive: true });
 
         el.addEventListener('touchcancel', () => {
-            if (bulkSelectMode) return;
-            clearTimeout(pressTimer);
-            isDragging = false;
-            el.style.opacity = '1';
-            el.style.transform = '';
-            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-            document.querySelectorAll('.photo-grid-item, #thumb-wrap').forEach(t => {
-                t.style.transform = '';
-                t.style.opacity = '1';
-            });
-            dragSrc = null;
+            cancelDrag();
         }, { passive: true });
     });
 
