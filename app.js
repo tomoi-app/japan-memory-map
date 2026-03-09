@@ -958,6 +958,28 @@ async function sendResetEmail(email) {
     }
 }
 
+async function handleGoogleLogin() {
+    // プライバシー同意確認（新規・既存どちらも）
+    const agreed = localStorage.getItem('privacyAgreed');
+    if (!agreed) {
+        const ok = confirm('Googleでログインする前に、プライバシーポリシーおよび利用規約への同意が必要です。\n\nhttps://ashiato.tomoi-app.com/privacy.html\n\n同意しますか？');
+        if (!ok) return;
+        localStorage.setItem('privacyAgreed', '1');
+    }
+
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+            redirectTo: window.location.origin
+        }
+    });
+    if (error) {
+        const el = document.getElementById('auth-error');
+        el.textContent = 'Googleログインに失敗しました。';
+        el.classList.remove('hidden');
+    }
+}
+
 async function handleAuth() {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
@@ -1231,13 +1253,22 @@ window.addEventListener('load', async () => {
 
     let recoveryHandled = false;
 
-    supabaseClient.auth.onAuthStateChange((event, session) => {
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
         if (event === 'TOKEN_REFRESHED' && session) {
             currentToken = session.access_token;
         }
         if (event === 'SIGNED_OUT') {
             currentUser = null;
             currentToken = null;
+        }
+        // Googleログイン後のリダイレクト戻りを処理
+        if (event === 'SIGNED_IN' && session && !currentUser) {
+            hideLoading();
+            if (isGuestMode) {
+                await migrateGuestData();
+                isGuestMode = false;
+            }
+            await startApp(session);
         }
         if (event === 'PASSWORD_RECOVERY') {
             recoveryHandled = true;
