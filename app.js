@@ -19,7 +19,7 @@ if (!document.getElementById('ashiato-dynamic-styles')) {
 // =============================================
 function escapeHTML(str) {
     if (typeof str !== 'string') return '';
-    return str.replace(/[&<>"']/g, function (match) {
+    return str.replace(/[&<>"']/g, function(match) {
         const escape = {
             '&': '&amp;',
             '<': '&lt;',
@@ -109,12 +109,12 @@ async function getAllPhotosFromIDB() {
 // お知らせ（メール）設定
 // =============================================
 const ADMIN_MESSAGES = [
-    {
+  {
         id: 'v2.3.0',
         date: '2026.03.07',
         title: 'version_2.3.0 アップデート',
         content: '・ゲストモードを追加しました。登録なしで試せます。\n・地域ごとの制覇状況を一覧で確認できるようになりました。\n・あしあと共有機能を向上しました。'
-    },
+    }, 
     {
         id: 'v2.1.3',
         date: '2026.03.06',
@@ -150,7 +150,7 @@ const ADMIN_MESSAGES = [
 function getReadMessages() {
     try {
         return JSON.parse(localStorage.getItem('readAdminMessages') || '[]');
-    } catch (e) { return []; }
+    } catch(e) { return []; }
 }
 
 function getUnreadCount() {
@@ -169,7 +169,7 @@ function markAsRead(id) {
 function markAllAsRead() {
     const allIds = ADMIN_MESSAGES.map(m => m.id);
     localStorage.setItem('readAdminMessages', JSON.stringify(allIds));
-    if (window.isAdminMsgOpen) renderAdminMessages();
+    if (window.isAdminMsgOpen) renderAdminMessages(); 
 }
 
 // お知らせ画面の開閉トグル用フラグ
@@ -190,92 +190,92 @@ function toggleAdminMessages() {
 const MAP_THEMES = {
     default: {
         name: 'デフォルト',
-        preview: ['#9fb9c4', '#b6c6a7', '#dda2a5', '#c59eb1', '#8bc1c0', '#d7d1a2', '#93a0bb'],
+        preview: ['#9fb9c4','#b6c6a7','#dda2a5','#c59eb1','#8bc1c0','#d7d1a2','#93a0bb'],
         colors: {
-            '北海道': '#9fb9c4', '青森県': '#a2c4c3', '岩手県': '#a1bda6', '宮城県': '#b6c6a7',
-            '秋田県': '#c1cda2', '山形県': '#cdd3a1', '福島県': '#d9d8a3', '茨城県': '#e3d8a6',
-            '栃木県': '#ead2a8', '群馬県': '#ebc8a5', '埼玉県': '#e8bba1', '千葉県': '#e3afa2',
-            '東京都': '#dda2a5', '神奈川県': '#d698a9', '新潟県': '#c59eb1', '富山県': '#b2a1b7',
-            '石川県': '#a2a5bb', '福井県': '#96a7bc', '山梨県': '#8eb0c2', '長野県': '#85b9c4',
-            '岐阜県': '#8bc1c0', '静岡県': '#91c6b8', '愛知県': '#9bcbb0', '三重県': '#a9ceaa',
-            '滋賀県': '#b7cfa6', '京都府': '#c7d1a3', '大阪府': '#d7d1a2', '兵庫県': '#e4d0a2',
-            '奈良県': '#eed0a4', '和歌山県': '#f3cda8', '鳥取県': '#f4c7ad', '島根県': '#f1bfb2',
-            '岡山県': '#ecb8b7', '広島県': '#e4b1bd', '山口県': '#d9abc2', '徳島県': '#cda6c5',
-            '香川県': '#bea1c6', '愛媛県': '#afa0c5', '高知県': '#a19fc1', '福岡県': '#93a0bb',
-            '佐賀県': '#88a2b5', '長崎県': '#81a6ae', '熊本県': '#7eaba5', '大分県': '#7eb09a',
-            '宮崎県': '#83b48e', '鹿児島県': '#8ab784', '沖縄県': '#96b87b'
+            '北海道':'#9fb9c4','青森県':'#a2c4c3','岩手県':'#a1bda6','宮城県':'#b6c6a7',
+            '秋田県':'#c1cda2','山形県':'#cdd3a1','福島県':'#d9d8a3','茨城県':'#e3d8a6',
+            '栃木県':'#ead2a8','群馬県':'#ebc8a5','埼玉県':'#e8bba1','千葉県':'#e3afa2',
+            '東京都':'#dda2a5','神奈川県':'#d698a9','新潟県':'#c59eb1','富山県':'#b2a1b7',
+            '石川県':'#a2a5bb','福井県':'#96a7bc','山梨県':'#8eb0c2','長野県':'#85b9c4',
+            '岐阜県':'#8bc1c0','静岡県':'#91c6b8','愛知県':'#9bcbb0','三重県':'#a9ceaa',
+            '滋賀県':'#b7cfa6','京都府':'#c7d1a3','大阪府':'#d7d1a2','兵庫県':'#e4d0a2',
+            '奈良県':'#eed0a4','和歌山県':'#f3cda8','鳥取県':'#f4c7ad','島根県':'#f1bfb2',
+            '岡山県':'#ecb8b7','広島県':'#e4b1bd','山口県':'#d9abc2','徳島県':'#cda6c5',
+            '香川県':'#bea1c6','愛媛県':'#afa0c5','高知県':'#a19fc1','福岡県':'#93a0bb',
+            '佐賀県':'#88a2b5','長崎県':'#81a6ae','熊本県':'#7eaba5','大分県':'#7eb09a',
+            '宮崎県':'#83b48e','鹿児島県':'#8ab784','沖縄県':'#96b87b'
         }
     },
     warm: {
         name: 'ウォーム',
-        preview: ['#e8a87c', '#e8b87c', '#e8c87c', '#d4956a', '#c98060', '#e0b090', '#d4a070'],
+        preview: ['#e8a87c','#e8b87c','#e8c87c','#d4956a','#c98060','#e0b090','#d4a070'],
         colors: {
-            '北海道': '#e8a87c', '青森県': '#e8ac7a', '岩手県': '#e8b07a', '宮城県': '#e8b47c',
-            '秋田県': '#e8b87c', '山形県': '#e8bc7e', '福島県': '#e8c07e', '茨城県': '#e8c480',
-            '栃木県': '#e8c882', '群馬県': '#e8c882', '埼玉県': '#e4c080', '千葉県': '#e0b87e',
-            '東京都': '#ddb07c', '神奈川県': '#d9a87a', '新潟県': '#d4a078', '富山県': '#ce9876',
-            '石川県': '#c89074', '福井県': '#c28872', '山梨県': '#c08070', '長野県': '#be7870',
-            '岐阜県': '#c07870', '静岡県': '#c27c70', '愛知県': '#c48072', '三重県': '#c88474',
-            '滋賀県': '#cc8876', '京都府': '#d08c78', '大阪府': '#d4907a', '兵庫県': '#d8947c',
-            '奈良県': '#dc987e', '和歌山県': '#e09c80', '鳥取県': '#e09c80', '島根県': '#de9880',
-            '岡山県': '#dc947e', '広島県': '#da907c', '山口県': '#d88c7a', '徳島県': '#d88a7a',
-            '香川県': '#d68878', '愛媛県': '#d48676', '高知県': '#d28474', '福岡県': '#d08272',
-            '佐賀県': '#ce8070', '長崎県': '#cc7e6e', '熊本県': '#ca7c6c', '大分県': '#c87a6a',
-            '宮崎県': '#c87c6c', '鹿児島県': '#ca7e6e', '沖縄県': '#cc8070'
+            '北海道':'#e8a87c','青森県':'#e8ac7a','岩手県':'#e8b07a','宮城県':'#e8b47c',
+            '秋田県':'#e8b87c','山形県':'#e8bc7e','福島県':'#e8c07e','茨城県':'#e8c480',
+            '栃木県':'#e8c882','群馬県':'#e8c882','埼玉県':'#e4c080','千葉県':'#e0b87e',
+            '東京都':'#ddb07c','神奈川県':'#d9a87a','新潟県':'#d4a078','富山県':'#ce9876',
+            '石川県':'#c89074','福井県':'#c28872','山梨県':'#c08070','長野県':'#be7870',
+            '岐阜県':'#c07870','静岡県':'#c27c70','愛知県':'#c48072','三重県':'#c88474',
+            '滋賀県':'#cc8876','京都府':'#d08c78','大阪府':'#d4907a','兵庫県':'#d8947c',
+            '奈良県':'#dc987e','和歌山県':'#e09c80','鳥取県':'#e09c80','島根県':'#de9880',
+            '岡山県':'#dc947e','広島県':'#da907c','山口県':'#d88c7a','徳島県':'#d88a7a',
+            '香川県':'#d68878','愛媛県':'#d48676','高知県':'#d28474','福岡県':'#d08272',
+            '佐賀県':'#ce8070','長崎県':'#cc7e6e','熊本県':'#ca7c6c','大分県':'#c87a6a',
+            '宮崎県':'#c87c6c','鹿児島県':'#ca7e6e','沖縄県':'#cc8070'
         }
     },
     cool: {
         name: 'クール',
-        preview: ['#7ab0d4', '#7abcd4', '#7ac8d4', '#6a9ec4', '#6090b8', '#80b4d8', '#70a0c8'],
+        preview: ['#7ab0d4','#7abcd4','#7ac8d4','#6a9ec4','#6090b8','#80b4d8','#70a0c8'],
         colors: {
-            '北海道': '#7ab0d4', '青森県': '#7ab4d4', '岩手県': '#7ab8d4', '宮城県': '#7abcd4',
-            '秋田県': '#7ac0d4', '山形県': '#7ac4d4', '福島県': '#7ac8d4', '茨城県': '#7cccd4',
-            '栃木県': '#7eccd0', '群馬県': '#80cccc', '埼玉県': '#80c8c8', '千葉県': '#7ec4c4',
-            '東京都': '#7cc0c0', '神奈川県': '#7abcbc', '新潟県': '#7ab8b8', '富山県': '#78b4b4',
-            '石川県': '#76b0b0', '福井県': '#74acac', '山梨県': '#72a8a8', '長野県': '#70a4a4',
-            '岐阜県': '#6ea0a0', '静岡県': '#6c9c9c', '愛知県': '#6a9898', '三重県': '#6c9ca4',
-            '滋賀県': '#6ea0a8', '京都府': '#70a4ac', '大阪府': '#72a8b0', '兵庫県': '#74acb4',
-            '奈良県': '#76b0b8', '和歌山県': '#78b4bc', '鳥取県': '#78b4bc', '島根県': '#76b0b8',
-            '岡山県': '#74acb4', '広島県': '#72a8b0', '山口県': '#70a4ac', '徳島県': '#6ea0a8',
-            '香川県': '#6c9ca4', '愛媛県': '#6a98a0', '高知県': '#68949c', '福岡県': '#6690a0',
-            '佐賀県': '#648ca0', '長崎県': '#6288a0', '熊本県': '#6084a0', '大分県': '#5e80a0',
-            '宮崎県': '#6082a0', '鹿児島県': '#6284a0', '沖縄県': '#6486a0'
+            '北海道':'#7ab0d4','青森県':'#7ab4d4','岩手県':'#7ab8d4','宮城県':'#7abcd4',
+            '秋田県':'#7ac0d4','山形県':'#7ac4d4','福島県':'#7ac8d4','茨城県':'#7cccd4',
+            '栃木県':'#7eccd0','群馬県':'#80cccc','埼玉県':'#80c8c8','千葉県':'#7ec4c4',
+            '東京都':'#7cc0c0','神奈川県':'#7abcbc','新潟県':'#7ab8b8','富山県':'#78b4b4',
+            '石川県':'#76b0b0','福井県':'#74acac','山梨県':'#72a8a8','長野県':'#70a4a4',
+            '岐阜県':'#6ea0a0','静岡県':'#6c9c9c','愛知県':'#6a9898','三重県':'#6c9ca4',
+            '滋賀県':'#6ea0a8','京都府':'#70a4ac','大阪府':'#72a8b0','兵庫県':'#74acb4',
+            '奈良県':'#76b0b8','和歌山県':'#78b4bc','鳥取県':'#78b4bc','島根県':'#76b0b8',
+            '岡山県':'#74acb4','広島県':'#72a8b0','山口県':'#70a4ac','徳島県':'#6ea0a8',
+            '香川県':'#6c9ca4','愛媛県':'#6a98a0','高知県':'#68949c','福岡県':'#6690a0',
+            '佐賀県':'#648ca0','長崎県':'#6288a0','熊本県':'#6084a0','大分県':'#5e80a0',
+            '宮崎県':'#6082a0','鹿児島県':'#6284a0','沖縄県':'#6486a0'
         }
     },
     forest: {
         name: 'フォレスト',
-        preview: ['#7ab87a', '#8abc7a', '#9ac07a', '#6aac6a', '#5a9c5a', '#80b880', '#70ac70'],
+        preview: ['#7ab87a','#8abc7a','#9ac07a','#6aac6a','#5a9c5a','#80b880','#70ac70'],
         colors: {
-            '北海道': '#7ab87a', '青森県': '#7ebc7a', '岩手県': '#82be7a', '宮城県': '#86c07a',
-            '秋田県': '#8ac27c', '山形県': '#8ec47c', '福島県': '#92c67e', '茨城県': '#96c880',
-            '栃木県': '#9aca80', '群馬県': '#9ecc82', '埼玉県': '#9cca82', '千葉県': '#98c880',
-            '東京都': '#94c67e', '神奈川県': '#90c47c', '新潟県': '#8cc27c', '富山県': '#88c07a',
-            '石川県': '#84be7a', '福井県': '#80bc7a', '山梨県': '#7cba78', '長野県': '#78b878',
-            '岐阜県': '#76b678', '静岡県': '#78b878', '愛知県': '#7aba78', '三重県': '#7cbc7a',
-            '滋賀県': '#7eba7a', '京都府': '#80bc7a', '大阪府': '#82be7c', '兵庫県': '#84c07c',
-            '奈良県': '#86c27e', '和去山県': '#88c47e', '鳥取県': '#88c47e', '島根県': '#86c27c',
-            '岡山県': '#84c07c', '広島県': '#82be7a', '山口県': '#80bc7a', '徳島県': '#7eba7a',
-            '香川県': '#7cb878', '愛媛県': '#7ab678', '高知県': '#78b478', '福岡県': '#76b276',
-            '佐賀県': '#74b076', '長崎県': '#72ae76', '熊本県': '#70ac74', '大分県': '#6eaa74',
-            '宮崎県': '#70ac74', '鹿児島県': '#72ae76', '沖縄県': '#74b076'
+            '北海道':'#7ab87a','青森県':'#7ebc7a','岩手県':'#82be7a','宮城県':'#86c07a',
+            '秋田県':'#8ac27c','山形県':'#8ec47c','福島県':'#92c67e','茨城県':'#96c880',
+            '栃木県':'#9aca80','群馬県':'#9ecc82','埼玉県':'#9cca82','千葉県':'#98c880',
+            '東京都':'#94c67e','神奈川県':'#90c47c','新潟県':'#8cc27c','富山県':'#88c07a',
+            '石川県':'#84be7a','福井県':'#80bc7a','山梨県':'#7cba78','長野県':'#78b878',
+            '岐阜県':'#76b678','静岡県':'#78b878','愛知県':'#7aba78','三重県':'#7cbc7a',
+            '滋賀県':'#7eba7a','京都府':'#80bc7a','大阪府':'#82be7c','兵庫県':'#84c07c',
+            '奈良県':'#86c27e','和去山県':'#88c47e','鳥取県':'#88c47e','島根県':'#86c27c',
+            '岡山県':'#84c07c','広島県':'#82be7a','山口県':'#80bc7a','徳島県':'#7eba7a',
+            '香川県':'#7cb878','愛媛県':'#7ab678','高知県':'#78b478','福岡県':'#76b276',
+            '佐賀県':'#74b076','長崎県':'#72ae76','熊本県':'#70ac74','大分県':'#6eaa74',
+            '宮崎県':'#70ac74','鹿児島県':'#72ae76','沖縄県':'#74b076'
         }
     },
     mono: {
         name: 'モノクロ',
-        preview: ['#a0a0a0', '#b0b0b0', '#c0c0c0', '#909090', '#888888', '#aaaaaa', '#989898'],
+        preview: ['#a0a0a0','#b0b0b0','#c0c0c0','#909090','#888888','#aaaaaa','#989898'],
         colors: {
-            '北海道': '#a8a8a8', '青森県': '#ababab', '岩手県': '#aeaeae', '宮城県': '#b1b1b1',
-            '秋田県': '#b4b4b4', '山形県': '#b7b7b7', '福島県': '#bababa', '茨城県': '#bdbdbd',
-            '栃木県': '#c0c0c0', '群馬県': '#c3c3c3', '埼玉県': '#c0c0c0', '千葉県': '#bdbdbd',
-            '東京都': '#bababa', '神奈川県': '#b7b7b7', '新潟県': '#b4b4b4', '富山県': '#b1b1b1',
-            '石川県': '#aeaeae', '福井県': '#ababab', '山梨県': '#a8a8a8', '長野県': '#a5a5a5',
-            '岐阜県': '#a2a2a2', '静岡県': '#a5a5a5', '愛知県': '#a8a8a8', '三重県': '#ababab',
-            '滋賀県': '#aeaeae', '京都府': '#b1b1b1', '大阪府': '#b4b4b4', '兵庫県': '#b7b7b7',
-            '奈良県': '#bababa', '和歌山県': '#bdbdbd', '鳥取県': '#bdbdbd', '島根県': '#bababa',
-            '岡山県': '#b7b7b7', '広島県': '#b4b4b4', '山口県': '#b1b1b1', '徳島県': '#aeaeae',
-            '香川県': '#ababab', '愛媛県': '#a8a8a8', '高知県': '#a5a5a5', '福岡県': '#a2a2a2',
-            '佐賀県': '#9f9f9f', '長崎県': '#9c9c9c', '熊本県': '#999999', '大分県': '#969696',
-            '宮崎県': '#999999', '鹿児島県': '#9c9c9c', '沖縄県': '#9f9f9f'
+            '北海道':'#a8a8a8','青森県':'#ababab','岩手県':'#aeaeae','宮城県':'#b1b1b1',
+            '秋田県':'#b4b4b4','山形県':'#b7b7b7','福島県':'#bababa','茨城県':'#bdbdbd',
+            '栃木県':'#c0c0c0','群馬県':'#c3c3c3','埼玉県':'#c0c0c0','千葉県':'#bdbdbd',
+            '東京都':'#bababa','神奈川県':'#b7b7b7','新潟県':'#b4b4b4','富山県':'#b1b1b1',
+            '石川県':'#aeaeae','福井県':'#ababab','山梨県':'#a8a8a8','長野県':'#a5a5a5',
+            '岐阜県':'#a2a2a2','静岡県':'#a5a5a5','愛知県':'#a8a8a8','三重県':'#ababab',
+            '滋賀県':'#aeaeae','京都府':'#b1b1b1','大阪府':'#b4b4b4','兵庫県':'#b7b7b7',
+            '奈良県':'#bababa','和歌山県':'#bdbdbd','鳥取県':'#bdbdbd','島根県':'#bababa',
+            '岡山県':'#b7b7b7','広島県':'#b4b4b4','山口県':'#b1b1b1','徳島県':'#aeaeae',
+            '香川県':'#ababab','愛媛県':'#a8a8a8','高知県':'#a5a5a5','福岡県':'#a2a2a2',
+            '佐賀県':'#9f9f9f','長崎県':'#9c9c9c','熊本県':'#999999','大分県':'#969696',
+            '宮崎県':'#999999','鹿児島県':'#9c9c9c','沖縄県':'#9f9f9f'
         }
     },
 };
@@ -315,7 +315,7 @@ function updateDownloadBtn() {
     const addBtn = document.getElementById('add-photo-btn');
     const dlBtn = document.getElementById('download-photo-btn');
     if (!addBtn || !dlBtn) return;
-
+    
     if (bulkSelectMode) {
         if (bulkSelectedUrls.size > 0) {
             addBtn.style.display = 'none';
@@ -397,7 +397,7 @@ function initPhotoDragSort() {
 
             if (!dragGhost) return;
             dragGhost.style.left = (touch.clientX - ghostOffsetX) + 'px';
-            dragGhost.style.top = (touch.clientY - ghostOffsetY) + 'px';
+            dragGhost.style.top  = (touch.clientY - ghostOffsetY) + 'px';
 
             // ハイライト更新
             const target = getDropTarget(touch.clientX, touch.clientY, dragSrc);
@@ -456,7 +456,7 @@ function initPhotoDragSort() {
         if (!item) return;
         const u = item.getAttribute('data-url');
         if (!u) return;
-
+        
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         initialTouchUrl = u;
@@ -469,7 +469,7 @@ function initPhotoDragSort() {
     panelContent.addEventListener('touchmove', (e) => {
         if (!bulkSelectMode || !selectStarted) return;
         const touch = e.touches[0];
-
+        
         if (!window._isSwipeSelecting) {
             const dx = Math.abs(touch.clientX - startX);
             const dy = Math.abs(touch.clientY - startY);
@@ -532,7 +532,7 @@ async function reorderPhotos(srcId, targetId) {
     const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
     if (!data) return;
     let photos = JSON.parse(data.photo_urls || '[]');
-
+    
     const srcIdx = photos.findIndex(p => (typeof p === 'string' ? p : p.id) === srcId);
     const tgtIdx = photos.findIndex(p => (typeof p === 'string' ? p : p.id) === targetId);
     if (srcIdx < 0 || tgtIdx < 0) return;
@@ -545,16 +545,14 @@ async function reorderPhotos(srcId, targetId) {
     renderRightPanel();
 
     globalSaveQueue = globalSaveQueue.then(async () => {
-        await apiFetch({
-            method: 'POST', body: JSON.stringify({
-                action: 'save_memory',
-                prefecture: selectedPref,
-                date: data.date || '',
-                memo: data.memo || '',
-                existing_urls: photos,
-                entry_id: selectedEntryId || undefined
-            })
-        });
+        await apiFetch({ method: 'POST', body: JSON.stringify({
+            action: 'save_memory',
+            prefecture: selectedPref,
+            date: data.date || '',
+            memo: data.memo || '',
+            existing_urls: photos,
+            entry_id: selectedEntryId || undefined
+        })});
         await fetchMemories(false);
     }).catch(e => console.error('reorder error', e));
 }
@@ -575,31 +573,31 @@ function selectAllPhotos() {
     const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
     if (!data) return;
     let photos = JSON.parse(data.photo_urls || '[]');
-
+    
     const isAllSelected = bulkSelectedUrls.size === photos.length && photos.length > 0;
-
+    
     bulkSelectedUrls.clear();
-
+    
     if (!isAllSelected) {
         photos.forEach(p => {
             const idOrUrl = typeof p === 'string' ? p : p.id;
             bulkSelectedUrls.add(idOrUrl);
         });
     }
-
+    
     // UIをまとめて更新
     document.querySelectorAll('#right-panel [data-url]').forEach(el => {
         const elUrl = el.getAttribute('data-url');
         const isSelected = bulkSelectedUrls.has(elUrl);
-
+        
         const check = el.id === 'thumb-wrap' ? document.getElementById('thumb-check') : el.querySelector('.photo-check');
         if (check) check.style.display = isSelected ? 'flex' : 'none';
         el.style.outline = isSelected ? '3px solid #d32f2f' : '';
     });
-
+    
     const countEl = document.getElementById('bulk-select-count');
     if (countEl) countEl.textContent = `${bulkSelectedUrls.size}枚選択中`;
-
+    
     const icon = document.getElementById('select-btn-icon');
     if (icon) {
         if (bulkSelectedUrls.size > 0) {
@@ -608,7 +606,7 @@ function selectAllPhotos() {
             icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
         }
     }
-
+    
     const selectAllBtn = document.getElementById('select-all-btn');
     if (selectAllBtn) {
         const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
@@ -624,7 +622,7 @@ function enterBulkSelectMode() {
     bulkSelectedUrls = new Set();
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'flex';
-
+    
     updateDownloadBtn();
 
     const grid = document.querySelector('.photo-grid');
@@ -655,7 +653,7 @@ function cancelBulkSelect() {
     bulkSelectedUrls = new Set();
     const bar = document.getElementById('bulk-delete-bar');
     if (bar) bar.style.display = 'none';
-
+    
     // ダウンロードボタンを＋ボタンに戻す
     updateDownloadBtn();
 
@@ -695,7 +693,7 @@ function togglePhotoSelect(url, forceState = null) {
         if (bulkSelectedUrls.has(url)) bulkSelectedUrls.delete(url);
         else bulkSelectedUrls.add(url);
     }
-
+    
     document.querySelectorAll('#right-panel [data-url]').forEach(el => {
         const elUrl = el.getAttribute('data-url');
         if (elUrl === url) {
@@ -715,7 +713,7 @@ function togglePhotoSelect(url, forceState = null) {
             icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
         }
     }
-
+    
     const selectAllBtn = document.getElementById('select-all-btn');
     if (selectAllBtn) {
         const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
@@ -737,7 +735,7 @@ async function downloadSelectedPhotos() {
         for (const urlOrId of bulkSelectedUrls) {
             count++;
             showLoading(`ダウンロード中... ${count} / ${bulkSelectedUrls.size}`);
-
+            
             if (!urlOrId.startsWith('http')) {
                 const base64 = await getPhotoFromIDB(urlOrId);
                 if (base64) {
@@ -750,25 +748,25 @@ async function downloadSelectedPhotos() {
                     await new Promise(r => setTimeout(r, 600)); // ブラウザの連続DL制限を回避
                 }
             } else {
-                try {
-                    const resp = await fetch(urlOrId);
-                    const blob = await resp.blob();
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `ashiato_${selectedPref}_${count}.jpg`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(a.href);
-                    await new Promise(r => setTimeout(r, 600));
-                } catch (e) {
-                    window.open(urlOrId, '_blank');
-                }
+                 try {
+                     const resp = await fetch(urlOrId);
+                     const blob = await resp.blob();
+                     const a = document.createElement('a');
+                     a.href = URL.createObjectURL(blob);
+                     a.download = `ashiato_${selectedPref}_${count}.jpg`;
+                     document.body.appendChild(a);
+                     a.click();
+                     document.body.removeChild(a);
+                     URL.revokeObjectURL(a.href);
+                     await new Promise(r => setTimeout(r, 600));
+                 } catch (e) {
+                     window.open(urlOrId, '_blank');
+                 }
             }
         }
         showLoading('完了！');
         setTimeout(() => { hideLoading(); cancelBulkSelect(); }, 1000);
-    } catch (e) {
+    } catch(e) {
         console.error('Download error', e);
         alert('ダウンロード中にエラーが発生しました');
         hideLoading();
@@ -778,12 +776,12 @@ async function downloadSelectedPhotos() {
 async function deleteBulkSelected() {
     if (bulkSelectedUrls.size === 0) return;
     if (!confirm(`${bulkSelectedUrls.size}枚の写真を削除しますか？`)) return;
-
+    
     // バックグラウンド化のためUIを即時更新
     const urlsToDelete = Array.from(bulkSelectedUrls);
     const deleteCount = urlsToDelete.length;
     const targetPref = selectedPref;
-
+    
     const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === targetPref);
     let photosToSave = [];
     if (data) {
@@ -792,7 +790,7 @@ async function deleteBulkSelected() {
         photosToSave = photos.filter(p => !urlsToDeleteSet.has(typeof p === 'string' ? p : p.id));
         data.photo_urls = JSON.stringify(photosToSave);
     }
-
+    
     cancelBulkSelect();
     renderRightPanel();
     updateCounter();
@@ -808,36 +806,32 @@ async function deleteBulkSelected() {
             count++;
             updateSaveProgress(count, deleteCount, '削除中...');
         }
-
+        
         // 削除後にSupabaseのDBを更新
         if (data) {
             if (photosToSave.length === 0) {
                 // 写真が0枚になったらエントリ自体を削除
-                await apiFetch({
-                    method: 'POST', body: JSON.stringify({
-                        action: 'delete_entry',
-                        entry_id: data.id
-                    })
-                });
+                await apiFetch({ method: 'POST', body: JSON.stringify({
+                    action: 'delete_entry',
+                    entry_id: data.id
+                })});
                 // memoriesDataからも除去
                 memoriesData = memoriesData.filter(m => m.id !== data.id);
                 selectedEntryId = null;
             } else {
-                await apiFetch({
-                    method: 'POST', body: JSON.stringify({
-                        action: 'save_memory',
-                        prefecture: targetPref,
-                        date: data.date || '',
-                        memo: data.memo || '',
-                        existing_urls: photosToSave,
-                        entry_id: data.id || undefined
-                    })
-                });
+                await apiFetch({ method: 'POST', body: JSON.stringify({
+                    action: 'save_memory',
+                    prefecture: targetPref,
+                    date: data.date || '',
+                    memo: data.memo || '',
+                    existing_urls: photosToSave,
+                    entry_id: data.id || undefined
+                })});
             }
         }
-
+        
         await fetchMemories(false);
-
+        
         // 写真0枚でエントリ削除した場合の後処理
         if (photosToSave.length === 0) {
             const remaining = memoriesData.filter(m => m.prefecture === targetPref && !m.is_home);
@@ -852,7 +846,7 @@ async function deleteBulkSelected() {
         } else {
             renderRightPanel();
         }
-
+        
         updateSaveProgress(deleteCount, deleteCount, '完了！');
         setTimeout(() => hideSaveProgress(), 1500);
     }).catch(e => {
@@ -954,7 +948,7 @@ async function sendResetEmail(email) {
             successEl.textContent = 'リセット用のメールを送信しました。メールを確認してください。';
             successEl.classList.remove('hidden');
         }
-    } catch (e) {
+    } catch(e) {
         errorEl.textContent = '通信エラーが発生しました';
         errorEl.classList.remove('hidden');
     } finally {
@@ -1062,7 +1056,7 @@ async function handleAuth() {
                 if (session) startApp(session);
             }
         }
-    } catch (e) {
+    } catch(e) {
         errorEl.textContent = '通信エラーが発生しました';
         errorEl.classList.remove('hidden');
     } finally {
@@ -1110,7 +1104,7 @@ async function startGuestMode() {
     homePrefectures = [];
 
     if (map) {
-        try { map.remove(); } catch (e) { }
+        try { map.remove(); } catch(e) {}
         map = null;
         geoJsonLayer = null;
         initialBounds = null;
@@ -1157,7 +1151,7 @@ function exitGuestMode() {
     }
     isGuestMode = false;
     if (map) {
-        try { map.remove(); } catch (e) { }
+        try { map.remove(); } catch(e) {}
         map = null; geoJsonLayer = null; initialBounds = null;
     }
     memoriesData = [];
@@ -1174,7 +1168,7 @@ async function migrateGuestData() {
     const raw = localStorage.getItem('guestMemories');
     if (!raw) return;
     let guestData;
-    try { guestData = JSON.parse(raw); } catch (e) { return; }
+    try { guestData = JSON.parse(raw); } catch(e) { return; }
     if (!guestData || guestData.length === 0) return;
 
     const entries = guestData.filter(m => !m.is_home);
@@ -1189,7 +1183,7 @@ async function migrateGuestData() {
                 memo: entry.memo || ''
             };
             await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
-        } catch (e) { console.error('migrate error', e); }
+        } catch(e) { console.error('migrate error', e); }
     }
     localStorage.removeItem('guestMemories');
 }
@@ -1206,7 +1200,7 @@ async function startApp(session) {
     homePrefectures = [];
 
     if (map) {
-        try { map.remove(); } catch (e) { }
+        try { map.remove(); } catch(e) {}
         map = null;
         geoJsonLayer = null;
         initialBounds = null;
@@ -1221,7 +1215,7 @@ async function startApp(session) {
 
     await initApp();
     updateUIVisibility();
-
+    
     // パッチバージョンのため、大型アップデートのポップアップのみ未読なら表示
     if (localStorage.getItem('tutorialDone')) {
         showUpdatePopup();
@@ -1247,7 +1241,7 @@ async function logout() {
 window.addEventListener('load', async () => {
     // 起動時にローディング画面を表示
     showLoading('地図を読み込み中...');
-
+    
     const urlParams = new URLSearchParams(window.location.search);
     const shareToken = urlParams.get('share');
     if (shareToken) {
@@ -1321,7 +1315,7 @@ async function initShareMode() {
         .then(data => {
             geoJsonLayer = L.geoJson(data, {
                 style: { fillColor: '#f4f7f6', weight: 0.3, color: '#000000', fillOpacity: 1 },
-                onEachFeature: function (feature, layer) {
+                onEachFeature: function(feature, layer) {
                     const prefName = feature.properties.nam_ja;
                     layer.on('click', () => {
                         selectedPref = prefName;
@@ -1354,7 +1348,7 @@ async function initShareMode() {
 
     try {
         await Promise.all([mapPromise, dataPromise]);
-    } catch (e) {
+    } catch(e) {
         console.error('Share load error', e);
     } finally {
         updateMapColors();
@@ -1379,7 +1373,7 @@ async function initShareMode() {
         });
     }
 
-    map.on('dblclick', function () {
+    map.on('dblclick', function() {
         if (initialBounds) map.flyToBounds(initialBounds, { duration: 0.6 });
         if (panelOpen) closePanel();
     });
@@ -1389,7 +1383,7 @@ async function initShareMode() {
     document.getElementById('map-container').addEventListener('touchstart', (e) => {
         if (e.touches.length > 1) isPinching2 = true;
     });
-    document.getElementById('map-container').addEventListener('touchend', function (e) {
+    document.getElementById('map-container').addEventListener('touchend', function(e) {
         if (isPinching2) { if (e.touches.length === 0) isPinching2 = false; return; }
         const now = new Date().getTime();
         if (now - lastTouchTime2 < 400 && now - lastTouchTime2 > 0) {
@@ -1436,10 +1430,10 @@ function cleanupEmptyEntry(id) {
     if (!id) return;
     const entry = memoriesData.find(m => String(m.id) === String(id));
     if (!entry || entry.is_home) return;
-
+    
     let photoCount = 0;
-    try { photoCount = JSON.parse(entry.photo_urls || "[]").length; } catch (e) { }
-
+    try { photoCount = JSON.parse(entry.photo_urls || "[]").length; } catch(e){}
+    
     if (photoCount === 0) {
         // メモリから削除
         memoriesData = memoriesData.filter(m => String(m.id) !== String(id));
@@ -1447,22 +1441,20 @@ function cleanupEmptyEntry(id) {
         if (isGuestMode) {
             localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
         } else {
-            apiFetch({
-                method: 'POST', body: JSON.stringify({
-                    action: 'delete_entry',
-                    entry_id: id
-                })
-            }).catch(e => console.error('cleanup entry error', e));
+            apiFetch({ method: 'POST', body: JSON.stringify({
+                action: 'delete_entry',
+                entry_id: id
+            })}).catch(e => console.error('cleanup entry error', e));
         }
     }
 }
 
-function setSelectedEntryId(v) {
+function setSelectedEntryId(v) { 
     // ★追加: 別のタブに移動する際に、元のタブが写真0枚なら削除する
     if (selectedEntryId !== null && String(selectedEntryId) !== String(v)) {
         cleanupEmptyEntry(selectedEntryId);
     }
-    selectedEntryId = (v === 'null' || v === '') ? null : v;
+    selectedEntryId = (v === 'null' || v === '') ? null : v; 
 }
 
 let memoriesData = [];
@@ -1517,13 +1509,13 @@ async function initApp() {
     const dataPromise = fetchMemories(false);
 
     await Promise.all([mapPromise, dataPromise]);
-
+    
     updateMapColors();
     updateCounter();
     hideLoading();
     checkAndStartTutorial();
 
-    map.on('zoomend', function () {
+    map.on('zoomend', function() {
         if (map.getZoom() <= map.getMinZoom()) {
             map.dragging.disable();
             if (initialBounds) {
@@ -1534,7 +1526,7 @@ async function initApp() {
         }
     });
 
-    map.on('dblclick', function (e) {
+    map.on('dblclick', function(e) {
         if (initialBounds) {
             map.flyToBounds(initialBounds, { duration: 0.6 });
         }
@@ -1551,7 +1543,7 @@ async function initApp() {
         }
     });
 
-    document.getElementById('map-container').addEventListener('touchend', function (e) {
+    document.getElementById('map-container').addEventListener('touchend', function(e) {
         if (isPinching) {
             if (e.touches.length === 0) {
                 isPinching = false;
@@ -1604,8 +1596,8 @@ async function initApp() {
         settingsBtnEl.title = "設定";
         document.querySelector('.main-layout').appendChild(settingsBtnEl);
     }
-
-    window.updateSettingsBadge = function () {
+    
+    window.updateSettingsBadge = function() {
         const btn = document.getElementById('admin-msg-btn');
         if (!btn) return;
         const mailSvg = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
@@ -1614,7 +1606,7 @@ async function initApp() {
         } else {
             btn.innerHTML = mailSvg;
         }
-
+        
         // 設定ボタン側の小さいバッジも同期
         if (getUnreadCount() > 0) {
             settingsBtnEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#555"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg><div style="position:absolute; top:4px; right:4px; width:10px; height:10px; background:#ffca28; border-radius:50%; border:2px solid white;"></div>`;
@@ -1622,7 +1614,7 @@ async function initApp() {
             settingsBtnEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#555"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>`;
         }
     }
-
+    
     updateSettingsBadge();
 
     settingsBtnEl.onclick = () => {
@@ -1644,7 +1636,7 @@ async function initApp() {
 
 function showLoading(msg = null) {
     let overlay = document.getElementById('loading-overlay');
-
+    
     if (overlay) {
         // HTMLに直書きされている不要な「処理中」テキストなどを完全に消去する
         Array.from(overlay.childNodes).forEach(node => {
@@ -1660,9 +1652,9 @@ function showLoading(msg = null) {
         overlay.className = 'hidden';
         document.body.appendChild(overlay);
     }
-
+    
     overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(3px);';
-
+    
     let textEl = document.getElementById('loading-text');
     if (!textEl) {
         textEl = document.createElement('div');
@@ -1670,14 +1662,14 @@ function showLoading(msg = null) {
         textEl.style.cssText = 'color:#6c8ca3; font-weight:bold; margin-top:16px; font-size:1.1rem; letter-spacing:2px; font-family:"Zen Kaku Gothic New", sans-serif;';
         overlay.appendChild(textEl);
     }
-
+    
     if (msg) {
         textEl.textContent = msg;
         textEl.style.display = 'block';
     } else {
         textEl.style.display = 'none';
     }
-
+    
     overlay.classList.remove('hidden');
     overlay.style.display = 'flex';
 }
@@ -1731,9 +1723,12 @@ function updateSaveProgress(current, total, label = null) {
 
 function hideSaveProgress() {
     const toast = document.getElementById('save-progress-toast');
-    if (toast) {
-        toast.style.bottom = '-100px';
-    }
+    if (toast) toast.style.bottom = '-100px';
+    // 保存完了後にinput・追加ボタンを再有効化
+    const photoInput = document.getElementById('input-photos');
+    if (photoInput) photoInput.disabled = false;
+    const addBtnLabel = document.getElementById('add-photo-btn');
+    if (addBtnLabel) addBtnLabel.style.pointerEvents = '';
 }
 
 function openPanel() {
@@ -1771,7 +1766,7 @@ function cleanupEmptyDate() {
         const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
         if (!data) return;
         let photoCount = 0;
-        try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch (e) { }
+        try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
         if (data.date && photoCount === 0) {
             data.date = "";
             const payload = { action: "save_memory", prefecture: selectedPref, date: "", photos: [], entry_id: data.id || undefined };
@@ -1827,7 +1822,7 @@ async function addNewEntry() {
             dateEditingMode = true; // 日付入力モードで開く
             renderRightPanel();
         }
-    } catch (e) {
+    } catch(e) {
         console.error('addNewEntry error', e);
     } finally {
         hideLoading();
@@ -1864,7 +1859,7 @@ function closeSettings() {
     const adContainer = document.getElementById('ad-container');
     if (adContainer) adContainer.style.display = 'flex';
     updateUIVisibility();
-    if (window.updateSettingsBadge) window.updateSettingsBadge();
+    if(window.updateSettingsBadge) window.updateSettingsBadge();
 }
 
 function renderSettingsMenu() {
@@ -1879,11 +1874,11 @@ function renderSettingsMenu() {
             <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0;">✕</button>
         </div>
     </div>`;
-
+    
     const unreadCount = getUnreadCount();
     const badgeHtml = unreadCount > 0 ? `<div style="position:absolute; top:12px; right:12px; width:12px; height:12px; background:#ffca28; border:2px solid #6c8ca3; border-radius:50%;"></div>` : '';
     const mailSvg = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
-
+    
     const btnS = `text-align:center; padding:20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.2rem; color:#444; cursor:pointer; font-weight:bold; font-family:inherit; transition:background 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);`;
     let contentHtml = `
     <div class="panel-content" style="position: relative;">
@@ -1913,7 +1908,7 @@ function renderSettingsMenu() {
             ${badgeHtml}
         </button>
     </div>`;
-
+    
     panel.innerHTML = headerHtml + contentHtml;
 }
 
@@ -1963,7 +1958,7 @@ function renderAdminMessages() {
     });
 
     contentHtml += `</div></div>`;
-
+    
     // スクロールしても固定されるお知らせ（戻る）ボタン
     const mailSvg = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
     const unreadCount = getUnreadCount();
@@ -1976,12 +1971,12 @@ function renderAdminMessages() {
             ${badgeHtml}
         </button>
     `;
-
+    
     panel.innerHTML = headerHtml + contentHtml + floatingBtnHtml;
-    if (window.updateSettingsBadge) window.updateSettingsBadge();
+    if(window.updateSettingsBadge) window.updateSettingsBadge();
 }
 
-window.toggleMessageDetail = function (id) {
+window.toggleMessageDetail = function(id) {
     const detailEl = document.getElementById(`msg-detail-${id}`);
     if (detailEl) {
         if (detailEl.style.display === 'none') {
@@ -1993,7 +1988,7 @@ window.toggleMessageDetail = function (id) {
             }
             detailEl.parentElement.querySelector('div:nth-child(2)').style.fontWeight = 'normal';
             detailEl.parentElement.querySelector('div:nth-child(2)').style.color = '#666';
-            if (window.updateSettingsBadge) window.updateSettingsBadge();
+            if(window.updateSettingsBadge) window.updateSettingsBadge();
         } else {
             detailEl.style.display = 'none';
         }
@@ -2024,7 +2019,7 @@ async function deleteAccount() {
             const d = await res.json().catch(() => ({}));
             alert("削除に失敗しました: " + (d.error || '不明なエラー'));
         }
-    } catch (e) {
+    } catch(e) {
         alert("エラーが発生しました");
     } finally {
         hideLoading();
@@ -2034,7 +2029,7 @@ async function deleteAccount() {
 async function deleteAllData() {
     if (confirm("すべてのデータを削除してもよろしいでしょうか。\nこの操作は取り消せません。")) {
         showLoading('削除中...');
-
+        
         homePrefectures = [];
         memoriesData = [];
         selectedPref = null;
@@ -2053,10 +2048,10 @@ async function deleteAllData() {
             tx.objectStore(IDB_STORE).clear();
 
             await apiFetch({ method: 'POST', body: JSON.stringify({ action: "delete_all" }) });
-
+            
             hideLoading();
             setTimeout(() => alert("すべてのデータを完全に削除しました。"), 100);
-        } catch (e) {
+        } catch(e) {
             console.error("全削除エラー", e);
             hideLoading();
             alert("通信エラーが発生しました。");
@@ -2219,7 +2214,7 @@ async function doChangePassword() {
                 setTimeout(() => renderAccountSettings(), 1500);
             }
         }
-    } catch (e) {
+    } catch(e) {
         errorEl.textContent = 'エラーが発生しました';
         if (btn) { btn.disabled = false; btn.textContent = '変更する'; }
     } finally {
@@ -2286,38 +2281,38 @@ function renderShareSettings() {
     </div>`;
 }
 
-window.generateShareLink = function () {
+window.generateShareLink = function() {
     const expires_in = parseInt(document.getElementById('share-expires').value);
     const show_thumb = document.getElementById('share-show-thumb').checked;
     const show_date = document.getElementById('share-show-date').checked;
-
+    
     const display = document.getElementById('share-url-display');
     const btn = document.getElementById('share-copy-btn');
     display.textContent = 'URLを生成中...';
     btn.disabled = true;
     btn.style.background = '#eee'; btn.style.color = '#aaa'; btn.style.cursor = 'not-allowed';
 
-    apiFetch({
-        method: 'POST',
-        body: JSON.stringify({
+    apiFetch({ 
+        method: 'POST', 
+        body: JSON.stringify({ 
             action: 'generate_share_link',
             expires_in: expires_in,
             show_thumb: show_thumb,
             show_date: show_date
-        })
+        }) 
     })
-        .then(res => res.json())
-        .then(data => {
-            const token = data.token;
-            const shareUrl = `${location.origin}${location.pathname}?share=${token}`;
-            window._currentShareUrl = shareUrl;
-            display.textContent = shareUrl;
-            display.style.color = '#555';
-            btn.disabled = false; btn.style.background = '#f4f7f6'; btn.style.color = '#444'; btn.style.cursor = 'pointer';
-        })
-        .catch(() => {
-            display.textContent = 'URL生成に失敗しました。再度お試しください。';
-        });
+    .then(res => res.json())
+    .then(data => {
+        const token = data.token;
+        const shareUrl = `${location.origin}${location.pathname}?share=${token}`;
+        window._currentShareUrl = shareUrl;
+        display.textContent = shareUrl; 
+        display.style.color = '#555';
+        btn.disabled = false; btn.style.background = '#f4f7f6'; btn.style.color = '#444'; btn.style.cursor = 'pointer';
+    })
+    .catch(() => {
+        display.textContent = 'URL生成に失敗しました。再度お試しください。';
+    });
 }
 
 function generateShareImage() {
@@ -2340,137 +2335,137 @@ function generateShareImage() {
     const themeKey = currentTheme || 'default';
     const themeBgMap = {
         default: { bg: '#ffffff', unvisited: '#f0f2f4' },
-        warm: { bg: '#fff8f5', unvisited: '#f5ede8' },
-        cool: { bg: '#f5f8ff', unvisited: '#e8eef5' },
-        forest: { bg: '#f5fff5', unvisited: '#eaf3ea' },
-        mono: { bg: '#f8f8f8', unvisited: '#e8e8e8' },
+        warm:    { bg: '#fff8f5', unvisited: '#f5ede8' },
+        cool:    { bg: '#f5f8ff', unvisited: '#e8eef5' },
+        forest:  { bg: '#f5fff5', unvisited: '#eaf3ea' },
+        mono:    { bg: '#f8f8f8', unvisited: '#e8e8e8' },
     };
     const themeStyle = themeBgMap[themeKey] || themeBgMap.default;
 
     fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson', { cache: 'force-cache' })
-        .then(r => r.json())
-        .then(geoData => {
-            const W = 1080, H = 1080;
-            const canvas = document.getElementById('share-canvas');
-            canvas.width = W;
-            canvas.height = H;
-            const ctx = canvas.getContext('2d');
+    .then(r => r.json())
+    .then(geoData => {
+        const W = 1080, H = 1080;
+        const canvas = document.getElementById('share-canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
 
-            ctx.fillStyle = themeStyle.bg;
-            ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = themeStyle.bg;
+        ctx.fillRect(0, 0, W, H);
 
-            // GeoJSONの実際の範囲を計算（本州のみ）
-            let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
-            geoData.features.forEach(f => {
-                const coords = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
-                coords.forEach(poly => poly[0].forEach(([lng, lat]) => {
-                    if (lng < 122 || lng > 146 || lat < 24 || lat > 46) return;
-                    if (lng < minLng) minLng = lng;
-                    if (lng > maxLng) maxLng = lng;
-                    if (lat < minLat) minLat = lat;
-                    if (lat > maxLat) maxLat = lat;
-                }));
-            });
-
-            const lngRange = maxLng - minLng;
-            const latRange = maxLat - minLat;
-
-            // アプリの初期表示を再現:
-            // fitBounds({ paddingTopLeft:[0,80] }) = 上に80px分狭い
-            // 縦横比を保ったまま、縦方向を基準にスケール決定
-            const drawW = W;
-            const drawH = H - 160; // 下部160px = テキストエリア
-
-            // アスペクト比を保ったまま両方向でfitするscale
-            const scaleX = drawW / lngRange;
-            const scaleY = drawH / latRange;
-            const scale = Math.min(scaleX, scaleY);
-
-            // 中央揃え → 少し左にオフセット（アプリ画面はパネル分右が詰まるため）
-            const mapRenderW = lngRange * scale;
-            const mapRenderH = latRange * scale;
-            const offsetX = (drawW - mapRenderW) / 2 - 40; // 40px左に
-            const offsetY = 40; // 上余白
-
-            function project([lng, lat]) {
-                return [
-                    offsetX + (lng - minLng) * scale,
-                    offsetY + (maxLat - lat) * scale
-                ];
-            }
-
-            function drawFeature(f) {
-                const nam = f.properties.nam_ja || f.properties.nam || '';
-                const isVisited = visitedPrefs.has(nam);
-                const fillColor = isVisited ? (colors[nam] || accentColor) : themeStyle.unvisited;
-
-                ctx.fillStyle = fillColor;
-                ctx.strokeStyle = themeStyle.bg;
-                ctx.lineWidth = 1.0;
-
-                const geoms = f.geometry.type === 'Polygon'
-                    ? [f.geometry.coordinates]
-                    : f.geometry.coordinates;
-
-                geoms.forEach(poly => {
-                    const [lng0] = poly[0][0];
-                    if (lng0 < 120 || lng0 > 148) return;
-                    ctx.beginPath();
-                    poly[0].forEach(([lng, lat], i) => {
-                        const [x, y] = project([lng, lat]);
-                        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                    });
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
-                });
-            }
-
-            geoData.features.forEach(f => {
-                const nam = f.properties.nam_ja || f.properties.nam || '';
-                if (!visitedPrefs.has(nam)) drawFeature(f);
-            });
-            geoData.features.forEach(f => {
-                const nam = f.properties.nam_ja || f.properties.nam || '';
-                if (visitedPrefs.has(nam)) drawFeature(f);
-            });
-
-            // 下部テキストエリア背景
-            const textY = H - 140;
-            ctx.fillStyle = themeStyle.bg;
-            ctx.fillRect(0, textY, W, H - textY);
-
-            // 「あしあと」左下
-            ctx.fillStyle = accentColor;
-            ctx.font = 'bold 52px sans-serif';
-            ctx.textAlign = 'left';
-            ctx.fillText('\u3042\u3057\u3042\u3068', 60, textY + 60);
-
-            // 「○/47」右下
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 52px sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText(visited + ' / 47', W - 60, textY + 60);
-
-            // URL
-            ctx.fillStyle = 'rgba(180,180,180,0.9)';
-            ctx.font = '26px sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText('ashiato.tomoi-app.com', W - 60, textY + 100);
-
-            const link = document.createElement('a');
-            link.download = 'ashiato_' + visited + '_of_47.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-
-            btn.textContent = '\u5730\u56f3\u3092\u4fdd\u5b58';
-            btn.disabled = false;
-        })
-        .catch(() => {
-            btn.textContent = '\u5730\u56f3\u3092\u4fdd\u5b58';
-            btn.disabled = false;
-            alert('\u753b\u50cf\u306e\u751f\u6210\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002\u518d\u5ea6\u304a\u8a66\u3057\u304f\u3060\u3055\u3044\u3002');
+        // GeoJSONの実際の範囲を計算（本州のみ）
+        let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+        geoData.features.forEach(f => {
+            const coords = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+            coords.forEach(poly => poly[0].forEach(([lng, lat]) => {
+                if (lng < 122 || lng > 146 || lat < 24 || lat > 46) return;
+                if (lng < minLng) minLng = lng;
+                if (lng > maxLng) maxLng = lng;
+                if (lat < minLat) minLat = lat;
+                if (lat > maxLat) maxLat = lat;
+            }));
         });
+
+        const lngRange = maxLng - minLng;
+        const latRange = maxLat - minLat;
+
+        // アプリの初期表示を再現:
+        // fitBounds({ paddingTopLeft:[0,80] }) = 上に80px分狭い
+        // 縦横比を保ったまま、縦方向を基準にスケール決定
+        const drawW = W;
+        const drawH = H - 160; // 下部160px = テキストエリア
+
+        // アスペクト比を保ったまま両方向でfitするscale
+        const scaleX = drawW / lngRange;
+        const scaleY = drawH / latRange;
+        const scale = Math.min(scaleX, scaleY);
+
+        // 中央揃え → 少し左にオフセット（アプリ画面はパネル分右が詰まるため）
+        const mapRenderW = lngRange * scale;
+        const mapRenderH = latRange * scale;
+        const offsetX = (drawW - mapRenderW) / 2 - 40; // 40px左に
+        const offsetY = 40; // 上余白
+
+        function project([lng, lat]) {
+            return [
+                offsetX + (lng - minLng) * scale,
+                offsetY + (maxLat - lat) * scale
+            ];
+        }
+
+        function drawFeature(f) {
+            const nam = f.properties.nam_ja || f.properties.nam || '';
+            const isVisited = visitedPrefs.has(nam);
+            const fillColor = isVisited ? (colors[nam] || accentColor) : themeStyle.unvisited;
+
+            ctx.fillStyle = fillColor;
+            ctx.strokeStyle = themeStyle.bg;
+            ctx.lineWidth = 1.0;
+
+            const geoms = f.geometry.type === 'Polygon'
+                ? [f.geometry.coordinates]
+                : f.geometry.coordinates;
+
+            geoms.forEach(poly => {
+                const [lng0] = poly[0][0];
+                if (lng0 < 120 || lng0 > 148) return;
+                ctx.beginPath();
+                poly[0].forEach(([lng, lat], i) => {
+                    const [x, y] = project([lng, lat]);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        geoData.features.forEach(f => {
+            const nam = f.properties.nam_ja || f.properties.nam || '';
+            if (!visitedPrefs.has(nam)) drawFeature(f);
+        });
+        geoData.features.forEach(f => {
+            const nam = f.properties.nam_ja || f.properties.nam || '';
+            if (visitedPrefs.has(nam)) drawFeature(f);
+        });
+
+        // 下部テキストエリア背景
+        const textY = H - 140;
+        ctx.fillStyle = themeStyle.bg;
+        ctx.fillRect(0, textY, W, H - textY);
+
+        // 「あしあと」左下
+        ctx.fillStyle = accentColor;
+        ctx.font = 'bold 52px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('\u3042\u3057\u3042\u3068', 60, textY + 60);
+
+        // 「○/47」右下
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 52px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(visited + ' / 47', W - 60, textY + 60);
+
+        // URL
+        ctx.fillStyle = 'rgba(180,180,180,0.9)';
+        ctx.font = '26px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('ashiato.tomoi-app.com', W - 60, textY + 100);
+
+        const link = document.createElement('a');
+        link.download = 'ashiato_' + visited + '_of_47.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        btn.textContent = '\u5730\u56f3\u3092\u4fdd\u5b58';
+        btn.disabled = false;
+    })
+    .catch(() => {
+        btn.textContent = '\u5730\u56f3\u3092\u4fdd\u5b58';
+        btn.disabled = false;
+        alert('\u753b\u50cf\u306e\u751f\u6210\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002\u518d\u5ea6\u304a\u8a66\u3057\u304f\u3060\u3055\u3044\u3002');
+    });
 }
 
 function ashiatoRoundRect(ctx, x, y, w, h, r) {
@@ -2491,7 +2486,7 @@ function ashiatoRoundRect(ctx, x, y, w, h, r) {
 function copyShareUrl(url) {
     navigator.clipboard.writeText(url).then(() => {
         const msg = document.getElementById('share-copy-msg');
-        if (msg) { msg.textContent = 'コピーしました！'; setTimeout(() => { if (msg) msg.textContent = ''; }, 2000); }
+        if (msg) { msg.textContent = 'コピーしました！'; setTimeout(() => { if(msg) msg.textContent = ''; }, 2000); }
     }).catch(() => {
         const ta = document.createElement('textarea');
         ta.value = url;
@@ -2500,7 +2495,7 @@ function copyShareUrl(url) {
         document.execCommand('copy');
         document.body.removeChild(ta);
         const msg = document.getElementById('share-copy-msg');
-        if (msg) { msg.textContent = 'コピーしました！'; setTimeout(() => { if (msg) msg.textContent = ''; }, 2000); }
+        if (msg) { msg.textContent = 'コピーしました！'; setTimeout(() => { if(msg) msg.textContent = ''; }, 2000); }
     });
 }
 
@@ -2530,7 +2525,7 @@ function renderFeatureThemeSettings() {
         '<button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>' +
         '</div></div>';
 
-    const knobOn = 'position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; background:white; transition:all 0.2s;';
+    const knobOn  = 'position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; background:white; transition:all 0.2s;';
     const knobOff = 'position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:white; transition:all 0.2s;';
     const btnBase = 'display:flex; align-items:center; justify-content:space-between; padding:18px 20px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit; width:100%; box-sizing:border-box;';
 
@@ -2542,10 +2537,10 @@ function renderFeatureThemeSettings() {
             '</span></button>';
     }
 
-    const themeBtns = Object.entries(MAP_THEMES).map(function (entry) {
+    const themeBtns = Object.entries(MAP_THEMES).map(function(entry) {
         const key = entry[0]; const t = entry[1];
         const isActive = key === currentTheme;
-        const swatches = t.preview.map(function (c) {
+        const swatches = t.preview.map(function(c) {
             return '<span style="width:18px; height:18px; border-radius:3px; background:' + c + '; display:inline-block;"></span>';
         }).join('');
         return '<button onclick="applyTheme(\'' + key + '\'); renderFeatureThemeSettings();" ' +
@@ -2623,7 +2618,7 @@ function renderContactSettings() {
 
     panel.innerHTML = headerHtml + contentHtml;
 
-    document.getElementById('contact-reply').addEventListener('click', function () {
+    document.getElementById('contact-reply').addEventListener('click', function() {
         document.getElementById('contact-email-wrap').style.display = this.checked ? 'block' : 'none';
         if (this.checked) {
             const emailEl = document.getElementById('contact-email');
@@ -2655,11 +2650,11 @@ function updateContactBtn() {
 }
 
 async function submitContact() {
-    const name = (document.getElementById('contact-name')?.value || '').trim();
-    const body = (document.getElementById('contact-body')?.value || '').trim();
+    const name    = (document.getElementById('contact-name')?.value || '').trim();
+    const body    = (document.getElementById('contact-body')?.value || '').trim();
     const wantReply = document.getElementById('contact-reply')?.checked;
-    const email = (document.getElementById('contact-email')?.value || '').trim();
-    const errorEl = document.getElementById('contact-error');
+    const email   = (document.getElementById('contact-email')?.value || '').trim();
+    const errorEl   = document.getElementById('contact-error');
     const successEl = document.getElementById('contact-success');
     const btn = document.querySelector('#settings-panel button[onclick="submitContact()"]');
 
@@ -2706,7 +2701,7 @@ async function submitContact() {
             const d = await res.json().catch(() => ({}));
             errorEl.textContent = d.error || '送信に失敗しました。もう一度お試しください。';
         }
-    } catch (e) {
+    } catch(e) {
         errorEl.textContent = '通信エラーが発生しました';
     } finally {
         hideLoading();
@@ -2740,7 +2735,7 @@ function renderHomeSettings() {
             <div id="home-list" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
     </div>`;
-
+    
     panel.innerHTML = headerHtml + contentHtml;
     renderHomeList();
 }
@@ -2779,7 +2774,7 @@ function renderHomeList() {
         list.innerHTML = `<span style="color:#aaa; font-size:14px;">登録されていません</span>`;
         return;
     }
-
+    
     const prefOrder = Object.keys(MAP_THEMES.default.colors);
     const sortedHomes = [...homePrefectures].sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
 
@@ -2837,11 +2832,11 @@ async function exportData() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `ashiato_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `ashiato_backup_${new Date().toISOString().slice(0,10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
         alert("エクスポートが完了しました。");
-    } catch (e) {
+    } catch(e) {
         console.error(e);
         alert("エクスポートに失敗しました。");
     } finally {
@@ -2852,19 +2847,19 @@ async function exportData() {
 async function importData(event) {
     const file = event.target.files[0];
     if (!file) return;
-
+    
     if (!confirm("データをインポートします。現在のデータに上書き・追加されますがよろしいですか？")) {
         event.target.value = '';
         return;
     }
-
+    
     showLoading('インポート中...');
     try {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
                 const data = JSON.parse(e.target.result);
-
+                
                 if (data.photos && data.photos.length > 0) {
                     const db = await initDB();
                     const tx = db.transaction(IDB_STORE, 'readwrite');
@@ -2874,7 +2869,7 @@ async function importData(event) {
                         tx.onerror = rej;
                     });
                 }
-
+                
                 if (data.memories && data.memories.length > 0) {
                     for (const m of data.memories) {
                         const payload = {
@@ -2889,11 +2884,11 @@ async function importData(event) {
                             homePrefectures.push(m.prefecture);
                         }
                     }
-                    if (homePrefectures.length > 0) {
+                    if(homePrefectures.length > 0){
                         await apiFetch({ method: 'POST', body: JSON.stringify({ action: "save_home", home_prefectures: homePrefectures }) });
                     }
                 }
-
+                
                 await fetchMemories(false);
                 renderRightPanel();
                 alert("インポートが完了しました。");
@@ -2982,13 +2977,13 @@ function formatDate(dateStr) {
 // =============================================
 const REGION_BADGES = [
     { name: '北海道', prefs: ['北海道'] },
-    { name: '東北', prefs: ['青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県'] },
-    { name: '関東', prefs: ['茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県'] },
-    { name: '中部', prefs: ['新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県'] },
-    { name: '近畿', prefs: ['三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県'] },
-    { name: '中国', prefs: ['鳥取県', '島根県', '岡山県', '広島県', '山口県'] },
-    { name: '四国', prefs: ['徳島県', '香川県', '愛媛県', '高知県'] },
-    { name: '九州', prefs: ['福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県'] },
+    { name: '東北', prefs: ['青森県','岩手県','宮城県','秋田県','山形県','福島県'] },
+    { name: '関東', prefs: ['茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県'] },
+    { name: '中部', prefs: ['新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県'] },
+    { name: '近畿', prefs: ['三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県'] },
+    { name: '中国', prefs: ['鳥取県','島根県','岡山県','広島県','山口県'] },
+    { name: '四国', prefs: ['徳島県','香川県','愛媛県','高知県'] },
+    { name: '九州', prefs: ['福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県'] },
     { name: '沖縄', prefs: ['沖縄県'] },
 ];
 
@@ -3083,7 +3078,7 @@ function renderRightPanel() {
                 prefGroups[m.prefecture].push(m);
             });
             const sortedPrefs = Object.keys(prefGroups).sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
-
+            
             sortedPrefs.forEach(pref => {
                 const entries = prefGroups[pref];
                 const color = getCurrentColors()[pref] || '#aaa';
@@ -3105,10 +3100,10 @@ function renderRightPanel() {
         }
         contentHtml += `</div>`;
         panel.innerHTML = headerHtml + contentHtml;
-
+        
     } else {
         const color = getCurrentColors()[selectedPref] || '#6c8ca3';
-
+        
         let headerHtml = `
         <div class="panel-header" style="border-bottom: 3px solid ${color}; padding-bottom: 15px;">
             <div class="panel-header-title-row">
@@ -3148,7 +3143,7 @@ function renderRightPanel() {
 
         const data = allEntries.find(m => String(m.id) === String(selectedEntryId)) || { date: '', photo_urls: '[]', memo: '' };
         let photos = [];
-        try { photos = JSON.parse(data.photo_urls); } catch (e) { }
+        try { photos = JSON.parse(data.photo_urls); } catch(e){}
         const hasWarning = photos.length > 0 && !data.date;
         // 写真・日付が両方揃っている場合のみ→ボタンを表示
         const canAddEntry = photos.length > 0 && !!data.date;
@@ -3172,7 +3167,7 @@ function renderRightPanel() {
             }).join('');
             contentHtml += `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; padding:10px 12px; background:#f8f9fa; border-radius:10px;">${navItems}</div>`;
         }
-
+            
         if (!isShareMode) {
             if (hasWarning) {
                 contentHtml += `<div class="warning-banner" style="margin-bottom: 15px;">${!data.date ? '日付を登録してください' : '写真を追加してください'}</div>`;
@@ -3323,7 +3318,7 @@ function renderRightPanel() {
                 <img border="0" width="1" height="1" src="https://www10.a8.net/0.gif?a8mat=4AZAW2+DK7GTU+4XZI+5YJRM" alt="">
             </div>`;
         }
-
+        
         if (!isShareMode) {
             contentHtml += `
             <label id="add-photo-btn" for="input-photos" class="add-photo-fab" 
@@ -3388,7 +3383,7 @@ function renderRightPanel() {
                 const memoInput = document.getElementById('input-memo');
                 if (memoInput) memoInput.addEventListener('input', triggerAutoSave);
             }
-        }
+        } 
     }
 }
 
@@ -3454,22 +3449,27 @@ function triggerAutoSave() {
     const statusEl = document.getElementById('autosave-status');
     if (statusEl) statusEl.innerText = '保存準備中...';
     clearTimeout(autoSaveTimer);
-
+    
     const photoInputEl = document.getElementById('input-photos');
     const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
-
+    
     const targetPref = selectedPref;
     const targetEntryId = selectedEntryId; // この時点のIDをキャプチャ
     const fromEl = document.getElementById('input-date-from');
     const toEl = document.getElementById('input-date-to');
     const memoValue = document.getElementById('input-memo')?.value || '';
-
+    
     let fromVal = fromEl ? toSlashDate(fromEl.value) : undefined;
     let toVal = toEl ? toSlashDate(toEl.value) : undefined;
 
     if (files.length > 0) {
-        // ── ① 即座にinputをクリアしてパネルを閉じる（UIブロック解除）──
-        if (photoInputEl) photoInputEl.value = '';
+        // ── ① 即座にinputをクリア＆無効化して二重送信を防ぐ ──
+        if (photoInputEl) {
+            photoInputEl.value = '';
+            photoInputEl.disabled = true;
+        }
+        const addBtnLabel = document.getElementById('add-photo-btn');
+        if (addBtnLabel) addBtnLabel.style.pointerEvents = 'none';
         showSaveProgress(files.length, "準備中...");
 
         // ② パネルを閉じて地図に戻す（ユーザーが操作できる状態に）
@@ -3490,8 +3490,8 @@ function triggerAutoSave() {
         ).catch(e => console.error(e));
         requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(startBg, 350)));
     } else {
-        autoSaveTimer = setTimeout(() => {
-            globalSaveQueue = globalSaveQueue.then(() =>
+        autoSaveTimer = setTimeout(() => { 
+            globalSaveQueue = globalSaveQueue.then(() => 
                 performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, files)
             ).catch(e => console.error(e));
         }, 800);
@@ -3504,7 +3504,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
     const existingData = (targetEntryId
         ? memoriesData.find(m => String(m.id) === String(targetEntryId))
         : memoriesData.find(m => m.prefecture === targetPref)) || { prefecture: targetPref };
-
+    
     let dateValue;
     if (fromVal !== undefined) {
         dateValue = fromVal && toVal ? `${fromVal}~${toVal}` : fromVal || toVal || '';
@@ -3522,7 +3522,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
     try {
         let existingUrls = [];
         if (existingData.photo_urls) {
-            try { existingUrls = JSON.parse(existingData.photo_urls); } catch (e) { }
+            try { existingUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
         let newUrls = [];
@@ -3579,7 +3579,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             memo: memoValue,
             entry_id: targetEntryId || undefined
         };
-
+        
         if (isGuestMode) {
             // ゲストモード: localStorageに保存
             const idx = memoriesData.findIndex(m =>
@@ -3596,63 +3596,63 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             updateMapColors();
             updateCounter();
         } else {
-            // リトライ付きAPI保存（最大3回）
-            let res, lastErr;
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                try {
-                    if (attempt > 1) {
-                        updateSaveProgress(files.length, files.length, `再試行中 (${attempt}/3)...`);
-                        await new Promise(r => setTimeout(r, 800 * attempt));
-                    }
-                    res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
-                    if (res.ok) break; // 成功
-                    lastErr = await res.json().catch(() => ({}));
-                } catch (fetchErr) {
-                    lastErr = fetchErr;
-                    if (attempt === 3) throw fetchErr;
+        // リトライ付きAPI保存（最大3回）
+        let res, lastErr;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                if (attempt > 1) {
+                    updateSaveProgress(files.length, files.length, `再試行中 (${attempt}/3)...`);
+                    await new Promise(r => setTimeout(r, 800 * attempt));
                 }
+                res = await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
+                if (res.ok) break; // 成功
+                lastErr = await res.json().catch(() => ({}));
+            } catch (fetchErr) {
+                lastErr = fetchErr;
+                if (attempt === 3) throw fetchErr;
+            }
+        }
+
+        if (res && res.ok) {
+            await fetchMemories(false);
+            
+            // 写真追加後はmemoiesDataが更新されたのでパネルを再描画する
+            // （一覧への反映・→ボタン・canAddEntry等の再計算に必要）
+            if (isHeavyTask && selectedPref === targetPref) {
+                renderRightPanel();
             }
 
-            if (res && res.ok) {
-                await fetchMemories(false);
+            updateMapColors();
+            updateCounter();
 
-                // 写真追加後はmemoiesDataが更新されたのでパネルを再描画する
-                // （一覧への反映・→ボタン・canAddEntry等の再計算に必要）
-                if (isHeavyTask && selectedPref === targetPref) {
-                    renderRightPanel();
-                }
-
-                updateMapColors();
-                updateCounter();
-
-                if (statusEl && selectedPref === targetPref) {
-                    statusEl.innerText = '保存完了';
-                    setTimeout(() => {
-                        const el = document.getElementById('autosave-status');
-                        if (el) el.innerText = '';
-                    }, 2000);
-                }
-
-                if (isHeavyTask) {
-                    const doneCount = newUrls.length;
-                    const skipCount = files.length - doneCount;
-                    const doneMsg = skipCount > 0
-                        ? `${doneCount}枚保存完了（${skipCount}枚スキップ）`
-                        : `${doneCount}枚保存完了！`;
-                    updateSaveProgress(files.length, files.length, doneMsg);
-                    setTimeout(() => { hideSaveProgress(); }, 2500);
-                }
-            } else {
-                const errMsg = (lastErr && lastErr.error) || '保存に失敗しました';
-                if (statusEl && selectedPref === targetPref) statusEl.innerText = `⚠ ${errMsg}`;
-                if (isHeavyTask) {
-                    updateSaveProgress(files.length, files.length, `⚠ ${errMsg}`);
-                    setTimeout(() => { hideSaveProgress(); }, 4000);
-                }
+            if (statusEl && selectedPref === targetPref) {
+                statusEl.innerText = '保存完了';
+                setTimeout(() => { 
+                    const el = document.getElementById('autosave-status');
+                    if (el) el.innerText = ''; 
+                }, 2000);
             }
+            
+            if (isHeavyTask) {
+                const doneCount = newUrls.length;
+                const skipCount = files.length - doneCount;
+                const doneMsg = skipCount > 0
+                    ? `${doneCount}枚保存完了（${skipCount}枚スキップ）`
+                    : `${doneCount}枚保存完了！`;
+                updateSaveProgress(files.length, files.length, doneMsg);
+                setTimeout(() => { hideSaveProgress(); }, 2500);
+            }
+        } else {
+            const errMsg = (lastErr && lastErr.error) || '保存に失敗しました';
+            if (statusEl && selectedPref === targetPref) statusEl.innerText = `⚠ ${errMsg}`;
+            if (isHeavyTask) {
+                updateSaveProgress(files.length, files.length, `⚠ ${errMsg}`);
+                setTimeout(() => { hideSaveProgress(); }, 4000);
+            }
+        }
         } // end isGuestMode else
-    } catch (e) {
-        console.error("Save Error", e);
+    } catch(e) { 
+        console.error("Save Error", e); 
         if (statusEl && selectedPref === targetPref) {
             statusEl.style.color = '#d32f2f';
             statusEl.innerText = '⚠ 保存に失敗しました。';
@@ -3760,9 +3760,9 @@ function openSliderAt(urlOrId, photos) {
                 img.style.transform = `translateX(${dx}px)`;
                 img.style.opacity = `${1 - Math.abs(dx) / 400}`;
             } else if (swipeDir === 'vertical' && dy > 0) {
-                img.style.transform = `translateY(${dy}px) scale(${1 - dy / 800})`;
-                img.style.opacity = `${1 - dy / 300}`;
-                modal.style.background = `rgba(0,0,0,${0.9 - dy / 400})`;
+                img.style.transform = `translateY(${dy}px) scale(${1 - dy/800})`;
+                img.style.opacity = `${1 - dy/300}`;
+                modal.style.background = `rgba(0,0,0,${0.9 - dy/400})`;
             }
         }, { passive: true });
 
@@ -3872,7 +3872,7 @@ function showInstallSlides() {
 
         const dots = document.createElement('div');
         dots.style.cssText = 'position:absolute; bottom:100px; display:flex; gap:8px;';
-        [0, 1, 2].forEach(i => {
+        [0,1,2].forEach(i => {
             const d = document.createElement('span');
             d.style.cssText = 'width:8px; height:8px; border-radius:50%; background:' + (i === slide.index ? '#6c8ca3' : '#ddd') + ';';
             dots.appendChild(d);
@@ -3881,25 +3881,23 @@ function showInstallSlides() {
     }
 
     function slide1() {
-        renderSlide({
-            index: 0, html:
-                '<h1 style="font-size:1.8rem; color:#333; margin:0; letter-spacing:2px;">あしあとへようこそ</h1>' +
-                '<p style="color:#888; font-size:0.95rem; line-height:1.8; margin:0;">日本地図に旅の思い出を記録して<br>あなただけの あしあと を残しましょう。</p>' +
-                '<button onclick="installSlide2()" style="margin-top:16px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
+        renderSlide({ index: 0, html:
+            '<h1 style="font-size:1.8rem; color:#333; margin:0; letter-spacing:2px;">あしあとへようこそ</h1>' +
+            '<p style="color:#888; font-size:0.95rem; line-height:1.8; margin:0;">日本地図に旅の思い出を記録して<br>あなただけの あしあと を残しましょう。</p>' +
+            '<button onclick="installSlide2()" style="margin-top:16px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
         });
         window.installSlide2 = slide2;
     }
 
     function slide2() {
-        renderSlide({
-            index: 1, html:
-                '<h2 style="font-size:1.4rem; color:#333; margin:0;">アプリとして使おう</h2>' +
-                '<p style="color:#888; font-size:0.9rem; line-height:1.8; margin:0;">ホーム画面に追加するとアプリのように使えます</p>' +
-                '<div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">' +
-                '<button onclick="installSlide3ios()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">iPhone / iPad</button>' +
-                '<button onclick="installSlide3android()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">Android</button>' +
-                '</div>' +
-                '<button onclick="installSlide4()" style="margin-top:4px; background:none; border:none; color:#aaa; font-size:0.88rem; cursor:pointer; font-family:inherit;">スキップ</button>'
+        renderSlide({ index: 1, html:
+            '<h2 style="font-size:1.4rem; color:#333; margin:0;">アプリとして使おう</h2>' +
+            '<p style="color:#888; font-size:0.9rem; line-height:1.8; margin:0;">ホーム画面に追加するとアプリのように使えます</p>' +
+            '<div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">' +
+            '<button onclick="installSlide3ios()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">iPhone / iPad</button>' +
+            '<button onclick="installSlide3android()" style="padding:18px; background:#f4f7f6; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; color:#444; cursor:pointer; font-family:inherit;">Android</button>' +
+            '</div>' +
+            '<button onclick="installSlide4()" style="margin-top:4px; background:none; border:none; color:#aaa; font-size:0.88rem; cursor:pointer; font-family:inherit;">スキップ</button>'
         });
         window.installSlide3ios = slide3ios;
         window.installSlide3android = slide3android;
@@ -3907,30 +3905,28 @@ function showInstallSlides() {
     }
 
     function slide3ios() {
-        renderSlide({
-            index: 2, html:
-                '<h2 style="font-size:1.3rem; color:#333; margin:0;">iPhoneの場合</h2>' +
-                '<div style="width:100%; background:#f4f7f6; border-radius:14px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:14px;">' +
-                '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">1</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">Safariでこのページを開く</span></div>' +
-                '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">2</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">下部の（・・・）ボタンをタップ</span></div>' +
-                '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">3</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「共有」をタップ</span></div>' +
-                '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">4</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「ホーム画面に追加」をタップ</span></div>' +
-                '</div>' +
-                '<button onclick="installSlide4()" style="margin-top:8px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
+        renderSlide({ index: 2, html:
+            '<h2 style="font-size:1.3rem; color:#333; margin:0;">iPhoneの場合</h2>' +
+            '<div style="width:100%; background:#f4f7f6; border-radius:14px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:14px;">' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">1</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">Safariでこのページを開く</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">2</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">下部の（・・・）ボタンをタップ</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">3</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「共有」をタップ</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">4</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「ホーム画面に追加」をタップ</span></div>' +
+            '</div>' +
+            '<button onclick="installSlide4()" style="margin-top:8px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
         });
         window.installSlide4 = slide4;
     }
 
     function slide3android() {
-        renderSlide({
-            index: 2, html:
-                '<h2 style="font-size:1.3rem; color:#333; margin:0;">Androidの場合</h2>' +
-                '<div style="width:100%; background:#f4f7f6; border-radius:14px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:14px;">' +
-                '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">1</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">Chromeでこのページを開く</span></div>' +
-                '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">2</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">右上のメニュー（⋮）をタップ</span></div>' +
-                '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">3</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「ホーム画面に追加」を選択</span></div>' +
-                '</div>' +
-                '<button onclick="installSlide4()" style="margin-top:8px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
+        renderSlide({ index: 2, html:
+            '<h2 style="font-size:1.3rem; color:#333; margin:0;">Androidの場合</h2>' +
+            '<div style="width:100%; background:#f4f7f6; border-radius:14px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:14px;">' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">1</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">Chromeでこのページを開く</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">2</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">右上のメニュー（⋮）をタップ</span></div>' +
+            '<div style="display:flex; align-items:flex-start; gap:12px;"><span style="background:#6c8ca3; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-size:0.9rem;">3</span><span style="color:#555; font-size:0.92rem; line-height:1.6;">「ホーム画面に追加」を選択</span></div>' +
+            '</div>' +
+            '<button onclick="installSlide4()" style="margin-top:8px; padding:16px 48px; background:#6c8ca3; color:white; border:none; border-radius:12px; font-size:1.1rem; font-weight:bold; font-family:inherit; cursor:pointer;">次へ</button>'
         });
         window.installSlide4 = slide4;
     }
@@ -4003,7 +3999,7 @@ function showTutorialStep() {
 
     if (tutorialStep >= TUTORIAL_STEPS.length) {
         localStorage.setItem('tutorialDone', '1');
-        showUpdatePopup();
+        showUpdatePopup(); 
         return;
     }
 
@@ -4026,7 +4022,7 @@ function showTutorialStep() {
         const rect = targetEl.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
-        const r = Math.max(rect.width, rect.height) * 0.8 + 20;
+        const r  = Math.max(rect.width, rect.height) * 0.8 + 20;
 
         const svgNS = 'http://www.w3.org/2000/svg';
         const svg = document.createElementNS(svgNS, 'svg');
@@ -4045,7 +4041,7 @@ function showTutorialStep() {
 
         const bubbleW = 300;
         const bubbleH = 150;
-        const margin = 20;
+        const margin  = 20;
         let bx, by, arrowDir;
 
         bx = 28;
@@ -4096,7 +4092,7 @@ function skipTutorial() {
     const el = document.getElementById('tutorial-overlay');
     if (el) el.remove();
     localStorage.setItem('tutorialDone', '1');
-    showUpdatePopup();
+    showUpdatePopup(); 
 }
 
 function checkAndStartTutorial() {
