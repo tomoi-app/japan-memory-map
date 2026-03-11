@@ -3397,7 +3397,7 @@ function compressImageDual(file) {
             img.onload = () => {
                 const canvasHigh = document.createElement('canvas');
                 let w = img.width, h = img.height;
-                const MAX_SIZE = 3000;
+                const MAX_SIZE = 1500; // iOSメモリ対策（3000→1500、画質劣化は目視でほぼ不明）
                 if (w > MAX_SIZE || h > MAX_SIZE) {
                     if (w > h) {
                         h = h * (MAX_SIZE / w); w = MAX_SIZE;
@@ -3463,6 +3463,13 @@ function triggerAutoSave() {
     let toVal = toEl ? toSlashDate(toEl.value) : undefined;
 
     if (files.length > 0) {
+        // ── 枚数チェック（iOSメモリ対策：1回20枚まで）──
+        const MAX_PHOTOS_PER_BATCH = 20;
+        if (files.length > MAX_PHOTOS_PER_BATCH) {
+            if (photoInputEl) photoInputEl.value = '';
+            alert(`一度に追加できる写真は${MAX_PHOTOS_PER_BATCH}枚までです。\n（${files.length}枚選択されています）\n複数回に分けて追加してください。`);
+            return;
+        }
         // ── ① 即座にinputをクリア＆無効化して二重送信を防ぐ ──
         if (photoInputEl) {
             photoInputEl.value = '';
@@ -3516,25 +3523,106 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             try { existingUrls = JSON.parse(existingData.photo_urls); } catch(e){}
         }
 
-        let newUrls = [];
+        let totalSaved = 0; // 保存完了枚数
         if (isHeavyTask) {
             updateSaveProgress(0, files.length, "圧縮中...");
+            const CHUNK = 10; // 10枚ごとにAPI保存してメモリを解放
+
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const { highResData, thumbData } = await compressImageDual(file);
-                const photoId = crypto.randomUUID();
-                
-                await savePhotoToIDB(photoId, highResData);
-                newUrls.push({ id: photoId, thumb: thumbData });
-                
-                updateSaveProgress(i + 1, files.length, "保存中...");
-                
-                await new Promise(r => setTimeout(r, 40)); 
+
+                // 1フレーム譲ってUIを生かす
+                await new Promise(r => requestAnimationFrame(r));
+
+                let thumbData, photoId;
+                try {
+                    const { highResData, thumbData: td } = await compressImageDual(file);
+                    thumbData = td;
+                    photoId = crypto.randomUUID();
+                    await savePhotoToIDB(photoId, highResData);
+                    // highResDataはここでスコープを抜けてGC対象になる
+                } catch (e) {
+                    console.warn(`${i+1}枚目スキップ:`, e);
+                    updateSaveProgress(i + 1, files.length, `${i+1}枚目スキップ`);
+                    continue;
+                }
+
+                // chunkBufに溜める（thumbDataのみ、小さい）
+                if (!performQueuedSave._chunkBuf) performQueuedSave._chunkBuf = [];
+                performQueuedSave._chunkBuf.push({ id: photoId, thumb: thumbData });
+                thumbData = null; // 即解放
+
+                updateSaveProgress(i + 1, files.length, `${i+1} / ${files.length} 枚処理中...`);
+
+                const isLast = i === files.length - 1;
+                const isChunkEnd = performQueuedSave._chunkBuf.length >= CHUNK;
+
+                if (isChunkEnd || isLast) {
+                    const chunk = performQueuedSave._chunkBuf;
+                    performQueuedSave._chunkBuf = []; // 先にリセットして解放
+                    updateSaveProgress(i + 1, files.length, `クラウド同期中 (${i+1}/${files.length})...`);
+
+                    if (!isGuestMode) {
+                        const chunkPayload = {
+                            action: "append_urls",
+                            prefecture: targetPref,
+                            date: dateValue,
+                            new_urls: chunk,
+                            memo: memoValue,
+                            entry_id: targetEntryId || undefined
+                        };
+                        try {
+                            const r = await apiFetch({ method: 'POST', body: JSON.stringify(chunkPayload) });
+                            if (r.ok) {
+                                const saved = await r.json().catch(() => []);
+                                // 初回INSERTで返ってきたIDを以降の中間保存に使う
+                                if (!targetEntryId) {
+                                    const row = Array.isArray(saved) ? saved[0] : saved;
+                                    if (row?.id) targetEntryId = row.id;
+                                }
+                                totalSaved += chunk.length;
+                            } else {
+                                console.warn('chunk API失敗:', i+1);
+                            }
+                        } catch (apiErr) {
+                            console.warn('chunk API error:', apiErr);
+                        }
+                    } else {
+                        // ゲストモード: localStorageに逐次追記
+                        const idx = memoriesData.findIndex(m =>
+                            targetEntryId ? String(m.id) === String(targetEntryId) : m.prefecture === targetPref && !m.is_home
+                        );
+                        if (idx >= 0) {
+                            let urls = [];
+                            try { urls = JSON.parse(memoriesData[idx].photo_urls || '[]'); } catch(e){}
+                            memoriesData[idx].photo_urls = JSON.stringify([...urls, ...chunk]);
+                        } else {
+                            const now = new Date().toISOString();
+                            const newId = 'guest_' + now;
+                            memoriesData.push({ id: newId, prefecture: targetPref, date: dateValue, memo: memoValue, photo_urls: JSON.stringify(chunk), is_home: false });
+                            targetEntryId = newId;
+                        }
+                        localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
+                        totalSaved += chunk.length;
+                    }
+                }
             }
-            updateSaveProgress(files.length, files.length, "クラウド同期中...");
+            performQueuedSave._chunkBuf = null;
         }
 
-        const allUrls = [...existingUrls, ...newUrls];
+        // 最新データをフェッチしてUIを更新
+        if (isHeavyTask) {
+            await fetchMemories(false);
+            updateMapColors();
+            updateCounter();
+            const doneMsg = `${totalSaved}枚保存完了！`;
+            updateSaveProgress(files.length, files.length, doneMsg);
+            setTimeout(() => { hideSaveProgress(); }, 2500);
+            return; // 以降の共通パス不要
+        }
+
+        // 写真なし（日付・メモのみ）の場合の共通パス
+        const allUrls = [...existingUrls];
 
         if (selectedPref === targetPref) {
             existingData.photo_urls = JSON.stringify(allUrls);
@@ -3544,15 +3632,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             renderRightPanel();
         }
 
-        // 写真追加時は新規分だけ送る（existing_urlsを送るとメモリ爆発するため）
-        const payload = isHeavyTask ? {
-            action: "append_urls",
-            prefecture: targetPref,
-            date: dateValue,
-            new_urls: newUrls,
-            memo: memoValue,
-            entry_id: targetEntryId || undefined
-        } : {
+        const payload = {
             action: "save_memory",
             prefecture: targetPref,
             date: dateValue,
