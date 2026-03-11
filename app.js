@@ -3473,15 +3473,7 @@ function triggerAutoSave() {
         showSaveProgress(files.length, "準備中...");
 
         // ② パネルを閉じて地図に戻す（ユーザーが操作できる状態に）
-        if (panelOpen) {
-            panelOpen = false;
-            selectedPref = null;
-            selectedEntryId = null;
-            document.getElementById('right-panel').classList.remove('open');
-            const adContainer = document.getElementById('ad-container');
-            if (adContainer) adContainer.style.display = 'flex';
-            updateUIVisibility();
-        }
+        if (panelOpen) closePanel();
 
         // ③ 数フレーム待ってからバックグラウンド処理開始
         // （パネルのスライドアニメーションが完全に終わってから処理を始める）
