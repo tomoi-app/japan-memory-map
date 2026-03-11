@@ -3388,22 +3388,21 @@ function renderRightPanel() {
 }
 
 function compressImageDual(file) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
+        reader.onerror = () => reject(new Error('FileReader失敗'));
         reader.onload = (e) => {
             const img = new Image();
+            img.onerror = () => reject(new Error('Image読み込み失敗'));
             img.src = e.target.result;
             img.onload = () => {
                 const canvasHigh = document.createElement('canvas');
                 let w = img.width, h = img.height;
                 const MAX_SIZE = 3000;
                 if (w > MAX_SIZE || h > MAX_SIZE) {
-                    if (w > h) {
-                        h = h * (MAX_SIZE / w); w = MAX_SIZE;
-                    } else {
-                        w = w * (MAX_SIZE / h); h = MAX_SIZE;
-                    }
+                    if (w > h) { h = h * (MAX_SIZE / w); w = MAX_SIZE; }
+                    else       { w = w * (MAX_SIZE / h); h = MAX_SIZE; }
                 }
                 canvasHigh.width = w; canvasHigh.height = h;
                 canvasHigh.getContext('2d').drawImage(img, 0, 0, w, h);
@@ -3415,6 +3414,11 @@ function compressImageDual(file) {
                 canvasThumb.width = tw; canvasThumb.height = th;
                 canvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
                 const thumbData = canvasThumb.toDataURL('image/jpeg', 0.4);
+
+                // メモリ解放: canvasを0サイズにしてGCを促す
+                canvasHigh.width = 0; canvasHigh.height = 0;
+                canvasThumb.width = 0; canvasThumb.height = 0;
+                img.src = '';
 
                 resolve({ highResData, thumbData });
             };
@@ -3520,12 +3524,12 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
         let newUrls = [];
         if (isHeavyTask) {
             updateSaveProgress(0, files.length, "圧縮中...");
+            const CHUNK = 10; // 10枚ごとに中間保存してメモリを解放
 
-            // 1枚ずつ処理してメインスレッドを都度解放する
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
 
-                // requestAnimationFrame で1フレーム譲り、UIを生かす
+                // 1フレーム譲ってUIを生かす
                 await new Promise(r => requestAnimationFrame(r));
 
                 let compressed;
@@ -3536,18 +3540,56 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
                     updateSaveProgress(i + 1, files.length, `${i + 1}枚目スキップ`);
                     continue;
                 }
-                const { highResData, thumbData } = compressed;
-                const photoId = crypto.randomUUID();
 
-                // IDB保存（失敗してもスキップして続行）
+                const photoId = crypto.randomUUID();
+                const { highResData, thumbData } = compressed;
+
+                // IDB保存後すぐにhighResDataを解放
                 try {
                     await savePhotoToIDB(photoId, highResData);
                 } catch (idbErr) {
                     console.warn(`IDB保存失敗 (${i + 1}枚目):`, idbErr);
                 }
+                compressed = null; // GC促進
 
                 newUrls.push({ id: photoId, thumb: thumbData });
                 updateSaveProgress(i + 1, files.length, `${i + 1} / ${files.length} 枚処理中...`);
+
+                // CHUNKごとに中間API保存してメモリを解放
+                const isLast = i === files.length - 1;
+                const isChunkEnd = (i + 1) % CHUNK === 0;
+                if ((isChunkEnd || isLast) && newUrls.length > 0) {
+                    const chunkAllUrls = [...existingUrls, ...newUrls];
+                    updateSaveProgress(i + 1, files.length, `クラウド同期中 (${i + 1}/${files.length})...`);
+                    try {
+                        const chunkPayload = {
+                            action: "save_memory",
+                            prefecture: targetPref,
+                            date: dateValue,
+                            existing_urls: chunkAllUrls,
+                            new_photos: [],
+                            memo: memoValue,
+                            entry_id: targetEntryId || undefined
+                        };
+                        if (!isGuestMode) {
+                            const r = await apiFetch({ method: 'POST', body: JSON.stringify(chunkPayload) });
+                            if (r.ok) {
+                                const saved = await r.json().catch(() => []);
+                                // 返ってきたentryのidをtargetEntryIdに上書き（以降の中間保存で使う）
+                                if (!targetEntryId && Array.isArray(saved) && saved[0]?.id) {
+                                    targetEntryId = saved[0].id;
+                                }
+                                existingUrls = chunkAllUrls; // 保存済みとしてexistingに移す
+                                newUrls = [];               // newUrlsをリセットしてメモリ解放
+                            }
+                        } else {
+                            existingUrls = chunkAllUrls;
+                            newUrls = [];
+                        }
+                    } catch (chunkErr) {
+                        console.warn('中間保存失敗、続行:', chunkErr);
+                    }
+                }
             }
             updateSaveProgress(files.length, files.length, "クラウド同期中...");
         }
