@@ -3483,12 +3483,12 @@ function triggerAutoSave() {
             updateUIVisibility();
         }
 
-        // ③ 次のフレームでバックグラウンド処理開始
-        requestAnimationFrame(() => {
-            globalSaveQueue = globalSaveQueue.then(() =>
-                performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, files)
-            ).catch(e => console.error(e));
-        });
+        // ③ 数フレーム待ってからバックグラウンド処理開始
+        // （パネルのスライドアニメーションが完全に終わってから処理を始める）
+        const startBg = () => globalSaveQueue = globalSaveQueue.then(() =>
+            performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, files)
+        ).catch(e => console.error(e));
+        requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(startBg, 350)));
     } else {
         autoSaveTimer = setTimeout(() => {
             globalSaveQueue = globalSaveQueue.then(() =>
