@@ -3387,39 +3387,50 @@ function renderRightPanel() {
     }
 }
 
-function compressImageDual(file) {
-    return new Promise((resolve) => {
+// 圧縮・IDB保存を1つの関数内で完結させ、highResDataを外に出さない
+// → highResDataがスコープを抜けた瞬間にGC対象になりメモリを解放できる
+async function compressAndSavePhoto(file) {
+    const photoId = crypto.randomUUID();
+    const thumbData = await new Promise((resolve, reject) => {
         const reader = new FileReader();
+        reader.onerror = () => reject(new Error('FileReader失敗'));
         reader.readAsDataURL(file);
         reader.onload = (e) => {
             const img = new Image();
+            img.onerror = () => reject(new Error('Image読み込み失敗'));
             img.src = e.target.result;
-            img.onload = () => {
-                const canvasHigh = document.createElement('canvas');
+            img.onload = async () => {
+                // ── highRes（IDB保存用） ──
+                const MAX_SIZE = 1500;
                 let w = img.width, h = img.height;
-                const MAX_SIZE = 1500; // iOSメモリ対策（3000→1500、画質劣化は目視でほぼ不明）
                 if (w > MAX_SIZE || h > MAX_SIZE) {
-                    if (w > h) {
-                        h = h * (MAX_SIZE / w); w = MAX_SIZE;
-                    } else {
-                        w = w * (MAX_SIZE / h); h = MAX_SIZE;
-                    }
+                    if (w > h) { h = h * (MAX_SIZE / w); w = MAX_SIZE; }
+                    else       { w = w * (MAX_SIZE / h); h = MAX_SIZE; }
                 }
+                const canvasHigh = document.createElement('canvas');
                 canvasHigh.width = w; canvasHigh.height = h;
                 canvasHigh.getContext('2d').drawImage(img, 0, 0, w, h);
-                const highResData = canvasHigh.toDataURL('image/jpeg', 0.95);
+                const highResData = canvasHigh.toDataURL('image/jpeg', 0.85);
+                // IDB保存してすぐcanvasを解放
+                canvasHigh.width = 0; canvasHigh.height = 0;
+                await savePhotoToIDB(photoId, highResData);
+                // highResDataをここで手放す（このブロックを抜けるとGC対象）
 
-                const canvasThumb = document.createElement('canvas');
+                // ── thumb（クラウド送信用） ──
                 let tw = img.width, th = img.height;
                 if (tw > 150) { th = th * (150 / tw); tw = 150; }
+                const canvasThumb = document.createElement('canvas');
                 canvasThumb.width = tw; canvasThumb.height = th;
                 canvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
                 const thumbData = canvasThumb.toDataURL('image/jpeg', 0.4);
+                canvasThumb.width = 0; canvasThumb.height = 0;
+                img.src = ''; // Image解放
 
-                resolve({ highResData, thumbData });
+                resolve(thumbData);
             };
         };
     });
+    return { photoId, thumbData };
 }
 
 // ── バックグラウンド処理用のキュー ──
@@ -3536,11 +3547,8 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
 
                 let thumbData, photoId;
                 try {
-                    const { highResData, thumbData: td } = await compressImageDual(file);
-                    thumbData = td;
-                    photoId = crypto.randomUUID();
-                    await savePhotoToIDB(photoId, highResData);
-                    // highResDataはここでスコープを抜けてGC対象になる
+                    // compressAndSavePhoto内でhighResDataを完結させメモリを即解放
+                    ({ photoId, thumbData } = await compressAndSavePhoto(file));
                 } catch (e) {
                     console.warn(`${i+1}枚目スキップ:`, e);
                     updateSaveProgress(i + 1, files.length, `${i+1}枚目スキップ`);
