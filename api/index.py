@@ -223,6 +223,64 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
 
+        elif action == "append_urls":
+            # 新規URLだけ受け取り、DBの既存photo_urlsに追記する（大量写真追加時のメモリ対策）
+            entry_id  = payload.get("entry_id")
+            new_urls  = payload.get("new_urls", [])   # 新規分のみ
+            pref      = payload.get("prefecture", "")
+            date_str  = payload.get("date", "")
+            memo_str  = payload.get("memo", "")
+
+            if entry_id:
+                # 既存エントリのphoto_urlsをDBから取得
+                fetch_req = urllib.request.Request(
+                    f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls"
+                )
+                fetch_req.add_header("apikey", supabase_key)
+                fetch_req.add_header("Authorization", f"Bearer {user_token}")
+                with urllib.request.urlopen(fetch_req, timeout=10) as r:
+                    rows = json.loads(r.read())
+                existing_urls = []
+                if rows:
+                    try:
+                        existing_urls = json.loads(rows[0].get("photo_urls", "[]"))
+                    except:
+                        pass
+                merged = existing_urls + new_urls
+                db_payload = {"photo_urls": json.dumps(merged), "date": date_str, "memo": memo_str}
+                db_req = urllib.request.Request(
+                    f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
+                    data=json.dumps(db_payload).encode('utf-8'),
+                    method="PATCH"
+                )
+            else:
+                # 新規INSERT
+                merged = new_urls
+                db_payload = {
+                    "prefecture": pref, "date": date_str,
+                    "photo_urls": json.dumps(merged), "memo": memo_str,
+                    "title": "Memory", "lat": 0.0, "lng": 0.0,
+                    "user_id": current_user_id, "is_home": False
+                }
+                db_req = urllib.request.Request(
+                    f"{supabase_url}/rest/v1/memories",
+                    data=json.dumps(db_payload).encode('utf-8'),
+                    method="POST"
+                )
+
+            db_req.add_header("apikey", supabase_key)
+            db_req.add_header("Authorization", f"Bearer {user_token}")
+            db_req.add_header("Content-Type", "application/json")
+            db_req.add_header("Prefer", "return=representation")
+            with urllib.request.urlopen(db_req, timeout=15) as response:
+                data = response.read()
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(data)
+
         elif action == "save_home":
             home_prefs = payload.get("home_prefectures", [])
 

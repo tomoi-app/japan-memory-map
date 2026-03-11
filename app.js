@@ -3544,7 +3544,15 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             renderRightPanel();
         }
 
-        const payload = {
+        // 写真追加時は新規分だけ送る（existing_urlsを送るとメモリ爆発するため）
+        const payload = isHeavyTask ? {
+            action: "append_urls",
+            prefecture: targetPref,
+            date: dateValue,
+            new_urls: newUrls,
+            memo: memoValue,
+            entry_id: targetEntryId || undefined
+        } : {
             action: "save_memory",
             prefecture: targetPref,
             date: dateValue,
