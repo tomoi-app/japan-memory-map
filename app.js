@@ -3455,6 +3455,8 @@ function triggerAutoSave() {
     clearTimeout(autoSaveTimer);
     
     const photoInputEl = document.getElementById('input-photos');
+    // File参照だけ配列に保持（FileListはinput.value=''後に無効になるため）
+    // ただしArray.fromでFile objectsは保持されるが、実体（バイナリ）はブラウザ管理
     const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
     
     const targetPref = selectedPref;
@@ -3494,7 +3496,9 @@ function triggerAutoSave() {
     }
 }
 
-async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, files) {
+async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, filesArg) {
+    const files = [...filesArg]; // コピーして元参照を手放せるようにする
+    filesArg = null; // 元の参照を即解放
     if (!targetPref) return;
 
     const existingData = (targetEntryId
@@ -3527,30 +3531,30 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             const CHUNK = 10; // 10枚ごとに中間保存してメモリを解放
 
             for (let i = 0; i < files.length; i++) {
+                // 1枚だけ取り出して処理し、処理後は参照をnullにしてGCを促す
                 const file = files[i];
+                files[i] = null; // 処理済みのFile参照を即解放
 
                 // 1フレーム譲ってUIを生かす
                 await new Promise(r => requestAnimationFrame(r));
 
-                let compressed;
+                let thumbData = null;
+                const photoId = crypto.randomUUID();
                 try {
-                    compressed = await compressImageDual(file);
+                    const compressed = await compressImageDual(file);
+                    thumbData = compressed.thumbData;
+                    // highResDataはIDB保存後すぐスコープから消す
+                    try {
+                        await savePhotoToIDB(photoId, compressed.highResData);
+                    } catch (idbErr) {
+                        console.warn(`IDB保存失敗 (${i + 1}枚目):`, idbErr);
+                    }
+                    // compressed自体をここで手放す（GC促進）
                 } catch (compErr) {
                     console.warn(`写真 ${i + 1} の圧縮失敗、スキップ:`, compErr);
                     updateSaveProgress(i + 1, files.length, `${i + 1}枚目スキップ`);
                     continue;
                 }
-
-                const photoId = crypto.randomUUID();
-                const { highResData, thumbData } = compressed;
-
-                // IDB保存後すぐにhighResDataを解放
-                try {
-                    await savePhotoToIDB(photoId, highResData);
-                } catch (idbErr) {
-                    console.warn(`IDB保存失敗 (${i + 1}枚目):`, idbErr);
-                }
-                compressed = null; // GC促進
 
                 newUrls.push({ id: photoId, thumb: thumbData });
                 updateSaveProgress(i + 1, files.length, `${i + 1} / ${files.length} 枚処理中...`);
