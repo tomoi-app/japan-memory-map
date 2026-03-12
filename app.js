@@ -51,7 +51,10 @@ const IDB_NAME = 'AshiatoDB';
 const IDB_STORE = 'photos';
 const IDB_VERSION = 1;
 
+// ▼▼ 修正箇所①：DB接続を保持して使い回す ▼▼
+let globalDB = null;
 function initDB() {
+    if (globalDB) return Promise.resolve(globalDB); // 既に接続があれば使い回す
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(IDB_NAME, IDB_VERSION);
         request.onupgradeneeded = (e) => {
@@ -60,7 +63,10 @@ function initDB() {
                 db.createObjectStore(IDB_STORE, { keyPath: 'id' });
             }
         };
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = (e) => {
+            globalDB = e.target.result; // 接続を保存しておく
+            resolve(globalDB);
+        };
         request.onerror = () => reject(request.error);
     });
 }
@@ -545,18 +551,14 @@ async function reorderPhotos(srcId, targetId) {
     renderRightPanel();
 
     globalSaveQueue = globalSaveQueue.then(async () => {
-        if (isGuestMode) {
-            localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
-        } else {
-            await apiFetch({ method: 'POST', body: JSON.stringify({
-                action: 'save_memory',
-                prefecture: selectedPref,
-                date: data.date || '',
-                memo: data.memo || '',
-                existing_urls: photos,
-                entry_id: selectedEntryId || undefined
-            })});
-        }
+        await apiFetch({ method: 'POST', body: JSON.stringify({
+            action: 'save_memory',
+            prefecture: selectedPref,
+            date: data.date || '',
+            memo: data.memo || '',
+            existing_urls: photos,
+            entry_id: selectedEntryId || undefined
+        })});
         await fetchMemories(false);
     }).catch(e => console.error('reorder error', e));
 }
@@ -1795,14 +1797,6 @@ function closePanel() {
     updateUIVisibility();
     updateMapColors();
     updateCounter();
-
-    // パネルが閉じた後にDOMの画像を空にしてメモリを強制解放
-    setTimeout(() => {
-        const panel = document.getElementById('right-panel');
-        if (panel && !panelOpen) {
-            panel.querySelectorAll('img').forEach(img => img.src = '');
-        }
-    }, 300); // パネルが閉じるアニメーションを待ってから実行
 }
 
 async function addNewEntry() {
@@ -3266,7 +3260,15 @@ function renderRightPanel() {
                         <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
                     </div>`;
 
-                    // 【削除完了】高画質画像の裏読み込み（サムネイル用）を完全に削除しました
+                    if (!isShareMode && typeof thumbObj !== 'string') {
+                        setTimeout(async () => {
+                            const highRes = await getPhotoFromIDB(thumbId);
+                            if (highRes) {
+                                const imgEl = document.getElementById(`img-${thumbId}`);
+                                if (imgEl) imgEl.src = highRes;
+                            }
+                        }, 0);
+                    }
                 }
 
                 const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
@@ -3283,7 +3285,15 @@ function renderRightPanel() {
                             <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
                         </div>`;
 
-                        // 【削除完了】高画質画像の裏読み込み（グリッド用）を完全に削除しました
+                        if (!isShareMode && typeof p !== 'string') {
+                            setTimeout(async () => {
+                                const highRes = await getPhotoFromIDB(pid);
+                                if (highRes) {
+                                    const imgEl = document.getElementById(`img-${pid}`);
+                                    if (imgEl) imgEl.src = highRes;
+                                }
+                            }, 0);
+                        }
                     });
                     contentHtml += `</div>`;
                 }
@@ -3385,7 +3395,10 @@ function renderRightPanel() {
 
 // 圧縮・IDB保存を1つの関数内で完結させ、highResDataを外に出さない
 // → highResDataがスコープを抜けた瞬間にGC対象になりメモリを解放できる
-// 【修正完了】FileReaderから軽量なURL.createObjectURLに切り替えました
+// ▼▼ 修正箇所②：Canvasを1つだけ作って使い回す ▼▼
+const sharedCanvasHigh = document.createElement('canvas');
+const sharedCanvasThumb = document.createElement('canvas');
+
 async function compressAndSavePhoto(file) {
     const photoId = crypto.randomUUID();
     const thumbData = await new Promise((resolve, reject) => {
@@ -3397,7 +3410,6 @@ async function compressAndSavePhoto(file) {
         };
         
         img.onload = async () => {
-            // 画像が読み込めたら、即座に参照URLを破棄する
             URL.revokeObjectURL(img.src);
 
             try {
@@ -3408,25 +3420,28 @@ async function compressAndSavePhoto(file) {
                     if (w > h) { h = h * (MAX_SIZE / w); w = MAX_SIZE; }
                     else       { w = w * (MAX_SIZE / h); h = MAX_SIZE; }
                 }
-                const canvasHigh = document.createElement('canvas');
-                canvasHigh.width = w; canvasHigh.height = h;
-                canvasHigh.getContext('2d').drawImage(img, 0, 0, w, h);
-                const highResData = canvasHigh.toDataURL('image/jpeg', 0.85);
+                // 使い回しのCanvasに描画
+                sharedCanvasHigh.width = w; 
+                sharedCanvasHigh.height = h;
+                sharedCanvasHigh.getContext('2d').drawImage(img, 0, 0, w, h);
+                const highResData = sharedCanvasHigh.toDataURL('image/jpeg', 0.85);
                 
-                // IDB保存してすぐcanvasを解放
-                canvasHigh.width = 0; canvasHigh.height = 0;
                 await savePhotoToIDB(photoId, highResData);
 
                 // ── thumb（クラウド送信用） ──
                 let tw = img.width, th = img.height;
                 if (tw > 150) { th = th * (150 / tw); tw = 150; }
-                const canvasThumb = document.createElement('canvas');
-                canvasThumb.width = tw; canvasThumb.height = th;
-                canvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
-                const thumbData = canvasThumb.toDataURL('image/jpeg', 0.4);
                 
-                canvasThumb.width = 0; canvasThumb.height = 0;
-                img.src = ''; // Image解放
+                // 使い回しのCanvasに描画
+                sharedCanvasThumb.width = tw; 
+                sharedCanvasThumb.height = th;
+                sharedCanvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
+                const thumbData = sharedCanvasThumb.toDataURL('image/jpeg', 0.4);
+                
+                // メモリ解放のためにクリア
+                sharedCanvasHigh.width = 0; sharedCanvasHigh.height = 0;
+                sharedCanvasThumb.width = 0; sharedCanvasThumb.height = 0;
+                img.src = ''; 
 
                 resolve(thumbData);
             } catch(e) {
@@ -3434,7 +3449,6 @@ async function compressAndSavePhoto(file) {
             }
         };
 
-        // FileReaderの代わりにオブジェクトURLを使用
         img.src = URL.createObjectURL(file);
     });
     
@@ -3550,8 +3564,8 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
 
-                // 1フレーム譲ってUIを生かす
-                await new Promise(r => requestAnimationFrame(r));
+                // Safariのガベージコレクションを促すために少し待つ
+                await new Promise(r => setTimeout(r, 60));
 
                 let thumbData, photoId;
                 try {
