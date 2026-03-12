@@ -545,14 +545,18 @@ async function reorderPhotos(srcId, targetId) {
     renderRightPanel();
 
     globalSaveQueue = globalSaveQueue.then(async () => {
-        await apiFetch({ method: 'POST', body: JSON.stringify({
-            action: 'save_memory',
-            prefecture: selectedPref,
-            date: data.date || '',
-            memo: data.memo || '',
-            existing_urls: photos,
-            entry_id: selectedEntryId || undefined
-        })});
+        if (isGuestMode) {
+            localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
+        } else {
+            await apiFetch({ method: 'POST', body: JSON.stringify({
+                action: 'save_memory',
+                prefecture: selectedPref,
+                date: data.date || '',
+                memo: data.memo || '',
+                existing_urls: photos,
+                entry_id: selectedEntryId || undefined
+            })});
+        }
         await fetchMemories(false);
     }).catch(e => console.error('reorder error', e));
 }
@@ -3262,7 +3266,7 @@ function renderRightPanel() {
                         <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
                     </div>`;
 
-
+                    // 【削除完了】高画質画像の裏読み込み（サムネイル用）を完全に削除しました
                 }
 
                 const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
@@ -3279,7 +3283,7 @@ function renderRightPanel() {
                             <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
                         </div>`;
 
-
+                        // 【削除完了】高画質画像の裏読み込み（グリッド用）を完全に削除しました
                     });
                     contentHtml += `</div>`;
                 }
@@ -3381,17 +3385,22 @@ function renderRightPanel() {
 
 // 圧縮・IDB保存を1つの関数内で完結させ、highResDataを外に出さない
 // → highResDataがスコープを抜けた瞬間にGC対象になりメモリを解放できる
+// 【修正完了】FileReaderから軽量なURL.createObjectURLに切り替えました
 async function compressAndSavePhoto(file) {
     const photoId = crypto.randomUUID();
     const thumbData = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error('FileReader失敗'));
-        reader.readAsDataURL(file);
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onerror = () => reject(new Error('Image読み込み失敗'));
-            img.src = e.target.result;
-            img.onload = async () => {
+        const img = new Image();
+        
+        img.onerror = () => {
+            URL.revokeObjectURL(img.src);
+            reject(new Error('Image読み込み失敗'));
+        };
+        
+        img.onload = async () => {
+            // 画像が読み込めたら、即座に参照URLを破棄する
+            URL.revokeObjectURL(img.src);
+
+            try {
                 // ── highRes（IDB保存用） ──
                 const MAX_SIZE = 1500;
                 let w = img.width, h = img.height;
@@ -3403,10 +3412,10 @@ async function compressAndSavePhoto(file) {
                 canvasHigh.width = w; canvasHigh.height = h;
                 canvasHigh.getContext('2d').drawImage(img, 0, 0, w, h);
                 const highResData = canvasHigh.toDataURL('image/jpeg', 0.85);
+                
                 // IDB保存してすぐcanvasを解放
                 canvasHigh.width = 0; canvasHigh.height = 0;
                 await savePhotoToIDB(photoId, highResData);
-                // highResDataをここで手放す（このブロックを抜けるとGC対象）
 
                 // ── thumb（クラウド送信用） ──
                 let tw = img.width, th = img.height;
@@ -3415,13 +3424,20 @@ async function compressAndSavePhoto(file) {
                 canvasThumb.width = tw; canvasThumb.height = th;
                 canvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
                 const thumbData = canvasThumb.toDataURL('image/jpeg', 0.4);
+                
                 canvasThumb.width = 0; canvasThumb.height = 0;
                 img.src = ''; // Image解放
 
                 resolve(thumbData);
-            };
+            } catch(e) {
+                reject(e);
+            }
         };
+
+        // FileReaderの代わりにオブジェクトURLを使用
+        img.src = URL.createObjectURL(file);
     });
+    
     return { photoId, thumbData };
 }
 
