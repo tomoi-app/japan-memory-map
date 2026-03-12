@@ -1791,15 +1791,6 @@ function closePanel() {
     updateUIVisibility();
     updateMapColors();
     updateCounter();
-
-    // パネルが閉じた後にDOMをクリアしてメモリを強制解放
-    setTimeout(() => {
-        const panel = document.getElementById('right-panel');
-        if (panel && !panelOpen) {
-            panel.querySelectorAll('img').forEach(img => img.src = '');
-            panel.innerHTML = '';
-        }
-    }, 300); // パネルが閉じるアニメーション（0.3秒）を待ってから実行
 }
 
 async function addNewEntry() {
@@ -3263,7 +3254,15 @@ function renderRightPanel() {
                         <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
                     </div>`;
 
-
+                    if (!isShareMode && typeof thumbObj !== 'string') {
+                        setTimeout(async () => {
+                            const highRes = await getPhotoFromIDB(thumbId);
+                            if (highRes) {
+                                const imgEl = document.getElementById(`img-${thumbId}`);
+                                if (imgEl) imgEl.src = highRes;
+                            }
+                        }, 0);
+                    }
                 }
 
                 const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
@@ -3280,7 +3279,15 @@ function renderRightPanel() {
                             <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
                         </div>`;
 
-
+                        if (!isShareMode && typeof p !== 'string') {
+                            setTimeout(async () => {
+                                const highRes = await getPhotoFromIDB(pid);
+                                if (highRes) {
+                                    const imgEl = document.getElementById(`img-${pid}`);
+                                    if (imgEl) imgEl.src = highRes;
+                                }
+                            }, 0);
+                        }
                     });
                     contentHtml += `</div>`;
                 }
@@ -3382,17 +3389,22 @@ function renderRightPanel() {
 
 // 圧縮・IDB保存を1つの関数内で完結させ、highResDataを外に出さない
 // → highResDataがスコープを抜けた瞬間にGC対象になりメモリを解放できる
+// 圧縮・IDB保存を1つの関数内で完結させ、highResDataを外に出さない
 async function compressAndSavePhoto(file) {
     const photoId = crypto.randomUUID();
     const thumbData = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error('FileReader失敗'));
-        reader.readAsDataURL(file);
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onerror = () => reject(new Error('Image読み込み失敗'));
-            img.src = e.target.result;
-            img.onload = async () => {
+        const img = new Image();
+        
+        img.onerror = () => {
+            URL.revokeObjectURL(img.src); // エラー時も忘れず解放
+            reject(new Error('Image読み込み失敗'));
+        };
+        
+        img.onload = async () => {
+            // 🌟 メモリ解放の要！画像が読み込めたら、即座に参照URLを破棄する
+            URL.revokeObjectURL(img.src);
+
+            try {
                 // ── highRes（IDB保存用） ──
                 const MAX_SIZE = 1500;
                 let w = img.width, h = img.height;
@@ -3404,10 +3416,10 @@ async function compressAndSavePhoto(file) {
                 canvasHigh.width = w; canvasHigh.height = h;
                 canvasHigh.getContext('2d').drawImage(img, 0, 0, w, h);
                 const highResData = canvasHigh.toDataURL('image/jpeg', 0.85);
+                
                 // IDB保存してすぐcanvasを解放
                 canvasHigh.width = 0; canvasHigh.height = 0;
                 await savePhotoToIDB(photoId, highResData);
-                // highResDataをここで手放す（このブロックを抜けるとGC対象）
 
                 // ── thumb（クラウド送信用） ──
                 let tw = img.width, th = img.height;
@@ -3416,13 +3428,20 @@ async function compressAndSavePhoto(file) {
                 canvasThumb.width = tw; canvasThumb.height = th;
                 canvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
                 const thumbData = canvasThumb.toDataURL('image/jpeg', 0.4);
+                
                 canvasThumb.width = 0; canvasThumb.height = 0;
                 img.src = ''; // Image解放
 
                 resolve(thumbData);
-            };
+            } catch(e) {
+                reject(e);
+            }
         };
+
+        // 🌟 FileReaderの代わりにオブジェクトURLを使用（数MBの文字列化を回避）
+        img.src = URL.createObjectURL(file);
     });
+    
     return { photoId, thumbData };
 }
 
