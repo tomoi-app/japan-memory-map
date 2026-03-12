@@ -1791,6 +1791,15 @@ function closePanel() {
     updateUIVisibility();
     updateMapColors();
     updateCounter();
+
+    // パネルが閉じた後にDOMをクリアしてメモリを強制解放
+    setTimeout(() => {
+        const panel = document.getElementById('right-panel');
+        if (panel && !panelOpen) {
+            panel.querySelectorAll('img').forEach(img => img.src = '');
+            panel.innerHTML = '';
+        }
+    }, 300); // パネルが閉じるアニメーション（0.3秒）を待ってから実行
 }
 
 async function addNewEntry() {
@@ -3254,15 +3263,7 @@ function renderRightPanel() {
                         <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
                     </div>`;
 
-                    if (!isShareMode && typeof thumbObj !== 'string') {
-                        setTimeout(async () => {
-                            const highRes = await getPhotoFromIDB(thumbId);
-                            if (highRes) {
-                                const imgEl = document.getElementById(`img-${thumbId}`);
-                                if (imgEl) imgEl.src = highRes;
-                            }
-                        }, 0);
-                    }
+
                 }
 
                 const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
@@ -3279,15 +3280,7 @@ function renderRightPanel() {
                             <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
                         </div>`;
 
-                        if (!isShareMode && typeof p !== 'string') {
-                            setTimeout(async () => {
-                                const highRes = await getPhotoFromIDB(pid);
-                                if (highRes) {
-                                    const imgEl = document.getElementById(`img-${pid}`);
-                                    if (imgEl) imgEl.src = highRes;
-                                }
-                            }, 0);
-                        }
+
                     });
                     contentHtml += `</div>`;
                 }
