@@ -3580,7 +3580,12 @@ function triggerAutoSave() {
         // ③ 数フレーム待ってからバックグラウンド処理開始
         const startBg = () => globalSaveQueue = globalSaveQueue.then(() =>
             performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memoValue, files)
-        ).catch(e => console.error(e));
+        ).then(() => {
+            // ★追加：保存が終わった時に、まだ同じ都道府県のパネルを開いていたら画面を更新する
+            if (panelOpen && selectedPref === targetPref) {
+                renderRightPanel();
+            }
+        }).catch(e => console.error(e));
         requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(startBg, 350)));
     } else {
         autoSaveTimer = setTimeout(() => { 
