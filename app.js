@@ -311,9 +311,18 @@ let bulkSelectedUrls = new Set();
 let longPressTimer = null;
 window._isSwipeSelecting = false;
 
-function handlePhotoClick(event, idOrUrl, photos) {
+// ▼▼ 変更後：クリックされた時に写真データを取得するように変更 ▼▼
+function handlePhotoClick(event, idOrUrl) {
     // 選択モード中は touchend にて判定するため、クリックイベントは何もしない
     if (bulkSelectMode) return;
+    
+    // メモリ上のデータから写真を引っ張ってくる（HTMLに埋め込まなくてよくなる）
+    const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
+    let photos = [];
+    if (data) {
+        try { photos = JSON.parse(data.photo_urls || '[]'); } catch(e){}
+    }
+    
     openSliderAt(idOrUrl, photos);
 }
 
@@ -3257,7 +3266,6 @@ function renderRightPanel() {
             if (isShareMode && !shareSettings.show_thumb) {
                 contentHtml += `<p style="text-align:center; color:#bbb; font-size:13px; margin-top:30px;">（写真は非公開に設定されています）</p>`;
             } else {
-                const escapedPhotos = JSON.stringify(photos).replace(/"/g, '&quot;');
 
                 if (!isShareMode) {
                     contentHtml += `
@@ -3276,7 +3284,7 @@ function renderRightPanel() {
                     const escapedThumbId = thumbId.replace(/'/g, "\'");
                     contentHtml += `
                     <div id="thumb-wrap" data-url="${escapedThumbId}" style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
-                        onclick="handlePhotoClick(event, '${escapedThumbId}', ${escapedPhotos})"
+                        onclick="handlePhotoClick(event, '${escapedThumbId}')"
                         oncontextmenu="event.preventDefault();">
                         <img id="img-${escapedThumbId}" class="lazy-load-img" data-pid="${escapedThumbId}" style="width:100%; height:280px; object-fit:cover; display:block;">
                         <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
@@ -3307,7 +3315,7 @@ function renderRightPanel() {
                         const pid = getPhotoId(p);
                         const escapedId = pid.replace(/'/g, "\'");
                         contentHtml += `<div class="photo-grid-item" data-url="${escapedId}"
-                            onclick="handlePhotoClick(event, '${escapedId}', ${escapedPhotos})"
+                            onclick="handlePhotoClick(event, '${escapedId}')"
                             oncontextmenu="event.preventDefault();">
                             <img id="img-${escapedId}" class="lazy-load-img" data-pid="${escapedId}">
                             <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
