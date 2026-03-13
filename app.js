@@ -3528,7 +3528,7 @@ function triggerAutoSave() {
 
     if (files.length > 0) {
         // ── 枚数チェック（iOSメモリ対策：1回20枚まで）──
-        const MAX_PHOTOS_PER_BATCH = 100;
+        const MAX_PHOTOS_PER_BATCH = 500; //
         if (files.length > MAX_PHOTOS_PER_BATCH) {
             if (photoInputEl) photoInputEl.value = '';
             alert(`一度に追加できる写真は${MAX_PHOTOS_PER_BATCH}枚までです。\n（${files.length}枚選択されています）\n複数回に分けて追加してください。`);
