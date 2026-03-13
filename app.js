@@ -3497,13 +3497,13 @@ async function compressAndSavePhoto(file) {
 
                 // ── thumb（クラウド送信用） ──
                 let tw = img.width, th = img.height;
-                if (tw > 150) { th = th * (150 / tw); tw = 150; }
+                if (tw > 300) { th = th * (300 / tw); tw = 300; }
                 
                 // 使い回しのCanvasに描画
                 sharedCanvasThumb.width = tw; 
                 sharedCanvasThumb.height = th;
                 sharedCanvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
-                const thumbData = sharedCanvasThumb.toDataURL('image/jpeg', 0.4);
+                const thumbData = sharedCanvasThumb.toDataURL('image/jpeg', 0.7);
                 
                 // メモリ解放のためにクリア
                 sharedCanvasHigh.width = 0; sharedCanvasHigh.height = 0;
@@ -3975,6 +3975,81 @@ function updateSlider() {
         }
     }
     document.getElementById('slide-counter').innerText = `${slideIndex + 1} / ${currentPhotos.length}`;
+
+    // ▼▼ 代表写真（サムネイル）設定ボタンの生成と状態更新 ▼▼
+    let starBtn = document.getElementById('btn-set-thumbnail');
+    if (!starBtn) {
+        const modal = document.getElementById('slider-modal');
+        if (modal) {
+            starBtn = document.createElement('button');
+            starBtn.id = 'btn-set-thumbnail';
+            starBtn.title = '代表写真にする';
+            // 画面の左上に配置
+            starBtn.style.cssText = 'position:absolute; top:20px; left:20px; background:rgba(0,0,0,0.5); border:none; border-radius:50%; width:46px; height:46px; font-size:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10001; transition: transform 0.2s, color 0.2s; padding-bottom: 4px;';
+            starBtn.onclick = setAsThumbnail;
+            modal.appendChild(starBtn);
+        }
+    }
+    if (starBtn) {
+        if (isShareMode) {
+            starBtn.style.display = 'none'; // 共有モード（閲覧者）には見せない
+        } else {
+            starBtn.style.display = 'flex';
+            if (slideIndex === 0) {
+                starBtn.innerHTML = '★';
+                starBtn.style.color = '#ffca28'; // すでに代表写真なら黄色い星
+            } else {
+                starBtn.innerHTML = '☆';
+                starBtn.style.color = 'white';   // それ以外なら白い星
+            }
+        }
+    }
+    // ▲▲ 追加ここまで ▲▲
+}
+
+// ★追加：代表写真に設定する処理
+async function setAsThumbnail() {
+    if (slideIndex === 0) return; // 既に代表写真なら何もしない
+
+    // ボタンをポンッとアニメーションさせる
+    const starBtn = document.getElementById('btn-set-thumbnail');
+    if (starBtn) {
+        starBtn.style.transform = 'scale(1.3)';
+        setTimeout(() => { starBtn.style.transform = 'scale(1)'; }, 200);
+    }
+
+    // 選んだ写真を配列の「1番目」に移動する
+    const targetPhoto = currentPhotos[slideIndex];
+    currentPhotos.splice(slideIndex, 1);
+    currentPhotos.unshift(targetPhoto);
+    slideIndex = 0; // 自分が1番目になる
+
+    updateSlider(); // ボタンを「★」マークに更新
+
+    // メモリ上のデータを更新
+    const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
+    if (!data) return;
+    data.photo_urls = JSON.stringify(currentPhotos);
+
+    // 裏側で「一覧画面の代表写真」も即座に切り替える
+    renderRightPanel();
+
+    // バックグラウンドでデータベース（クラウド）に保存
+    globalSaveQueue = globalSaveQueue.then(async () => {
+        if (isGuestMode) {
+            localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
+        } else {
+            await apiFetch({ method: 'POST', body: JSON.stringify({
+                action: 'save_memory',
+                prefecture: selectedPref,
+                date: data.date || '',
+                memo: data.memo || '',
+                existing_urls: currentPhotos,
+                entry_id: selectedEntryId || undefined
+            })});
+            await fetchMemories(false);
+        }
+    }).catch(e => console.error('set thumbnail error', e));
 }
 
 // =============================================
