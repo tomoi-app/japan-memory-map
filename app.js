@@ -1930,9 +1930,6 @@ function renderSettingsMenu() {
             <button onclick="renderShareSettings()" style="${btnS}">
                 あしあとを共有
             </button>
-            <button onclick="renderGroupSettings()" style="${btnS}">
-                お互いの記録が1つの地図に
-            </button>
             <button onclick="renderContactSettings()" style="${btnS}">
                 お問い合わせ
             </button>
@@ -2537,21 +2534,7 @@ function copyShareUrl(url) {
     });
 }
 
-function renderGroupSettings() {
-    const panel = document.getElementById('settings-panel');
-    panel.style.backgroundColor = '#ffffff';
-    panel.innerHTML = `
-    <div class="panel-header">
-        <div class="panel-header-title-row">
-            <button onclick="renderSettingsMenu()" style="background:none; border:none; font-size:24px; color:#6c8ca3; cursor:pointer; padding:0; font-weight:bold; line-height:1; position:relative; z-index:2;">←</button>
-            <h2 style="margin:0; font-size:1.4rem; color:#333; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;">お互いの記録が1つの地図に</h2>
-            <button class="panel-close-btn" onclick="closeSettings()" style="position:relative; right:0; z-index:2;">✕</button>
-        </div>
-    </div>
-    <div class="panel-content">
-        <p style="color:#aaa; text-align:center; margin-top:40px; font-size:0.95rem; line-height:1.8;">準備中です。<br>もう少しお待ちください。</p>
-    </div>`;
-}
+
 
 function renderFeatureThemeSettings() {
     const panel = document.getElementById('settings-panel');
@@ -3497,13 +3480,15 @@ async function compressAndSavePhoto(file) {
 
                 // ── thumb（クラウド送信用） ──
                 let tw = img.width, th = img.height;
-                if (tw > 300) { th = th * (300 / tw); tw = 300; }
+                // ▼ 300 から 400 に引き上げる
+                if (tw > 400) { th = th * (400 / tw); tw = 400; } 
                 
                 // 使い回しのCanvasに描画
                 sharedCanvasThumb.width = tw; 
                 sharedCanvasThumb.height = th;
                 sharedCanvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
-                const thumbData = sharedCanvasThumb.toDataURL('image/jpeg', 0.7);
+                // ▼ 画質を 0.7 から 0.8 に引き上げる
+                const thumbData = sharedCanvasThumb.toDataURL('image/jpeg', 0.8);
                 
                 // メモリ解放のためにクリア
                 sharedCanvasHigh.width = 0; sharedCanvasHigh.height = 0;
@@ -3551,7 +3536,17 @@ function triggerAutoSave() {
     clearTimeout(autoSaveTimer);
     
     const photoInputEl = document.getElementById('input-photos');
-    const files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
+    let files = (photoInputEl && photoInputEl.files) ? Array.from(photoInputEl.files) : [];
+    
+    // ▼▼ 追加：写真が複数ある場合、撮影日時（更新日時）で並び替える ▼▼
+    if (files.length > 1) {
+        // 古い順（時系列）に並べる場合
+        files.sort((a, b) => a.lastModified - b.lastModified);
+        
+        // ※もし「新しい順（最近撮ったものが先頭）」にしたい場合は、上の行を消して下の行を使ってください
+        // files.sort((a, b) => b.lastModified - a.lastModified);
+    }
+    // ▲▲ 追加ここまで ▲▲
     
     const targetPref = selectedPref;
     const targetEntryId = selectedEntryId; // この時点のIDをキャプチャ
@@ -3579,8 +3574,8 @@ function triggerAutoSave() {
         if (addBtnLabel) addBtnLabel.style.pointerEvents = 'none';
         showSaveProgress(files.length, "準備中...");
 
-        // ② パネルを閉じて地図に戻す（ユーザーが操作できる状態に）
-        if (panelOpen) closePanel();
+        // ② パネルを閉じずにそのまま待機する（行を消すか、// でコメントアウトする）
+        // if (panelOpen) closePanel(); 
 
         // ③ 数フレーム待ってからバックグラウンド処理開始
         const startBg = () => globalSaveQueue = globalSaveQueue.then(() =>
