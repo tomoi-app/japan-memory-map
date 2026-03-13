@@ -1740,8 +1740,7 @@ function hideSaveProgress() {
 function openPanel() {
     panelOpen = true;
     document.getElementById('right-panel').classList.add('open');
-    const adContainer = document.getElementById('ad-container');
-    if (adContainer) adContainer.style.display = 'none';
+
     updateUIVisibility();
 }
 
@@ -1792,8 +1791,7 @@ function closePanel() {
     selectedPref = null;
     selectedEntryId = null;
     document.getElementById('right-panel').classList.remove('open');
-    const adContainer = document.getElementById('ad-container');
-    if (adContainer) adContainer.style.display = 'flex';
+
     updateUIVisibility();
     updateMapColors();
     updateCounter();
@@ -3273,10 +3271,15 @@ function renderRightPanel() {
 
                 }
 
+                // ▼▼ ここから上書き ▼▼
                 const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
-                if (gridPhotos.length > 0) {
+                const MAX_DISPLAY = 50; // ★ここで一覧に表示する上限を決めます（50枚で安全です）
+                const displayGridPhotos = gridPhotos.slice(0, MAX_DISPLAY);
+                const hiddenCount = gridPhotos.length - displayGridPhotos.length;
+
+                if (displayGridPhotos.length > 0) {
                     contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
-                    gridPhotos.forEach((p) => {
+                    displayGridPhotos.forEach((p) => {
                         const pid = getPhotoId(p);
                         const psrc = getThumbSrc(p);
                         const escapedId = pid.replace(/'/g, "\'");
@@ -3286,11 +3289,19 @@ function renderRightPanel() {
                             <img id="img-${escapedId}" src="${psrc}" loading="lazy">
                             <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
                         </div>`;
-
-
                     });
                     contentHtml += `</div>`;
+
+                    // ★表示上限を超えた分はメッセージとして表示
+                    if (hiddenCount > 0) {
+                        contentHtml += `
+                        <div style="text-align:center; padding:16px 0; background:#f8f9fa; border-radius:10px; margin-top:12px;">
+                            <span style="color:#6c8ca3; font-weight:bold; font-size:0.95rem;">他 ${hiddenCount} 枚の写真が保存されています</span><br>
+                            <span style="font-size:0.8rem; color:#aaa; margin-top:4px; display:inline-block;">（上の写真をタップし、スワイプすると全て見られます）</span>
+                        </div>`;
+                    }
                 }
+                // ▲▲ ここまで上書き ▲▲
             }
         } else if (!isShareMode) {
             contentHtml += `
