@@ -1427,9 +1427,13 @@ let map;
 let geoJsonLayer;
 let selectedPref = null;
 let selectedEntryId = null; // 複数エントリのうち編集中のエントリID
+let photoDisplayLimit = 100; // ★追加: 一覧に表示する写真の枚数
 
 // inline onclick から呼べるグローバルsetter
-function setSelectedPref(v) { selectedPref = v; }
+function setSelectedPref(v) { 
+    selectedPref = v; 
+    photoDisplayLimit = 100; // ★追加: 都道府県を切り替えたらリセット
+}
 
 // ★追加: 写真0枚のエントリを自動削除する関数
 function cleanupEmptyEntry(id) {
@@ -1461,6 +1465,13 @@ function setSelectedEntryId(v) {
         cleanupEmptyEntry(selectedEntryId);
     }
     selectedEntryId = (v === 'null' || v === '') ? null : v; 
+    photoDisplayLimit = 100; // ★追加: タブを切り替えたらリセット
+}
+
+// ★追加: 「さらに表示」ボタンを押したときの処理
+function loadMorePhotos() {
+    photoDisplayLimit += 100; // 100枚追加
+    renderRightPanel();
 }
 
 let memoriesData = [];
@@ -1790,6 +1801,7 @@ function closePanel() {
     panelOpen = false;
     selectedPref = null;
     selectedEntryId = null;
+    photoDisplayLimit = 100; // ★この1行を追加
     document.getElementById('right-panel').classList.remove('open');
 
     updateUIVisibility();
@@ -1851,6 +1863,7 @@ function backToList() {
     dateEditingMode = false;
     selectedPref = null;
     selectedEntryId = null;
+    photoDisplayLimit = 100; // ★この1行を追加
     renderRightPanel();
     updateMapColors();
     updateCounter();
@@ -3273,7 +3286,7 @@ function renderRightPanel() {
 
                 // ▼▼ ここから上書き ▼▼
                 const gridPhotos = featureShowThumbnail ? photos.slice(1) : photos;
-                const MAX_DISPLAY = 50; // ★ここで一覧に表示する上限を決めます（50枚で安全です）
+                const MAX_DISPLAY = photoDisplayLimit; // ★固定値から変数に変更
                 const displayGridPhotos = gridPhotos.slice(0, MAX_DISPLAY);
                 const hiddenCount = gridPhotos.length - displayGridPhotos.length;
 
@@ -3292,12 +3305,13 @@ function renderRightPanel() {
                     });
                     contentHtml += `</div>`;
 
-                    // ★表示上限を超えた分はメッセージとして表示
+                    // ★表示上限を超えた分は「さらに表示」ボタンとして配置
                     if (hiddenCount > 0) {
                         contentHtml += `
-                        <div style="text-align:center; padding:16px 0; background:#f8f9fa; border-radius:10px; margin-top:12px;">
-                            <span style="color:#6c8ca3; font-weight:bold; font-size:0.95rem;">他 ${hiddenCount} 枚の写真が保存されています</span><br>
-                            <span style="font-size:0.8rem; color:#aaa; margin-top:4px; display:inline-block;">（上の写真をタップし、スワイプすると全て見られます）</span>
+                        <div style="text-align:center; padding:16px 0; margin-top:8px;">
+                            <button onclick="loadMorePhotos()" style="padding:12px 24px; background:#f4f7f6; color:#6c8ca3; border:none; border-radius:20px; font-weight:bold; font-size:0.95rem; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.05); font-family:inherit; transition:background 0.2s;">
+                                さらに表示（残り ${hiddenCount} 枚） ▼
+                            </button>
                         </div>`;
                     }
                 }
