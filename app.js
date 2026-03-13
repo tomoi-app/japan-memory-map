@@ -3273,17 +3273,14 @@ function renderRightPanel() {
                 if (featureShowThumbnail) {
                     const thumbObj = photos[0];
                     const thumbId = getPhotoId(thumbObj);
-                    const thumbSrc = getThumbSrc(thumbObj);
                     const escapedThumbId = thumbId.replace(/'/g, "\'");
                     contentHtml += `
                     <div id="thumb-wrap" data-url="${escapedThumbId}" style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
                         onclick="handlePhotoClick(event, '${escapedThumbId}', ${escapedPhotos})"
                         oncontextmenu="event.preventDefault();">
-                        <img id="img-${escapedThumbId}" src="${thumbSrc}" style="width:100%; height:280px; object-fit:cover; display:block;" loading="lazy">
+                        <img id="img-${escapedThumbId}" class="lazy-load-img" data-pid="${escapedThumbId}" style="width:100%; height:280px; object-fit:cover; display:block;">
                         <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
                     </div>`;
-
-
                 }
 
                 // ▼▼ ここから上書き ▼▼
@@ -3308,12 +3305,11 @@ function renderRightPanel() {
                     contentHtml += `<div class="photo-grid" style="margin-top:10px;">`;
                     displayGridPhotos.forEach((p) => {
                         const pid = getPhotoId(p);
-                        const psrc = getThumbSrc(p);
                         const escapedId = pid.replace(/'/g, "\'");
                         contentHtml += `<div class="photo-grid-item" data-url="${escapedId}"
                             onclick="handlePhotoClick(event, '${escapedId}', ${escapedPhotos})"
                             oncontextmenu="event.preventDefault();">
-                            <img id="img-${escapedId}" src="${psrc}" loading="lazy">
+                            <img id="img-${escapedId}" class="lazy-load-img" data-pid="${escapedId}">
                             <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
                         </div>`;
                     });
@@ -3385,6 +3381,38 @@ function renderRightPanel() {
         contentHtml += `</div>`;
 
         panel.innerHTML = headerHtml + contentHtml;
+
+        // ▼▼ 追加：スクロールして画面に入った瞬間に写真を読み込む（遅延読み込み） ▼▼
+        const lazyImages = panel.querySelectorAll('.lazy-load-img');
+        if (lazyImages.length > 0 && 'IntersectionObserver' in window) {
+            // スクロール監視の専門家（オブザーバー）を用意
+            const observer = new IntersectionObserver((entries, obs) => {
+                entries.forEach(entry => {
+                    // 画像が画面に入ったら
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        const pid = img.getAttribute('data-pid');
+                        // メモリ上の配列から写真のデータを探して表示する
+                        const photoData = photos.find(p => (typeof p === 'string' ? p : p.id) === pid);
+                        if (photoData) {
+                            img.src = typeof photoData === 'string' ? photoData : photoData.thumb;
+                        }
+                        obs.unobserve(img); // 読み込み終わったら監視を解除
+                    }
+                });
+            }, { root: panel, rootMargin: '300px 0px' }); // 画面に入る300px手前から読み込み開始
+            
+            // すべての空画像に監視の目をつける
+            lazyImages.forEach(img => observer.observe(img));
+        } else {
+            // （古いブラウザ用）万が一非対応ならそのまま表示
+            lazyImages.forEach(img => {
+                const pid = img.getAttribute('data-pid');
+                const photoData = photos.find(p => (typeof p === 'string' ? p : p.id) === pid);
+                if (photoData) img.src = typeof photoData === 'string' ? photoData : photoData.thumb;
+            });
+        }
+        // ▲▲ 追加ここまで ▲▲
 
         if (!isShareMode) {
             const photoInput = document.getElementById('input-photos');
