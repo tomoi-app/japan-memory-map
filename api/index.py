@@ -182,30 +182,34 @@ class handler(BaseHTTPRequestHandler):
             memo_str = payload.get("memo", "")
             entry_id = payload.get("entry_id")
 
-            db_payload = {
-                "prefecture": pref,
-                "date": date_str,
-                "photo_urls": json.dumps(final_photo_urls),
-                "memo": memo_str,
-                "title": "Memory",
-                "lat": 0.0,
-                "lng": 0.0,
-                "user_id": current_user_id,
-                "is_home": False
-            }
-
             if entry_id:
-                # 既存エントリをPATCH
+                # ★修正：既存エントリの更新（必要な部分だけを上書きするように変更）
+                patch_payload = {
+                    "date": date_str,
+                    "photo_urls": json.dumps(final_photo_urls),
+                    "memo": memo_str
+                }
                 db_req = urllib.request.Request(
                     f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
-                    data=json.dumps(db_payload).encode('utf-8'),
+                    data=json.dumps(patch_payload).encode('utf-8'),
                     method="PATCH"
                 )
             else:
-                # 新規INSERT
+                # 新規作成時は今まで通り全てのデータを送る
+                post_payload = {
+                    "prefecture": pref,
+                    "date": date_str,
+                    "photo_urls": json.dumps(final_photo_urls),
+                    "memo": memo_str,
+                    "title": "Memory",
+                    "lat": 0.0,
+                    "lng": 0.0,
+                    "user_id": current_user_id,
+                    "is_home": False
+                }
                 db_req = urllib.request.Request(
                     f"{supabase_url}/rest/v1/memories",
-                    data=json.dumps(db_payload).encode('utf-8'),
+                    data=json.dumps(post_payload).encode('utf-8'),
                     method="POST"
                 )
 
