@@ -295,6 +295,53 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
 
+        elif action == "remove_photos":
+            entry_id = payload.get("entry_id")
+            remove_ids = payload.get("remove_ids", [])
+            
+            # DBから現在の写真リストを取得
+            fetch_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls")
+            fetch_req.add_header("apikey", supabase_key)
+            fetch_req.add_header("Authorization", f"Bearer {user_token}")
+            with urllib.request.urlopen(fetch_req, timeout=10) as r:
+                rows = json.loads(r.read())
+            
+            urls = json.loads(rows[0].get("photo_urls", "[]")) if rows else []
+            new_urls = []
+            
+            for item in urls:
+                item_id = str(item if isinstance(item, str) else item.get("id"))
+                if item_id in remove_ids:
+                    # 削除対象の処理（古いバージョンのhttp画像があればストレージからも消す）
+                    if item_id.startswith("http"):
+                        filename = item_id.split('/')[-1]
+                        del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                        del_req = urllib.request.Request(del_url, method="DELETE")
+                        del_req.add_header("apikey", supabase_key)
+                        del_req.add_header("Authorization", f"Bearer {user_token}")
+                        try:
+                            urllib.request.urlopen(del_req, timeout=10)
+                        except:
+                            pass
+                else:
+                    new_urls.append(item)
+            
+            # 残ったリストでDBを上書き（軽量）
+            db_req = urllib.request.Request(
+                f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
+                data=json.dumps({"photo_urls": json.dumps(new_urls)}).encode('utf-8'), method="PATCH"
+            )
+            db_req.add_header("apikey", supabase_key)
+            db_req.add_header("Authorization", f"Bearer {user_token}")
+            db_req.add_header("Content-Type", "application/json")
+            urllib.request.urlopen(db_req, timeout=10)
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+
         elif action == "append_urls":
             # 新規URLだけ受け取り、DBの既存photo_urlsに追記する（大量写真追加時のメモリ対策）
             entry_id  = payload.get("entry_id")

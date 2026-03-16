@@ -683,6 +683,7 @@ function cancelBulkSelect() {
     if (icon) icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
     const grid = document.querySelector('.photo-grid');
     if (grid) {
+        grid.style.transition = 'all 0.25s ease'; // ★ここを1行追加！
         grid.style.gridTemplateColumns = '1fr 1fr';
         grid.style.gap = '12px';
         grid.style.marginRight = '';
@@ -826,24 +827,29 @@ async function deleteBulkSelected() {
         
         // 削除後にSupabaseのDBを更新
         if (data) {
-            if (photosToSave.length === 0) {
-                // 写真が0枚になったらエントリ自体を削除
-                await apiFetch({ method: 'POST', body: JSON.stringify({
-                    action: 'delete_entry',
-                    entry_id: data.id
-                })});
-                // memoriesDataからも除去
-                memoriesData = memoriesData.filter(m => m.id !== data.id);
-                selectedEntryId = null;
+            if (isGuestMode) {
+                if (photosToSave.length === 0) {
+                    memoriesData = memoriesData.filter(m => String(m.id) !== String(data.id));
+                    selectedEntryId = null;
+                }
+                localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
             } else {
-                await apiFetch({ method: 'POST', body: JSON.stringify({
-                    action: 'save_memory',
-                    prefecture: targetPref,
-                    date: data.date || '',
-                    memo: data.memo || '',
-                    existing_urls: photosToSave,
-                    entry_id: data.id || undefined
-                })});
+                if (photosToSave.length === 0) {
+                    // 写真が0枚になったらエントリ自体を削除
+                    await apiFetch({ method: 'POST', body: JSON.stringify({
+                        action: 'delete_entry',
+                        entry_id: data.id
+                    })});
+                    memoriesData = memoriesData.filter(m => String(m.id) !== String(data.id));
+                    selectedEntryId = null;
+                } else {
+                    // ★修正：重い写真データを送らず、消すIDだけを送る「身軽なルート」を使用
+                    await apiFetch({ method: 'POST', body: JSON.stringify({
+                        action: 'remove_photos',
+                        entry_id: data.id,
+                        remove_ids: urlsToDelete
+                    })});
+                }
             }
         }
         
@@ -1813,30 +1819,33 @@ function cleanupEmptyDate() {
 }
 
 function closePanel() {
-    cancelBulkSelect();
-    clearTimeout(autoSaveTimer);
-    if (selectedEntryId) cleanupEmptyEntry(selectedEntryId); // ★追加
-    cleanupEmptyDate();
-    dateEditingMode = false;
-    panelOpen = false;
-    selectedPref = null;
-    selectedEntryId = null;
-    currentPhotoPage = 0; // ★この1行を追加
+    // ① まず何よりも先に、パネルを閉じるアニメーションを開始（体感速度アップ！）
     document.getElementById('right-panel').classList.remove('open');
 
-    updateUIVisibility();
-    updateMapColors();
-    updateCounter();
-
-    // パネルが閉じた後にDOMの画像を空にしてメモリを強制解放
+    // ② パネルがスライドして隠れるまで（0.3秒）待ってから、裏で重いお片付けをする
     setTimeout(() => {
+        cancelBulkSelect();
+        clearTimeout(autoSaveTimer);
+        if (selectedEntryId) cleanupEmptyEntry(selectedEntryId);
+        cleanupEmptyDate();
+        dateEditingMode = false;
+        panelOpen = false;
+        selectedPref = null;
+        selectedEntryId = null;
+        currentPhotoPage = 0;
+
+        updateUIVisibility();
+        updateMapColors();
+        updateCounter();
+
+        // パネルが閉じた後にDOMの画像を空にしてメモリを強制解放
         const panel = document.getElementById('right-panel');
         if (panel && !panelOpen) {
             panel.querySelectorAll('img').forEach(img => {
                 img.src = '';
             });
         }
-    }, 300);
+    }, 300); // 300ミリ秒（0.3秒）遅らせる
 }
 
 async function addNewEntry() {
