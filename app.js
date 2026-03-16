@@ -10,9 +10,20 @@ if (!document.getElementById('ashiato-dynamic-styles')) {
             50% { transform: scale(1.03); box-shadow: 0 6px 16px rgba(108,140,163,0.6); }
             100% { transform: scale(1); box-shadow: 0 4px 12px rgba(108,140,163,0.4); }
         }
+
+        /* ▼▼ 追加：アプリ全体の不自然な太字を一括リセット ▼▼ */
+        div, span, button, p, a, label, input, select, textarea {
+            font-weight: normal !important;
+        }
+        /* ただし、見出し（タイトル）など最低限の部分だけ少し太く残す */
+        h1, h2, h3, b, strong {
+            font-weight: 600 !important;
+        }
+        /* ▲▲ 追加ここまで ▲▲ */
     `;
     document.head.appendChild(style);
 }
+
 
 // =============================================
 // セキュリティ対策（XSS防止用のエスケープ関数）
