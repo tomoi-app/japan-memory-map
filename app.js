@@ -35,8 +35,8 @@ function escapeHTML(str) {
 // Supabase Auth 設定
 // ※ご自身のSupabase URL と anon key に書き換えてください
 // =============================================
-const SUPABASE_URL = 'https://uclkhpnpyeirxcvdtjwp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjbGtocG5weWVpcnhjdmR0andwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTYzNzYsImV4cCI6MjA4NzkzMjM3Nn0.fwb79w4zemD6u41X2fIH2IvwAFJzlW__I4w4o7BufI0';
+const SUPABASE_URL = 'https://srduoyzsyqkqiasnzzcj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZHVveXpzeXFrcWlhc256emNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NTA5NTEsImV4cCI6MjA4OTIyNjk1MX0.E5fdauevRCRfYCv5auCGSCxkqJ4FN-NRI-_Fd5yzp5c';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser = null;
