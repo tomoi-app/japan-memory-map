@@ -227,6 +227,74 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
 
+        elif action == "update_text":
+            entry_id = payload.get("entry_id")
+            db_payload = {"date": payload.get("date", ""), "memo": payload.get("memo", "")}
+            db_req = urllib.request.Request(
+                f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
+                data=json.dumps(db_payload).encode('utf-8'), method="PATCH"
+            )
+            db_req.add_header("apikey", supabase_key)
+            db_req.add_header("Authorization", f"Bearer {user_token}")
+            db_req.add_header("Content-Type", "application/json")
+            urllib.request.urlopen(db_req, timeout=10)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+
+        elif action == "set_thumbnail":
+            entry_id, photo_id = payload.get("entry_id"), payload.get("photo_id")
+            fetch_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls")
+            fetch_req.add_header("apikey", supabase_key)
+            fetch_req.add_header("Authorization", f"Bearer {user_token}")
+            with urllib.request.urlopen(fetch_req, timeout=10) as r:
+                rows = json.loads(r.read())
+            urls = json.loads(rows[0].get("photo_urls", "[]")) if rows else []
+            new_urls = [u for u in urls if str(u if isinstance(u, str) else u.get("id")) != str(photo_id)]
+            target = next((u for u in urls if str(u if isinstance(u, str) else u.get("id")) == str(photo_id)), None)
+            if target: new_urls.insert(0, target)
+            db_req = urllib.request.Request(
+                f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
+                data=json.dumps({"photo_urls": json.dumps(new_urls)}).encode('utf-8'), method="PATCH"
+            )
+            db_req.add_header("apikey", supabase_key)
+            db_req.add_header("Authorization", f"Bearer {user_token}")
+            db_req.add_header("Content-Type", "application/json")
+            urllib.request.urlopen(db_req, timeout=10)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+
+        elif action == "reorder_photos":
+            entry_id, src_id, tgt_id = payload.get("entry_id"), payload.get("src_id"), payload.get("target_id")
+            fetch_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls")
+            fetch_req.add_header("apikey", supabase_key)
+            fetch_req.add_header("Authorization", f"Bearer {user_token}")
+            with urllib.request.urlopen(fetch_req, timeout=10) as r:
+                rows = json.loads(r.read())
+            urls = json.loads(rows[0].get("photo_urls", "[]")) if rows else []
+            src_idx = next((i for i, u in enumerate(urls) if str(u if isinstance(u, str) else u.get("id")) == str(src_id)), -1)
+            tgt_idx = next((i for i, u in enumerate(urls) if str(u if isinstance(u, str) else u.get("id")) == str(tgt_id)), -1)
+            if src_idx != -1 and tgt_idx != -1:
+                urls.insert(tgt_idx, urls.pop(src_idx))
+            db_req = urllib.request.Request(
+                f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
+                data=json.dumps({"photo_urls": json.dumps(urls)}).encode('utf-8'), method="PATCH"
+            )
+            db_req.add_header("apikey", supabase_key)
+            db_req.add_header("Authorization", f"Bearer {user_token}")
+            db_req.add_header("Content-Type", "application/json")
+            urllib.request.urlopen(db_req, timeout=10)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+
         elif action == "append_urls":
             # 新規URLだけ受け取り、DBの既存photo_urlsに追記する（大量写真追加時のメモリ対策）
             entry_id  = payload.get("entry_id")

@@ -560,15 +560,17 @@ async function reorderPhotos(srcId, targetId) {
     renderRightPanel();
 
     globalSaveQueue = globalSaveQueue.then(async () => {
-        await apiFetch({ method: 'POST', body: JSON.stringify({
-            action: 'save_memory',
-            prefecture: selectedPref,
-            date: data.date || '',
-            memo: data.memo || '',
-            existing_urls: photos,
-            entry_id: selectedEntryId || undefined
-        })});
-        await fetchMemories(false);
+        if (isGuestMode) {
+            localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
+        } else {
+            await apiFetch({ method: 'POST', body: JSON.stringify({
+                action: 'reorder_photos',
+                entry_id: selectedEntryId || undefined,
+                src_id: srcId,
+                target_id: targetId
+            })});
+            await fetchMemories(false);
+        }
     }).catch(e => console.error('reorder error', e));
 }
 
@@ -1780,7 +1782,14 @@ async function clearDateAndSave() {
     dateEditingMode = false;
     const data = memoriesData.find(m => String(m.id) === String(selectedEntryId)) || memoriesData.find(m => m.prefecture === selectedPref);
     if (data) data.date = '';
-    const payload = { action: 'save_memory', prefecture: selectedPref, date: '', photos: [], entry_id: (data && data.id) || undefined };
+    
+    let payload;
+    if (data && data.id) {
+        payload = { action: 'update_text', entry_id: data.id, date: '', memo: data.memo || '' };
+    } else {
+        payload = { action: 'save_memory', prefecture: selectedPref, date: '', existing_urls: [], memo: '' };
+    }
+    
     await apiFetch({ method: 'POST', body: JSON.stringify(payload) });
     await fetchMemories(false);
     renderRightPanel();
@@ -3729,15 +3738,27 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
             renderRightPanel();
         }
 
-        const payload = {
-            action: "save_memory",
-            prefecture: targetPref,
-            date: dateValue,
-            existing_urls: allUrls,
-            new_photos: [],
-            memo: memoValue,
-            entry_id: targetEntryId || undefined
-        };
+        let payload;
+        if (!isHeavyTask && targetEntryId) {
+            // 写真の追加がない場合は、軽量なテキスト更新用ルートを使う
+            payload = {
+                action: "update_text",
+                entry_id: targetEntryId,
+                date: dateValue,
+                memo: memoValue
+            };
+        } else {
+            // 新規作成などの場合は今まで通り
+            payload = {
+                action: "save_memory",
+                prefecture: targetPref,
+                date: dateValue,
+                existing_urls: allUrls,
+                new_photos: [],
+                memo: memoValue,
+                entry_id: targetEntryId || undefined
+            };
+        }
         
         if (isGuestMode) {
             // ゲストモード: localStorageに保存
@@ -4040,12 +4061,9 @@ async function setAsThumbnail() {
             localStorage.setItem('guestMemories', JSON.stringify(memoriesData));
         } else {
             await apiFetch({ method: 'POST', body: JSON.stringify({
-                action: 'save_memory',
-                prefecture: selectedPref,
-                date: data.date || '',
-                memo: data.memo || '',
-                existing_urls: currentPhotos,
-                entry_id: selectedEntryId || undefined
+                action: 'set_thumbnail',
+                entry_id: selectedEntryId || undefined,
+                photo_id: targetPhoto.id || targetPhoto
             })});
             await fetchMemories(false);
         }
