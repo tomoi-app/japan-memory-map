@@ -3,10 +3,11 @@ import json
 import urllib.request
 import urllib.parse
 import base64
-import time
+import uuid
+import traceback
 import hmac
 import hashlib
-import traceback
+import time
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -44,6 +45,45 @@ class handler(BaseHTTPRequestHandler):
 
         if not supabase_url or not supabase_key:
             raise Exception("SUPABASE_URL or SUPABASE_KEY is missing in Vercel.")
+
+        # ▼▼ Storage自動アップロード・削除用の強力な補助関数 ▼▼
+        def process_and_upload_thumb(item):
+            # Base64データが送られてきたら、Storageに保存してURLにすり替える
+            if isinstance(item, dict) and "thumb" in item:
+                thumb = item["thumb"]
+                if isinstance(thumb, str) and thumb.startswith("data:image"):
+                    try:
+                        header, b64_str = thumb.split(",", 1)
+                        file_bytes = base64.b64decode(b64_str)
+                        ext = "png" if "png" in header else "jpg"
+                        item_id = str(item.get("id", uuid.uuid4()))
+                        filename = f"{item_id}.{ext}"
+                        
+                        upload_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                        req = urllib.request.Request(upload_url, data=file_bytes, method="POST")
+                        req.add_header("apikey", supabase_svc_key)
+                        req.add_header("Authorization", f"Bearer {supabase_svc_key}")
+                        req.add_header("Content-Type", f"image/{ext}")
+                        urllib.request.urlopen(req, timeout=15)
+                        
+                        public_url = f"{supabase_url}/storage/v1/object/public/photos/{filename}"
+                        item["thumb"] = public_url # URLにすり替え！
+                    except Exception as e:
+                        pass
+            return item
+
+        def delete_storage_file(item):
+            # 削除時にStorage内の画像ファイルも綺麗にお掃除する
+            target_url = item.get("thumb") if isinstance(item, dict) else item
+            if isinstance(target_url, str) and "/storage/v1/object/public/photos/" in target_url:
+                filename = target_url.split('/')[-1]
+                del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
+                del_req = urllib.request.Request(del_url, method="DELETE")
+                del_req.add_header("apikey", supabase_svc_key)
+                del_req.add_header("Authorization", f"Bearer {supabase_svc_key}")
+                try: urllib.request.urlopen(del_req, timeout=10)
+                except: pass
+        # ▲▲ ここまで ▲▲
 
         if method == "GET":
             parsed = urllib.parse.urlparse(self.path)
@@ -158,6 +198,10 @@ class handler(BaseHTTPRequestHandler):
             pref = payload.get("prefecture", "")
             date_str = payload.get("date", "")
             final_photo_urls = payload.get("existing_urls", [])
+            
+            # ★ アップロード処理（Base64をURLにすり替える）
+            final_photo_urls = [process_and_upload_thumb(u) for u in final_photo_urls]
+            
             memo_str = payload.get("memo", "")
             entry_id = payload.get("entry_id")
 
@@ -198,6 +242,10 @@ class handler(BaseHTTPRequestHandler):
         elif action == "append_urls":
             entry_id = payload.get("entry_id")
             new_urls = payload.get("new_urls", [])   
+            
+            # ★ アップロード処理（Base64をURLにすり替える）
+            new_urls = [process_and_upload_thumb(u) for u in new_urls]
+
             pref = payload.get("prefecture", "")
             date_str = payload.get("date", "")
             memo_str = payload.get("memo", "")
@@ -318,14 +366,7 @@ class handler(BaseHTTPRequestHandler):
             for item in urls:
                 item_id = str(item if isinstance(item, str) else item.get("id"))
                 if item_id in remove_ids:
-                    if item_id.startswith("http"):
-                        filename = item_id.split('/')[-1]
-                        del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
-                        del_req = urllib.request.Request(del_url, method="DELETE")
-                        del_req.add_header("apikey", supabase_key)
-                        del_req.add_header("Authorization", f"Bearer {user_token}")
-                        try: urllib.request.urlopen(del_req, timeout=10)
-                        except: pass
+                    delete_storage_file(item) # ★ Storageからも削除
                 else:
                     new_urls.append(item)
             db_req = urllib.request.Request(
@@ -408,19 +449,11 @@ class handler(BaseHTTPRequestHandler):
 
             new_urls = []
             for item in photo_urls:
-                if isinstance(item, str):
-                    if item != identifier: new_urls.append(item)
-                elif isinstance(item, dict):
-                    if item.get("id") != identifier: new_urls.append(item)
-
-            if isinstance(identifier, str) and str(identifier).startswith("http"):
-                filename = identifier.split('/')[-1]
-                del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
-                del_req = urllib.request.Request(del_url, method="DELETE")
-                del_req.add_header("apikey", supabase_key)
-                del_req.add_header("Authorization", f"Bearer {user_token}")
-                try: urllib.request.urlopen(del_req, timeout=10)
-                except: pass
+                item_id = str(item.get("id")) if isinstance(item, dict) else str(item)
+                if item_id != str(identifier): 
+                    new_urls.append(item)
+                else:
+                    delete_storage_file(item) # ★ Storageからも削除
 
             db_payload = {"photo_urls": json.dumps(new_urls)}
             db_req = urllib.request.Request(
@@ -441,6 +474,19 @@ class handler(BaseHTTPRequestHandler):
         elif action == "delete_entry":
             entry_id = payload.get("entry_id", "")
             if not entry_id: raise Exception("entry_id is required")
+            
+            # ★ エントリ削除前に、紐づく画像をStorageから一括消去
+            fetch_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls")
+            fetch_req.add_header("apikey", supabase_key)
+            fetch_req.add_header("Authorization", f"Bearer {user_token}")
+            try:
+                with urllib.request.urlopen(fetch_req, timeout=10) as r:
+                    rows = json.loads(r.read())
+                    if rows:
+                        urls = json.loads(rows[0].get("photo_urls", "[]"))
+                        for item in urls: delete_storage_file(item)
+            except: pass
+
             d_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}", method="DELETE")
             d_req.add_header("apikey", supabase_key)
             d_req.add_header("Authorization", f"Bearer {user_token}")
@@ -452,18 +498,26 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
 
         elif action == "delete_all":
-            req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?select=id")
+            req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?select=id,photo_urls")
             req.add_header("apikey", supabase_key)
             req.add_header("Authorization", f"Bearer {user_token}")
             with urllib.request.urlopen(req, timeout=10) as res:
                 all_records = json.loads(res.read())
+            
             for record in all_records:
+                # ★ 全削除時もStorageをお掃除
+                urls = []
+                try: urls = json.loads(record.get("photo_urls", "[]"))
+                except: pass
+                for item in urls: delete_storage_file(item)
+
                 r_id = record["id"]
                 d_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{r_id}", method="DELETE")
                 d_req.add_header("apikey", supabase_key)
                 d_req.add_header("Authorization", f"Bearer {user_token}")
                 try: urllib.request.urlopen(d_req, timeout=10)
                 except: pass
+            
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -512,10 +566,23 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
 
         elif action == "delete_account":
+            # ★ アカウント削除時もStorageをお掃除
+            req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&select=photo_urls")
+            req.add_header("apikey", supabase_key)
+            req.add_header("Authorization", f"Bearer {user_token}")
+            try:
+                with urllib.request.urlopen(req, timeout=10) as res:
+                    all_records = json.loads(res.read())
+                for record in all_records:
+                    urls = json.loads(record.get("photo_urls", "[]"))
+                    for item in urls: delete_storage_file(item)
+            except: pass
+
             del_data_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}", method="DELETE")
             del_data_req.add_header("apikey", supabase_key)
             del_data_req.add_header("Authorization", f"Bearer {user_token}")
             urllib.request.urlopen(del_data_req, timeout=10)
+
             del_user_req = urllib.request.Request(f"{supabase_url}/auth/v1/admin/users/{current_user_id}", method="DELETE")
             del_user_req.add_header("apikey", supabase_svc_key)
             del_user_req.add_header("Authorization", f"Bearer {supabase_svc_key}")
