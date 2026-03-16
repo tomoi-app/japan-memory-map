@@ -46,7 +46,6 @@ class handler(BaseHTTPRequestHandler):
         if not supabase_url or not supabase_key:
             raise Exception("SUPABASE_URL or SUPABASE_KEY is missing in Vercel.")
 
-        # ── 共有モードGET（認証不要）──────────────────
         if method == "GET":
             parsed = urllib.parse.urlparse(self.path)
             query = urllib.parse.parse_qs(parsed.query)
@@ -57,7 +56,6 @@ class handler(BaseHTTPRequestHandler):
                     decoded_bytes = base64.urlsafe_b64decode((share_token + padding).encode('utf-8'))
                     decoded_str = decoded_bytes.decode('utf-8')
                     parts = decoded_str.split(":")
-                    
                     if len(parts) == 3:
                         share_user_id, expires_at_str, signature = parts
                         show_thumb, show_date = "1", "1"
@@ -79,15 +77,10 @@ class handler(BaseHTTPRequestHandler):
                     s_req.add_header("Authorization", f"Bearer {supabase_svc_key}")
                     with urllib.request.urlopen(s_req, timeout=10) as r:
                         records = json.loads(r.read())
-                    
                     response_data = {
                         "memories": records,
-                        "settings": {
-                            "show_thumb": show_thumb == "1",
-                            "show_date": show_date == "1"
-                        }
+                        "settings": {"show_thumb": show_thumb == "1", "show_date": show_date == "1"}
                     }
-                    
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json; charset=utf-8')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -101,7 +94,6 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error": "Invalid or expired link"}).encode('utf-8'))
                 return
 
-        # ── トークン検証 ──────────────────────────────
         auth_header = self.headers.get("Authorization", "")
         user_token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
 
@@ -129,7 +121,6 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"error": f"Invalid token: {str(token_err)}"}).encode('utf-8'))
             return
-        # ─────────────────────────────────────────────
 
         if method == "GET":
             req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&select=*")
@@ -156,18 +147,15 @@ class handler(BaseHTTPRequestHandler):
         if action == "generate_share_link":
             expires_in = payload.get("expires_in", 3600)
             if expires_in == -1:
-                expires_at = int(time.time()) + 3153600000 # 約100年後（制限なし）
+                expires_at = int(time.time()) + 3153600000 
             else:
                 expires_at = int(time.time()) + expires_in
-                
             show_thumb = "1" if payload.get("show_thumb", True) else "0"
             show_date = "1" if payload.get("show_date", True) else "0"
-
             message = f"{current_user_id}:{expires_at}:{show_thumb}:{show_date}"
             signature = hmac.new(supabase_svc_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
             token_str = f"{message}:{signature}"
             token_b64 = base64.urlsafe_b64encode(token_str.encode('utf-8')).decode('utf-8')
-
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -183,20 +171,20 @@ class handler(BaseHTTPRequestHandler):
             entry_id = payload.get("entry_id")
 
             if entry_id:
-                # ★修正：既存エントリの更新（必要な部分だけを上書きするように変更）
-                patch_payload = {
+                # 既存エントリをPATCH
+                db_payload = {
                     "date": date_str,
                     "photo_urls": json.dumps(final_photo_urls),
                     "memo": memo_str
                 }
                 db_req = urllib.request.Request(
                     f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
-                    data=json.dumps(patch_payload).encode('utf-8'),
+                    data=json.dumps(db_payload).encode('utf-8'),
                     method="PATCH"
                 )
             else:
-                # 新規作成時は今まで通り全てのデータを送る
-                post_payload = {
+                # 新規INSERT
+                db_payload = {
                     "prefecture": pref,
                     "date": date_str,
                     "photo_urls": json.dumps(final_photo_urls),
@@ -209,7 +197,7 @@ class handler(BaseHTTPRequestHandler):
                 }
                 db_req = urllib.request.Request(
                     f"{supabase_url}/rest/v1/memories",
-                    data=json.dumps(post_payload).encode('utf-8'),
+                    data=json.dumps(db_payload).encode('utf-8'),
                     method="POST"
                 )
 
@@ -217,16 +205,15 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
             db_req.add_header("Prefer", "return=representation")
-
             with urllib.request.urlopen(db_req, timeout=10) as response:
                 data = response.read()
-
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(data)
 
+        # ▼▼ 身軽な専用ルート群 ▼▼
         elif action == "update_text":
             entry_id = payload.get("entry_id")
             db_payload = {"date": payload.get("date", ""), "memo": payload.get("memo", "")}
@@ -298,21 +285,16 @@ class handler(BaseHTTPRequestHandler):
         elif action == "remove_photos":
             entry_id = payload.get("entry_id")
             remove_ids = payload.get("remove_ids", [])
-            
-            # DBから現在の写真リストを取得
             fetch_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls")
             fetch_req.add_header("apikey", supabase_key)
             fetch_req.add_header("Authorization", f"Bearer {user_token}")
             with urllib.request.urlopen(fetch_req, timeout=10) as r:
                 rows = json.loads(r.read())
-            
             urls = json.loads(rows[0].get("photo_urls", "[]")) if rows else []
             new_urls = []
-            
             for item in urls:
                 item_id = str(item if isinstance(item, str) else item.get("id"))
                 if item_id in remove_ids:
-                    # 削除対象の処理（古いバージョンのhttp画像があればストレージからも消す）
                     if item_id.startswith("http"):
                         filename = item_id.split('/')[-1]
                         del_url = f"{supabase_url}/storage/v1/object/photos/{filename}"
@@ -321,12 +303,9 @@ class handler(BaseHTTPRequestHandler):
                         del_req.add_header("Authorization", f"Bearer {user_token}")
                         try:
                             urllib.request.urlopen(del_req, timeout=10)
-                        except:
-                            pass
+                        except: pass
                 else:
                     new_urls.append(item)
-            
-            # 残ったリストでDBを上書き（軽量）
             db_req = urllib.request.Request(
                 f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
                 data=json.dumps({"photo_urls": json.dumps(new_urls)}).encode('utf-8'), method="PATCH"
@@ -335,23 +314,21 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
             urllib.request.urlopen(db_req, timeout=10)
-            
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
 
+        # ▼▼ 写真追加ルート ▼▼
         elif action == "append_urls":
-            # 新規URLだけ受け取り、DBの既存photo_urlsに追記する（大量写真追加時のメモリ対策）
             entry_id  = payload.get("entry_id")
-            new_urls  = payload.get("new_urls", [])   # 新規分のみ
+            new_urls  = payload.get("new_urls", [])   
             pref      = payload.get("prefecture", "")
             date_str  = payload.get("date", "")
             memo_str  = payload.get("memo", "")
 
             if entry_id:
-                # 既存エントリのphoto_urlsをDBから取得
                 fetch_req = urllib.request.Request(
                     f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls"
                 )
@@ -373,7 +350,6 @@ class handler(BaseHTTPRequestHandler):
                     method="PATCH"
                 )
             else:
-                # 新規INSERT
                 merged = new_urls
                 db_payload = {
                     "prefecture": pref, "date": date_str,
@@ -402,7 +378,6 @@ class handler(BaseHTTPRequestHandler):
 
         elif action == "save_home":
             home_prefs = payload.get("home_prefectures", [])
-
             reset_req = urllib.request.Request(
                 f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&is_home=eq.true",
                 data=json.dumps({"is_home": False}).encode('utf-8'),
@@ -412,10 +387,8 @@ class handler(BaseHTTPRequestHandler):
             reset_req.add_header("Authorization", f"Bearer {user_token}")
             reset_req.add_header("Content-Type", "application/json")
             reset_req.add_header("Prefer", "return=minimal")
-            try:
-                urllib.request.urlopen(reset_req, timeout=10)
-            except:
-                pass
+            try: urllib.request.urlopen(reset_req, timeout=10)
+            except: pass
 
             for pref in home_prefs:
                 safe_pref = urllib.parse.quote(pref)
@@ -437,26 +410,18 @@ class handler(BaseHTTPRequestHandler):
                     up_req = urllib.request.Request(
                         f"{supabase_url}/rest/v1/memories",
                         data=json.dumps({
-                            "prefecture": pref,
-                            "date": "",
-                            "photo_urls": "[]",
-                            "title": "Memory",
-                            "lat": 0.0,
-                            "lng": 0.0,
-                            "user_id": current_user_id,
-                            "is_home": True
+                            "prefecture": pref, "date": "", "photo_urls": "[]",
+                            "title": "Memory", "lat": 0.0, "lng": 0.0,
+                            "user_id": current_user_id, "is_home": True
                         }).encode('utf-8'),
                         method="POST"
                     )
-
                 up_req.add_header("apikey", supabase_key)
                 up_req.add_header("Authorization", f"Bearer {user_token}")
                 up_req.add_header("Content-Type", "application/json")
                 up_req.add_header("Prefer", "return=minimal")
-                try:
-                    urllib.request.urlopen(up_req, timeout=10)
-                except:
-                    pass
+                try: urllib.request.urlopen(up_req, timeout=10)
+                except: pass
 
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -467,7 +432,6 @@ class handler(BaseHTTPRequestHandler):
         elif action == "delete_photo":
             pref = payload.get("prefecture", "")
             identifier = payload.get("photo_url", "")
-
             safe_pref = urllib.parse.quote(pref)
             url = f"{supabase_url}/rest/v1/memories?prefecture=eq.{safe_pref}&user_id=eq.{current_user_id}&select=*"
             req = urllib.request.Request(url)
@@ -476,25 +440,19 @@ class handler(BaseHTTPRequestHandler):
 
             with urllib.request.urlopen(req, timeout=10) as res:
                 existing = json.loads(res.read())
-
-            if len(existing) == 0:
-                raise Exception("削除対象が見つかりません。")
+            if len(existing) == 0: raise Exception("削除対象が見つかりません。")
 
             row_id = existing[0]["id"]
             photo_urls = []
-            try:
-                photo_urls = json.loads(existing[0].get("photo_urls", "[]"))
-            except:
-                pass
+            try: photo_urls = json.loads(existing[0].get("photo_urls", "[]"))
+            except: pass
 
             new_urls = []
             for item in photo_urls:
                 if isinstance(item, str):
-                    if item != identifier:
-                        new_urls.append(item)
+                    if item != identifier: new_urls.append(item)
                 elif isinstance(item, dict):
-                    if item.get("id") != identifier:
-                        new_urls.append(item)
+                    if item.get("id") != identifier: new_urls.append(item)
 
             if isinstance(identifier, str) and str(identifier).startswith("http"):
                 filename = identifier.split('/')[-1]
@@ -502,11 +460,8 @@ class handler(BaseHTTPRequestHandler):
                 del_req = urllib.request.Request(del_url, method="DELETE")
                 del_req.add_header("apikey", supabase_key)
                 del_req.add_header("Authorization", f"Bearer {user_token}")
-                try:
-                    with urllib.request.urlopen(del_req, timeout=10):
-                        pass
-                except:
-                    pass
+                try: urllib.request.urlopen(del_req, timeout=10)
+                except: pass
 
             db_payload = {"photo_urls": json.dumps(new_urls)}
             db_req = urllib.request.Request(
@@ -518,10 +473,8 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
             db_req.add_header("Prefer", "return=representation")
-
             with urllib.request.urlopen(db_req, timeout=10) as response:
                 data = response.read()
-
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -530,8 +483,7 @@ class handler(BaseHTTPRequestHandler):
 
         elif action == "delete_entry":
             entry_id = payload.get("entry_id", "")
-            if not entry_id:
-                raise Exception("entry_id is required for delete_entry")
+            if not entry_id: raise Exception("entry_id is required")
             d_req = urllib.request.Request(
                 f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
                 method="DELETE"
@@ -552,17 +504,13 @@ class handler(BaseHTTPRequestHandler):
             req.add_header("Authorization", f"Bearer {user_token}")
             with urllib.request.urlopen(req, timeout=10) as res:
                 all_records = json.loads(res.read())
-            
             for record in all_records:
                 r_id = record["id"]
                 d_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{r_id}", method="DELETE")
                 d_req.add_header("apikey", supabase_key)
                 d_req.add_header("Authorization", f"Bearer {user_token}")
-                try:
-                    urllib.request.urlopen(d_req, timeout=10)
-                except:
-                    pass
-            
+                try: urllib.request.urlopen(d_req, timeout=10)
+                except: pass
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -573,8 +521,7 @@ class handler(BaseHTTPRequestHandler):
         elif action == "send_contact":
             sendgrid_api_key = os.environ.get("SENDGRID_API_KEY", "").strip()
             from_email = "info@tomoi-app.com"
-            if not sendgrid_api_key:
-                raise Exception("SENDGRID_API_KEY is not set in Vercel environment variables.")
+            if not sendgrid_api_key: raise Exception("SENDGRID_API_KEY is not set.")
 
             name        = payload.get("name", "（名前未記入）")
             body        = payload.get("body", "")
@@ -589,8 +536,7 @@ class handler(BaseHTTPRequestHandler):
                 with urllib.request.urlopen(u_req, timeout=10) as r:
                     u_data = json.loads(r.read())
                 user_email = u_data.get("email", "不明")
-            except:
-                pass
+            except: pass
 
             def send_sendgrid(to_addr, subject, html_body):
                 sg_payload = {
@@ -606,8 +552,7 @@ class handler(BaseHTTPRequestHandler):
                 )
                 sg_req.add_header("Authorization", f"Bearer {sendgrid_api_key}")
                 sg_req.add_header("Content-Type", "application/json")
-                with urllib.request.urlopen(sg_req, timeout=10) as r:
-                    pass
+                with urllib.request.urlopen(sg_req, timeout=10) as r: pass
 
             reply_label = ("はい（" + reply_email + "）") if want_reply else "いいえ"
             admin_html = (
@@ -627,10 +572,8 @@ class handler(BaseHTTPRequestHandler):
                     "<p>お問い合わせを受け付けました。<br>返信まで少々お待ちください。</p>"
                     "<br><p style='color:#888; font-size:0.9em;'>※このメールは自動送信されています。</p>"
                 )
-                try:
-                    send_sendgrid(reply_email, "【あしあと】お問い合わせありがとうございます", auto_html)
-                except:
-                    pass
+                try: send_sendgrid(reply_email, "【あしあと】お問い合わせありがとうございます", auto_html)
+                except: pass
 
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
