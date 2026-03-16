@@ -3123,13 +3123,20 @@ function renderRightPanel() {
             const sortedPrefs = Object.keys(prefGroups).sort((a, b) => prefOrder.indexOf(a) - prefOrder.indexOf(b));
             
             sortedPrefs.forEach(pref => {
-                const entries = prefGroups[pref];
+                // ★追加：日付順（古い順）に綺麗に並び替える
+                const entries = prefGroups[pref].sort((a, b) => {
+                    if (!a.date && !b.date) return 0;
+                    if (!a.date) return 1;
+                    if (!b.date) return -1;
+                    return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+                });
+
                 const color = getCurrentColors()[pref] || '#aaa';
                 const needsData = entries.some(m => {
                     const photos = JSON.parse(m.photo_urls || "[]");
                     return photos.length > 0 && !m.date;
                 });
-                // 最新エントリの日付を表示
+                // 最新エントリ（並び替えた一番最後 ＝ 最新の日付）を表示
                 const latestEntry = entries[entries.length - 1];
                 const entryCountLabel = entries.length > 1 ? `<span style="font-size:0.78em; background:${color}33; color:${color}; padding:2px 7px; border-radius:10px; margin-left:6px; font-weight:bold;">${entries.length}回</span>` : '';
                 contentHtml += `<button class="pref-btn" onclick="setSelectedPref('${escapeHTML(pref)}'); setSelectedEntryId('null'); renderRightPanel();"
@@ -3412,7 +3419,7 @@ function renderRightPanel() {
                         obs.unobserve(img);
                     }
                 });
-            }, { root: panel, rootMargin: '300px 0px' });
+            }, { root: panel, rootMargin: '1500px 0px' });
             
             lazyImages.forEach(img => observer.observe(img));
         } else {
