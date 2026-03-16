@@ -3642,6 +3642,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
         }
 
         let totalSaved = 0; // 保存完了枚数
+        let successfullyAddedIds = []; // ★追加：今回無事に追加できた写真のIDを記録しておく箱
         if (isHeavyTask) {
             updateSaveProgress(0, files.length, "圧縮中...");
             const CHUNK = 10; // 10枚ごとにAPI保存してメモリを解放
@@ -3690,17 +3691,24 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
                             const r = await apiFetch({ method: 'POST', body: JSON.stringify(chunkPayload) });
                             if (r.ok) {
                                 const saved = await r.json().catch(() => []);
-                                // 初回INSERTで返ってきたIDを以降の中間保存に使う
                                 if (!targetEntryId) {
                                     const row = Array.isArray(saved) ? saved[0] : saved;
                                     if (row?.id) targetEntryId = row.id;
                                 }
                                 totalSaved += chunk.length;
+                                // ★無事に追加できた写真のIDを箱に記録しておく
+                                chunk.forEach(p => successfullyAddedIds.push(p.id));
                             } else {
-                                console.warn('chunk API失敗:', i+1);
+                                // ★安全装置作動：失敗したら「今回追加した分」をすべて消去して元に戻す
+                                await rollbackPhotos(targetEntryId, successfullyAddedIds);
+                                alert("通信が不安定なため保存に失敗しました。\n追加前の状態に戻しましたので、電波の良い場所で再度お試しください。");
+                                break; 
                             }
                         } catch (apiErr) {
-                            console.warn('chunk API error:', apiErr);
+                            // ★安全装置作動：エラーが起きたら「今回追加した分」をすべて消去して元に戻す
+                            await rollbackPhotos(targetEntryId, successfullyAddedIds);
+                            alert("通信エラーが発生しました。\n追加前の状態に戻しましたので、再度お試しください。");
+                            break;
                         }
                     } else {
                         // ゲストモード: localStorageに逐次追記
@@ -4355,4 +4363,18 @@ if ('serviceWorker' in navigator) {
                 console.log('ServiceWorker registration failed: ', err);
             });
     });
+}
+
+// ★追加：エラー時に「今回追加した写真」だけを消去して元に戻す関数
+async function rollbackPhotos(entryId, idsToRemove) {
+    if (!entryId || idsToRemove.length === 0) return;
+    try {
+        await apiFetch({ method: 'POST', body: JSON.stringify({
+            action: 'remove_photos',
+            entry_id: entryId,
+            remove_ids: idsToRemove
+        })});
+    } catch(e) {
+        console.error("ロールバック（取り消し）に失敗しました", e);
+    }
 }
