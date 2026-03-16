@@ -3701,7 +3701,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
                             } else {
                                 // ★安全装置作動：失敗したら「今回追加した分」をすべて消去して元に戻す
                                 await rollbackPhotos(targetEntryId, successfullyAddedIds);
-                                alert("通信が不安定なため保存に失敗しました。\n追加前の状態に戻しましたので、電波の良い場所で再度お試しください。");
+                                alert("通信が不安定なため保存に失敗しました。\n追加前の状態に戻しましたので、少し時間をおいて再度お試しください。");
                                 break; 
                             }
                         } catch (apiErr) {
