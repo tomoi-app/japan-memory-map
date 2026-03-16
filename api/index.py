@@ -46,6 +46,7 @@ class handler(BaseHTTPRequestHandler):
         if not supabase_url or not supabase_key:
             raise Exception("SUPABASE_URL or SUPABASE_KEY is missing in Vercel.")
 
+        # ── 共有モードGET（認証不要）──────────────────
         if method == "GET":
             parsed = urllib.parse.urlparse(self.path)
             query = urllib.parse.parse_qs(parsed.query)
@@ -56,6 +57,7 @@ class handler(BaseHTTPRequestHandler):
                     decoded_bytes = base64.urlsafe_b64decode((share_token + padding).encode('utf-8'))
                     decoded_str = decoded_bytes.decode('utf-8')
                     parts = decoded_str.split(":")
+                    
                     if len(parts) == 3:
                         share_user_id, expires_at_str, signature = parts
                         show_thumb, show_date = "1", "1"
@@ -77,10 +79,15 @@ class handler(BaseHTTPRequestHandler):
                     s_req.add_header("Authorization", f"Bearer {supabase_svc_key}")
                     with urllib.request.urlopen(s_req, timeout=10) as r:
                         records = json.loads(r.read())
+                    
                     response_data = {
                         "memories": records,
-                        "settings": {"show_thumb": show_thumb == "1", "show_date": show_date == "1"}
+                        "settings": {
+                            "show_thumb": show_thumb == "1",
+                            "show_date": show_date == "1"
+                        }
                     }
+                    
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json; charset=utf-8')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -94,6 +101,7 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error": "Invalid or expired link"}).encode('utf-8'))
                 return
 
+        # ── トークン検証 ──────────────────────────────
         auth_header = self.headers.get("Authorization", "")
         user_token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
 
@@ -121,6 +129,7 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"error": f"Invalid token: {str(token_err)}"}).encode('utf-8'))
             return
+        # ─────────────────────────────────────────────
 
         if method == "GET":
             req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?user_id=eq.{current_user_id}&select=*")
@@ -147,15 +156,18 @@ class handler(BaseHTTPRequestHandler):
         if action == "generate_share_link":
             expires_in = payload.get("expires_in", 3600)
             if expires_in == -1:
-                expires_at = int(time.time()) + 3153600000 
+                expires_at = int(time.time()) + 3153600000
             else:
                 expires_at = int(time.time()) + expires_in
+                
             show_thumb = "1" if payload.get("show_thumb", True) else "0"
             show_date = "1" if payload.get("show_date", True) else "0"
+
             message = f"{current_user_id}:{expires_at}:{show_thumb}:{show_date}"
             signature = hmac.new(supabase_svc_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
             token_str = f"{message}:{signature}"
             token_b64 = base64.urlsafe_b64encode(token_str.encode('utf-8')).decode('utf-8')
+
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -171,7 +183,7 @@ class handler(BaseHTTPRequestHandler):
             entry_id = payload.get("entry_id")
 
             if entry_id:
-                # 既存エントリをPATCH
+                # 既存エントリをPATCH（★軽量化：戻り値を要求しない）
                 db_payload = {
                     "date": date_str,
                     "photo_urls": json.dumps(final_photo_urls),
@@ -182,38 +194,109 @@ class handler(BaseHTTPRequestHandler):
                     data=json.dumps(db_payload).encode('utf-8'),
                     method="PATCH"
                 )
+                db_req.add_header("apikey", supabase_key)
+                db_req.add_header("Authorization", f"Bearer {user_token}")
+                db_req.add_header("Content-Type", "application/json")
+                db_req.add_header("Prefer", "return=minimal") # ★追加
+                
+                with urllib.request.urlopen(db_req, timeout=15) as response:
+                    pass
+                data = json.dumps([{"id": entry_id}]).encode('utf-8')
             else:
                 # 新規INSERT
                 db_payload = {
-                    "prefecture": pref,
-                    "date": date_str,
-                    "photo_urls": json.dumps(final_photo_urls),
-                    "memo": memo_str,
-                    "title": "Memory",
-                    "lat": 0.0,
-                    "lng": 0.0,
-                    "user_id": current_user_id,
-                    "is_home": False
+                    "prefecture": pref, "date": date_str,
+                    "photo_urls": json.dumps(final_photo_urls), "memo": memo_str,
+                    "title": "Memory", "lat": 0.0, "lng": 0.0,
+                    "user_id": current_user_id, "is_home": False
                 }
                 db_req = urllib.request.Request(
                     f"{supabase_url}/rest/v1/memories",
                     data=json.dumps(db_payload).encode('utf-8'),
                     method="POST"
                 )
+                db_req.add_header("apikey", supabase_key)
+                db_req.add_header("Authorization", f"Bearer {user_token}")
+                db_req.add_header("Content-Type", "application/json")
+                db_req.add_header("Prefer", "return=representation")
+                
+                with urllib.request.urlopen(db_req, timeout=15) as response:
+                    data = response.read()
 
-            db_req.add_header("apikey", supabase_key)
-            db_req.add_header("Authorization", f"Bearer {user_token}")
-            db_req.add_header("Content-Type", "application/json")
-            db_req.add_header("Prefer", "return=representation")
-            with urllib.request.urlopen(db_req, timeout=10) as response:
-                data = response.read()
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(data)
 
-        # ▼▼ 身軽な専用ルート群 ▼▼
+        elif action == "append_urls":
+            entry_id  = payload.get("entry_id")
+            new_urls  = payload.get("new_urls", [])   
+            pref      = payload.get("prefecture", "")
+            date_str  = payload.get("date", "")
+            memo_str  = payload.get("memo", "")
+
+            if entry_id:
+                # 既存エントリのphoto_urlsを取得して追記（★軽量化：戻り値を要求しない）
+                fetch_req = urllib.request.Request(
+                    f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls"
+                )
+                fetch_req.add_header("apikey", supabase_key)
+                fetch_req.add_header("Authorization", f"Bearer {user_token}")
+                with urllib.request.urlopen(fetch_req, timeout=15) as r:
+                    rows = json.loads(r.read())
+                
+                existing_urls = []
+                if rows:
+                    try:
+                        existing_urls = json.loads(rows[0].get("photo_urls", "[]"))
+                    except:
+                        pass
+                
+                merged = existing_urls + new_urls
+                db_payload = {"photo_urls": json.dumps(merged), "date": date_str, "memo": memo_str}
+                
+                db_req = urllib.request.Request(
+                    f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
+                    data=json.dumps(db_payload).encode('utf-8'),
+                    method="PATCH"
+                )
+                db_req.add_header("apikey", supabase_key)
+                db_req.add_header("Authorization", f"Bearer {user_token}")
+                db_req.add_header("Content-Type", "application/json")
+                db_req.add_header("Prefer", "return=minimal") # ★追加
+                
+                with urllib.request.urlopen(db_req, timeout=15) as response:
+                    pass
+                data = json.dumps([{"id": entry_id}]).encode('utf-8')
+            else:
+                # 新規INSERT
+                merged = new_urls
+                db_payload = {
+                    "prefecture": pref, "date": date_str,
+                    "photo_urls": json.dumps(merged), "memo": memo_str,
+                    "title": "Memory", "lat": 0.0, "lng": 0.0,
+                    "user_id": current_user_id, "is_home": False
+                }
+                db_req = urllib.request.Request(
+                    f"{supabase_url}/rest/v1/memories",
+                    data=json.dumps(db_payload).encode('utf-8'),
+                    method="POST"
+                )
+                db_req.add_header("apikey", supabase_key)
+                db_req.add_header("Authorization", f"Bearer {user_token}")
+                db_req.add_header("Content-Type", "application/json")
+                db_req.add_header("Prefer", "return=representation")
+                
+                with urllib.request.urlopen(db_req, timeout=15) as response:
+                    data = response.read()
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(data)
+
         elif action == "update_text":
             entry_id = payload.get("entry_id")
             db_payload = {"date": payload.get("date", ""), "memo": payload.get("memo", "")}
@@ -224,7 +307,8 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("apikey", supabase_key)
             db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
-            urllib.request.urlopen(db_req, timeout=10)
+            db_req.add_header("Prefer", "return=minimal")
+            urllib.request.urlopen(db_req, timeout=15)
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -236,7 +320,7 @@ class handler(BaseHTTPRequestHandler):
             fetch_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls")
             fetch_req.add_header("apikey", supabase_key)
             fetch_req.add_header("Authorization", f"Bearer {user_token}")
-            with urllib.request.urlopen(fetch_req, timeout=10) as r:
+            with urllib.request.urlopen(fetch_req, timeout=15) as r:
                 rows = json.loads(r.read())
             urls = json.loads(rows[0].get("photo_urls", "[]")) if rows else []
             new_urls = [u for u in urls if str(u if isinstance(u, str) else u.get("id")) != str(photo_id)]
@@ -249,7 +333,8 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("apikey", supabase_key)
             db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
-            urllib.request.urlopen(db_req, timeout=10)
+            db_req.add_header("Prefer", "return=minimal")
+            urllib.request.urlopen(db_req, timeout=15)
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -261,7 +346,7 @@ class handler(BaseHTTPRequestHandler):
             fetch_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls")
             fetch_req.add_header("apikey", supabase_key)
             fetch_req.add_header("Authorization", f"Bearer {user_token}")
-            with urllib.request.urlopen(fetch_req, timeout=10) as r:
+            with urllib.request.urlopen(fetch_req, timeout=15) as r:
                 rows = json.loads(r.read())
             urls = json.loads(rows[0].get("photo_urls", "[]")) if rows else []
             src_idx = next((i for i, u in enumerate(urls) if str(u if isinstance(u, str) else u.get("id")) == str(src_id)), -1)
@@ -275,7 +360,8 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("apikey", supabase_key)
             db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
-            urllib.request.urlopen(db_req, timeout=10)
+            db_req.add_header("Prefer", "return=minimal")
+            urllib.request.urlopen(db_req, timeout=15)
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -288,7 +374,7 @@ class handler(BaseHTTPRequestHandler):
             fetch_req = urllib.request.Request(f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls")
             fetch_req.add_header("apikey", supabase_key)
             fetch_req.add_header("Authorization", f"Bearer {user_token}")
-            with urllib.request.urlopen(fetch_req, timeout=10) as r:
+            with urllib.request.urlopen(fetch_req, timeout=15) as r:
                 rows = json.loads(r.read())
             urls = json.loads(rows[0].get("photo_urls", "[]")) if rows else []
             new_urls = []
@@ -313,68 +399,13 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("apikey", supabase_key)
             db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
-            urllib.request.urlopen(db_req, timeout=10)
+            db_req.add_header("Prefer", "return=minimal")
+            urllib.request.urlopen(db_req, timeout=15)
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
-
-        # ▼▼ 写真追加ルート ▼▼
-        elif action == "append_urls":
-            entry_id  = payload.get("entry_id")
-            new_urls  = payload.get("new_urls", [])   
-            pref      = payload.get("prefecture", "")
-            date_str  = payload.get("date", "")
-            memo_str  = payload.get("memo", "")
-
-            if entry_id:
-                fetch_req = urllib.request.Request(
-                    f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls"
-                )
-                fetch_req.add_header("apikey", supabase_key)
-                fetch_req.add_header("Authorization", f"Bearer {user_token}")
-                with urllib.request.urlopen(fetch_req, timeout=10) as r:
-                    rows = json.loads(r.read())
-                existing_urls = []
-                if rows:
-                    try:
-                        existing_urls = json.loads(rows[0].get("photo_urls", "[]"))
-                    except:
-                        pass
-                merged = existing_urls + new_urls
-                db_payload = {"photo_urls": json.dumps(merged), "date": date_str, "memo": memo_str}
-                db_req = urllib.request.Request(
-                    f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
-                    data=json.dumps(db_payload).encode('utf-8'),
-                    method="PATCH"
-                )
-            else:
-                merged = new_urls
-                db_payload = {
-                    "prefecture": pref, "date": date_str,
-                    "photo_urls": json.dumps(merged), "memo": memo_str,
-                    "title": "Memory", "lat": 0.0, "lng": 0.0,
-                    "user_id": current_user_id, "is_home": False
-                }
-                db_req = urllib.request.Request(
-                    f"{supabase_url}/rest/v1/memories",
-                    data=json.dumps(db_payload).encode('utf-8'),
-                    method="POST"
-                )
-
-            db_req.add_header("apikey", supabase_key)
-            db_req.add_header("Authorization", f"Bearer {user_token}")
-            db_req.add_header("Content-Type", "application/json")
-            db_req.add_header("Prefer", "return=representation")
-            with urllib.request.urlopen(db_req, timeout=15) as response:
-                data = response.read()
-
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json; charset=utf-8')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(data)
 
         elif action == "save_home":
             home_prefs = payload.get("home_prefectures", [])
@@ -387,7 +418,7 @@ class handler(BaseHTTPRequestHandler):
             reset_req.add_header("Authorization", f"Bearer {user_token}")
             reset_req.add_header("Content-Type", "application/json")
             reset_req.add_header("Prefer", "return=minimal")
-            try: urllib.request.urlopen(reset_req, timeout=10)
+            try: urllib.request.urlopen(reset_req, timeout=15)
             except: pass
 
             for pref in home_prefs:
@@ -420,7 +451,7 @@ class handler(BaseHTTPRequestHandler):
                 up_req.add_header("Authorization", f"Bearer {user_token}")
                 up_req.add_header("Content-Type", "application/json")
                 up_req.add_header("Prefer", "return=minimal")
-                try: urllib.request.urlopen(up_req, timeout=10)
+                try: urllib.request.urlopen(up_req, timeout=15)
                 except: pass
 
             self.send_response(200)
@@ -472,9 +503,12 @@ class handler(BaseHTTPRequestHandler):
             db_req.add_header("apikey", supabase_key)
             db_req.add_header("Authorization", f"Bearer {user_token}")
             db_req.add_header("Content-Type", "application/json")
-            db_req.add_header("Prefer", "return=representation")
-            with urllib.request.urlopen(db_req, timeout=10) as response:
-                data = response.read()
+            db_req.add_header("Prefer", "return=minimal") # ★追加
+            
+            with urllib.request.urlopen(db_req, timeout=15) as response:
+                pass
+            data = json.dumps({"status": "ok"}).encode('utf-8')
+            
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.send_header('Access-Control-Allow-Origin', '*')
