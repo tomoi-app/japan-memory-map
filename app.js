@@ -3398,31 +3398,29 @@ function renderRightPanel() {
         // ▼▼ 追加：スクロールして画面に入った瞬間に写真を読み込む（遅延読み込み） ▼▼
         const lazyImages = panel.querySelectorAll('.lazy-load-img');
         if (lazyImages.length > 0 && 'IntersectionObserver' in window) {
-            // スクロール監視の専門家（オブザーバー）を用意
             const observer = new IntersectionObserver((entries, obs) => {
                 entries.forEach(entry => {
-                    // 画像が画面に入ったら
                     if (entry.isIntersecting) {
                         const img = entry.target;
                         const pid = img.getAttribute('data-pid');
-                        // メモリ上の配列から写真のデータを探して表示する
-                        const photoData = photos.find(p => (typeof p === 'string' ? p : p.id) === pid);
-                        if (photoData) {
-                            img.src = typeof photoData === 'string' ? photoData : photoData.thumb;
-                        }
-                        obs.unobserve(img); // 読み込み終わったら監視を解除
+                        
+                        // IDB（端末の奥深く）から直接写真を引っ張り出す！
+                        getPhotoFromIDB(pid).then(base64 => {
+                            if (base64) img.src = base64;
+                        });
+                        
+                        obs.unobserve(img);
                     }
                 });
-            }, { root: panel, rootMargin: '300px 0px' }); // 画面に入る300px手前から読み込み開始
+            }, { root: panel, rootMargin: '300px 0px' });
             
-            // すべての空画像に監視の目をつける
             lazyImages.forEach(img => observer.observe(img));
         } else {
-            // （古いブラウザ用）万が一非対応ならそのまま表示
             lazyImages.forEach(img => {
                 const pid = img.getAttribute('data-pid');
-                const photoData = photos.find(p => (typeof p === 'string' ? p : p.id) === pid);
-                if (photoData) img.src = typeof photoData === 'string' ? photoData : photoData.thumb;
+                getPhotoFromIDB(pid).then(base64 => {
+                    if (base64) img.src = base64;
+                });
             });
         }
         // ▲▲ 追加ここまで ▲▲
@@ -3673,9 +3671,9 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
                 // Safariのガベージコレクションを促すために少し待つ
                 await new Promise(r => setTimeout(r, 60));
 
-                let thumbData, photoId;
+                let photoId;
                 try {
-                    ({ photoId, thumbData } = await compressAndSavePhoto(file));
+                    ({ photoId } = await compressAndSavePhoto(file));
                 } catch (e) {
                     console.warn(`${i+1}枚目スキップ:`, e);
                     updateSaveProgress(i + 1, files.length, `${i+1}枚目スキップ`);
@@ -3683,8 +3681,7 @@ async function performQueuedSave(targetPref, targetEntryId, fromVal, toVal, memo
                 }
 
                 if (!performQueuedSave._chunkBuf) performQueuedSave._chunkBuf = [];
-                performQueuedSave._chunkBuf.push({ id: photoId, thumb: thumbData });
-                thumbData = null; // 即解放
+                performQueuedSave._chunkBuf.push(photoId); // クラウドにはIDだけを送る！
 
                 updateSaveProgress(i + 1, files.length, `${i+1} / ${files.length} 枚処理中...`);
 
@@ -4005,18 +4002,15 @@ function openSliderAt(urlOrId, photos) {
 function updateSlider() {
     const img = document.getElementById('slide-image');
     const p = currentPhotos[slideIndex];
-    if (typeof p === 'string') {
-        img.src = p;
-    } else {
-        img.src = p.thumb;
-        if (!isShareMode) {
-            getPhotoFromIDB(p.id).then(highRes => {
-                if (highRes && currentPhotos[slideIndex] === p) {
-                    img.src = highRes;
-                }
-            });
-        }
-    }
+    const pid = typeof p === 'string' ? p : p.id;
+    
+    img.src = ''; // 前の画像をクリア
+    
+    // 端末内から高画質データを呼び出す
+    getPhotoFromIDB(pid).then(base64 => {
+        if (base64) img.src = base64;
+    });
+
     document.getElementById('slide-counter').innerText = `${slideIndex + 1} / ${currentPhotos.length}`;
 
     // ▼▼ 代表写真（サムネイル）設定ボタンの生成と状態更新 ▼▼
