@@ -237,36 +237,23 @@ class handler(BaseHTTPRequestHandler):
             memo_str  = payload.get("memo", "")
 
             if entry_id:
-                # 既存エントリのphoto_urlsを取得して追記（★軽量化：戻り値を要求しない）
-                fetch_req = urllib.request.Request(
-                    f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}&select=photo_urls"
+                # ★ 超軽量化：Supabaseの関数(RPC)を直接叩いて追加分の10枚だけを渡す！
+                rpc_payload = {
+                    "p_entry_id": entry_id,
+                    "p_new_urls": new_urls,
+                    "p_date": date_str,
+                    "p_memo": memo_str
+                }
+                rpc_req = urllib.request.Request(
+                    f"{supabase_url}/rest/v1/rpc/append_photo_urls_v2",
+                    data=json.dumps(rpc_payload).encode('utf-8'),
+                    method="POST"
                 )
-                fetch_req.add_header("apikey", supabase_key)
-                fetch_req.add_header("Authorization", f"Bearer {user_token}")
-                with urllib.request.urlopen(fetch_req, timeout=15) as r:
-                    rows = json.loads(r.read())
+                rpc_req.add_header("apikey", supabase_key)
+                rpc_req.add_header("Authorization", f"Bearer {user_token}")
+                rpc_req.add_header("Content-Type", "application/json")
                 
-                existing_urls = []
-                if rows:
-                    try:
-                        existing_urls = json.loads(rows[0].get("photo_urls", "[]"))
-                    except:
-                        pass
-                
-                merged = existing_urls + new_urls
-                db_payload = {"photo_urls": json.dumps(merged), "date": date_str, "memo": memo_str}
-                
-                db_req = urllib.request.Request(
-                    f"{supabase_url}/rest/v1/memories?id=eq.{entry_id}&user_id=eq.{current_user_id}",
-                    data=json.dumps(db_payload).encode('utf-8'),
-                    method="PATCH"
-                )
-                db_req.add_header("apikey", supabase_key)
-                db_req.add_header("Authorization", f"Bearer {user_token}")
-                db_req.add_header("Content-Type", "application/json")
-                db_req.add_header("Prefer", "return=minimal") # ★追加
-                
-                with urllib.request.urlopen(db_req, timeout=15) as response:
+                with urllib.request.urlopen(rpc_req, timeout=15) as response:
                     pass
                 data = json.dumps([{"id": entry_id}]).encode('utf-8')
             else:

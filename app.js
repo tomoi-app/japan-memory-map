@@ -3502,14 +3502,14 @@ async function compressAndSavePhoto(file) {
 
                 // ── thumb（クラウド送信用） ──
                 let tw = img.width, th = img.height;
-                // ▼ 300 から 400 に引き上げる
+                // ★ 通信制限を気にしなくて良くなったので高画質(400)に戻す！
                 if (tw > 400) { th = th * (400 / tw); tw = 400; } 
                 
                 // 使い回しのCanvasに描画
                 sharedCanvasThumb.width = tw; 
                 sharedCanvasThumb.height = th;
                 sharedCanvasThumb.getContext('2d').drawImage(img, 0, 0, tw, th);
-                // ▼ 画質を 0.7 から 0.8 に引き上げる
+                // ★ 画質も元の綺麗な設定(0.8)に戻す！
                 const thumbData = sharedCanvasThumb.toDataURL('image/jpeg', 0.8);
                 
                 // メモリ解放のためにクリア
