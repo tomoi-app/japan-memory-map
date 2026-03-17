@@ -1,4 +1,5 @@
-const CACHE_NAME = 'ashiato-cache-version_2.3.0.4';
+const CACHE_NAME = 'ashiato-cache-v2.3.1'; // バージョンを更新（古いキャッシュを捨てるため）
+
 // キャッシュする静的ファイルのリスト
 const urlsToCache = [
     '/',
@@ -7,33 +8,24 @@ const urlsToCache = [
     '/app.js',
     '/manifest.json',
     '/icon-192.png',
-    '/icon-512.png',
-    'https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+    '/icon-512.png'
 ];
 
-// インストール時に静的ファイルをキャッシュ
+// インストール時：最低限のファイルをスマホに保存
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then((cache) => {
-                return cache.addAll(urlsToCache);
-            })
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
     );
     self.skipWaiting();
 });
 
-// アクティベート時に古いキャッシュを削除
+// アクティベート時：古いバージョンのキャッシュ（ゴミ）を削除
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        return caches.delete(cacheName);
-                    }
+                    if (cacheName !== CACHE_NAME) return caches.delete(cacheName);
                 })
             );
         })
@@ -41,29 +33,27 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// リクエストの傍受とキャッシュの返却
+// リクエストの傍受（ここがPWAの心臓部！）
 self.addEventListener('fetch', (event) => {
     const requestUrl = new URL(event.request.url);
 
-    // VercelのAPI、Supabase、SendGridなどの動的なリクエストはキャッシュしない
+    // ① 動的通信（Supabase, APIなど）は絶対にキャッシュしない（そのまま通す）
     if (requestUrl.pathname.startsWith('/api') || 
         requestUrl.hostname.includes('supabase.co') || 
         event.request.method !== 'GET') {
         return;
     }
 
-    // 地図のGeoJSONデータは一度取得したらキャッシュを優先する
-    if (requestUrl.hostname === 'raw.githubusercontent.com') {
+    // ② 重い地図データ(GeoJSON)や外部ファイルは「キャッシュ優先（爆速化）」
+    // 一度ダウンロードしたら、次からはスマホ内から一瞬で読み込む
+    if (requestUrl.hostname.includes('githubusercontent.com') || 
+        requestUrl.hostname.includes('unpkg.com') ||
+        requestUrl.hostname.includes('fonts.googleapis.com')) {
         event.respondWith(
             caches.match(event.request).then((cachedResponse) => {
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
-                return fetch(event.request).then((response) => {
+                return cachedResponse || fetch(event.request).then((response) => {
                     const responseToCache = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
-                    });
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
                     return response;
                 });
             })
@@ -71,22 +61,17 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 基本的な静的ファイルは「キャッシュファースト」戦略
+    // ③ アプリ本体（HTML, JS, CSS）は「ネットワーク優先、ダメならキャッシュ（機内モード対応）」
+    // 普段は最新のアプリ状態を取りに行き、ネットが切れている時だけスマホ内のデータを使う
     event.respondWith(
-        caches.match(event.request)
-            .then((response) => {
-                if (response) {
-                    return response;
-                }
-                return fetch(event.request).then((networkResponse) => {
-                    if (networkResponse && networkResponse.status === 200) {
-                        const responseToCache = networkResponse.clone();
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(event.request, responseToCache);
-                        });
-                    }
-                    return networkResponse;
-                });
-            })
+        fetch(event.request).then((response) => {
+            // ネットに繋がっていれば最新を取得してキャッシュを更新
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+            return response;
+        }).catch(() => {
+            // オフライン（機内モード）ならキャッシュから返す！
+            return caches.match(event.request);
+        })
     );
 });
