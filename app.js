@@ -2981,7 +2981,7 @@ function renderRightPanel() {
                     <div id="thumb-wrap" data-url="${escapedThumbId}" style="position:relative; margin-top:10px; border-radius:12px; overflow:hidden; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.1);"
                         onclick="handlePhotoClick(event, '${escapedThumbId}')"
                         oncontextmenu="event.preventDefault();">
-                        <img id="img-${escapedThumbId}" class="lazy-load-img" data-pid="${escapedThumbId}" style="width:100%; height:280px; object-fit:cover; display:block;">
+                        <img id="img-${escapedThumbId}" class="lazy-load-img" data-pid="${escapedThumbId}" style="width:100%; height:280px; object-fit:cover; display:block;" decoding="async">
                         <div id="thumb-check" style="display:none; position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:bold;">✓</div>
                     </div>`;
                 }
@@ -3012,7 +3012,7 @@ function renderRightPanel() {
                         contentHtml += `<div class="photo-grid-item" data-url="${escapedId}"
                             onclick="handlePhotoClick(event, '${escapedId}')"
                             oncontextmenu="event.preventDefault();">
-                            <img id="img-${escapedId}" class="lazy-load-img" data-pid="${escapedId}">
+                            <img id="img-${escapedId}" class="lazy-load-img" data-pid="${escapedId}" decoding="async">
                             <div class="photo-check" style="display:none; position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:#d32f2f; border:2px solid white; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:bold;">✓</div>
                         </div>`;
                     });
@@ -3102,7 +3102,7 @@ function renderRightPanel() {
                         obs.unobserve(img);
                     }
                 });
-            }, { root: panel, rootMargin: '1500px 0px' });
+            }, { root: panel, rootMargin: '1000px 0px' });
             
             lazyImages.forEach(img => observer.observe(img));
         } else {

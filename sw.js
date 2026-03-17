@@ -38,15 +38,15 @@ self.addEventListener('fetch', (event) => {
     const requestUrl = new URL(event.request.url);
 
     // ① 動的通信（Supabase, APIなど）は絶対にキャッシュしない（そのまま通す）
-    if (requestUrl.pathname.startsWith('/api') || 
-        requestUrl.hostname.includes('supabase.co') || 
+    if (requestUrl.pathname.startsWith('/api') ||
+        requestUrl.hostname.includes('supabase.co') ||
         event.request.method !== 'GET') {
         return;
     }
 
     // ② 重い地図データ(GeoJSON)や外部ファイルは「キャッシュ優先（爆速化）」
     // 一度ダウンロードしたら、次からはスマホ内から一瞬で読み込む
-    if (requestUrl.hostname.includes('githubusercontent.com') || 
+    if (requestUrl.hostname.includes('githubusercontent.com') ||
         requestUrl.hostname.includes('unpkg.com') ||
         requestUrl.hostname.includes('fonts.googleapis.com')) {
         event.respondWith(
