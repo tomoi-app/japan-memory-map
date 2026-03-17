@@ -19,7 +19,31 @@ if (!document.getElementById('ashiato-dynamic-styles')) {
         h1, h2, h3, b, strong {
             font-weight: 600 !important;
         }
+
+        /* ▼▼ 右上の数字を超おしゃれなガラス風デザインに ▼▼ */
+        #pref-counter {
+            background: rgba(255, 255, 255, 0.85) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 2px solid rgba(255, 255, 255, 0.9) !important;
+            box-shadow: 0 4px 15px rgba(108, 140, 163, 0.15) !important;
+            border-radius: 30px !important;
+            padding: 8px 18px !important;
+            font-family: 'Helvetica Neue', Arial, sans-serif !important;
+            font-weight: 800 !important;
+            font-size: 1.25rem !important;
+            color: #6c8ca3 !important;
+            letter-spacing: 1.5px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+        }
+        #pref-counter::before {
+            content: '📍'; /* さりげなくピンの絵文字を追加 */
+            font-size: 1.1rem;
+        }
         /* ▲▲ 追加ここまで ▲▲ */
+
         /* ▼▼ 追加：共有に関する要素を念のため強制非表示 ▼▼ */
         #share-btn, #share-modal, .share-container { display: none !important; }
         /* ▲▲ 追加ここまで ▲▲ */
@@ -1335,6 +1359,61 @@ window.changePhotoPage = function(direction) {
     if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+// ★★★ ここから追加（一覧から選ぶ機能の復活） ★★★
+window.setSelectedPref = function(pref) { selectedPref = pref; };
+window.setSelectedEntryId = function(id) { selectedEntryId = id === 'null' ? null : id; };
+
+// ★★★ ここから追加（URLを使わない、おしゃれな画像保存機能） ★★★
+window.downloadAshiatoImage = function() {
+    showLoading('画像を作成中...');
+    setTimeout(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1080; canvas.height = 1080; // インスタ等に最適な正方形
+        const ctx = canvas.getContext('2d');
+
+        // 背景（少し丸みのある白いカード風）
+        ctx.fillStyle = '#eef2f5';
+        ctx.fillRect(0, 0, 1080, 1080);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.05)';
+        ctx.shadowBlur = 40; ctx.shadowOffsetY = 15;
+        ctx.beginPath(); ctx.roundRect(80, 80, 920, 920, 50); ctx.fill();
+        ctx.shadowColor = 'transparent';
+
+        // タイトル
+        ctx.fillStyle = '#6c8ca3';
+        ctx.font = 'bold 70px "Zen Kaku Gothic New", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('My Travel Footprint', 540, 240);
+
+        // 制覇した数
+        const visitedCount = getVisitedPrefs().size;
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 220px Arial';
+        ctx.fillText(visitedCount, 440, 560);
+        ctx.fillStyle = '#aaa';
+        ctx.font = 'bold 70px Arial';
+        ctx.fillText('/ 47', 740, 560);
+
+        ctx.fillStyle = '#888';
+        ctx.font = 'bold 40px "Zen Kaku Gothic New"';
+        ctx.fillText('都道府県を制覇しました！', 540, 700);
+
+        // アプリロゴ風
+        ctx.fillStyle = '#ccc';
+        ctx.font = 'bold 35px "Zen Kaku Gothic New"';
+        ctx.fillText('あしあと - 地図を塗りつぶす旅行記録', 540, 920);
+
+        // ダウンロード
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/jpeg', 0.9);
+        a.download = 'my_ashiato.jpg';
+        a.click();
+        hideLoading();
+    }, 500);
+};
+// ★★★ 追加ここまで ★★★
+
 // ▼▼ 誤って消えてしまった必須変数を復活 ▼▼
 let map = null;
 let geoJsonLayer = null;
@@ -1818,6 +1897,9 @@ function renderSettingsMenu() {
     let contentHtml = `
     <div class="panel-content" style="position: relative;">
         <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px; padding-bottom: 80px;">
+            <button onclick="downloadAshiatoImage()" style="${btnS}">
+                あしあとを画像で保存
+            </button>
             <button onclick="renderFeatureThemeSettings()" style="${btnS}">
                 テーマ・機能の変更
             </button>
