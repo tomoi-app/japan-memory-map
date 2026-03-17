@@ -1335,6 +1335,43 @@ window.changePhotoPage = function(direction) {
     if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+// ▼▼ 誤って消えてしまった必須変数を復活 ▼▼
+let map = null;
+let geoJsonLayer = null;
+let selectedPref = null;
+let selectedEntryId = null;
+let currentPhotoPage = 0;
+
+// ▼▼ 誤って消えてしまった通信・お片付け機能を復活 ▼▼
+async function apiFetch(options) {
+    const url = options.url || '/api';
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentToken) {
+        headers['Authorization'] = 'Bearer ' + currentToken;
+    }
+    return await fetch(url, {
+        method: options.method,
+        headers: headers,
+        body: options.body
+    });
+}
+
+function cleanupEmptyEntry(entryId) {
+    if (!entryId) return;
+    const data = memoriesData.find(m => String(m.id) === String(entryId));
+    if (!data) return;
+    let photoCount = 0;
+    try { photoCount = JSON.parse(data.photo_urls || "[]").length; } catch(e){}
+    if (photoCount === 0 && !data.date && !data.memo) {
+        memoriesData = memoriesData.filter(m => String(m.id) !== String(entryId));
+        if (!isGuestMode) {
+            apiFetch({ method: 'POST', body: JSON.stringify({ action: 'delete_entry', entry_id: entryId }) })
+                .catch(e => console.error(e));
+        }
+    }
+}
+// ▲▲ 復活ここまで ▲▲
+
 let memoriesData = [];
 let currentPhotos = [];
 let slideIndex = 0;
