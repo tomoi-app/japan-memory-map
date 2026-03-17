@@ -34,13 +34,18 @@ if (!document.getElementById('ashiato-dynamic-styles')) {
             font-size: 1.25rem !important;
             color: #6c8ca3 !important;
             letter-spacing: 1.5px !important;
-            display: flex !important;
+            /* display: flex !important; を消して、アプリの表示/非表示の切り替えを邪魔しないようにする */
+            display: flex;
             align-items: center !important;
-            gap: 6px !important;
-        }
-        #pref-counter::before {
-            content: '📍'; /* さりげなくピンの絵文字を追加 */
-            font-size: 1.1rem;
+            justify-content: center !important;
+            transition: opacity 0.2s ease !important; /* ふわっと消えるようにする */
+        }        
+            
+        
+        /* 他の画面（一覧や設定）を開いた時は確実に隠す */
+        #pref-counter.hidden-ui {
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
         /* ▲▲ 追加ここまで ▲▲ */
 
@@ -3530,9 +3535,23 @@ async function fetchMemories(redraw = true) {
             const raw = localStorage.getItem('guestMemories');
             memoriesData = raw ? JSON.parse(raw) : [];
         } else {
-            const res = await apiFetch({ method: 'GET', url: '/api?t=' + new Date().getTime() });
-            const rawData = await res.json();
-            memoriesData = rawData;
+            try {
+                // ① まずはネット（クラウド）から最新のデータを取得する
+                const res = await apiFetch({ method: 'GET', url: '/api?t=' + new Date().getTime() });
+                if (res.ok) {
+                    const rawData = await res.json();
+                    memoriesData = rawData;
+                    // ★追加：成功したら、スマホ（localStorage）に最新の名簿をコピーしておく！
+                    localStorage.setItem('offlineMemoriesBackup', JSON.stringify(rawData));
+                } else {
+                    throw new Error('API通信エラー');
+                }
+            } catch (networkError) {
+                // ★追加：機内モード等でエラーになったら、スマホ内のコピー（名簿）を使う！
+                console.log("オフラインのため、保存されたバックアップデータを使用します");
+                const backup = localStorage.getItem('offlineMemoriesBackup');
+                memoriesData = backup ? JSON.parse(backup) : [];
+            }
         }
 
         homePrefectures = memoriesData
