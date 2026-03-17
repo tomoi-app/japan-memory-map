@@ -3102,7 +3102,7 @@ function renderRightPanel() {
                         obs.unobserve(img);
                     }
                 });
-            }, { root: panel, rootMargin: '1000px 0px' });
+            }, { root: panel, rootMargin: '2000px 0px' });
             
             lazyImages.forEach(img => observer.observe(img));
         } else {
