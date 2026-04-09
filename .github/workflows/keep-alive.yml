@@ -1,0 +1,16 @@
+name: Keep Supabase Awake
+
+on:
+  schedule:
+    # 毎週日曜日の朝9時（日本時間）に自動実行
+    # ※cronはUTC（世界標準時）で書くため、日本時間の9時は「0時」になります
+    - cron: "0 0 * * 0"
+  workflow_dispatch: # GitHubの画面から「手動で実行」できるボタンを出します
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API to wake up database
+        # トップページではなく、バックエンドのAPIを直接叩いてSupabaseを起こす
+        run: curl -s https://ashiato.tomoi-app.com/api > /dev/null
